@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Snippet Builder</title>
+    <style>
+        body { background: #222; color: #ddd; font-family: sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; }
+        input, textarea, select { width: 100%; background: #333; border: 1px solid #444; color: white; padding: 10px; margin-bottom: 15px; border-radius: 4px; display: block; }
+        textarea { height: 150px; font-family: monospace; }
+        label { font-size: 0.9em; color: #aaa; margin-bottom: 5px; display: block; }
+        button { background: #007acc; color: white; border: none; padding: 15px; width: 100%; cursor: pointer; font-weight: bold; }
+        .result-box { margin-top: 20px; background: #111; padding: 15px; border: 1px dashed #555; display: none; }
+    </style>
+</head>
+<body>
+    <h2>➕ Добавить новый сниппет</h2>
+    
+    <label>Название (Title):</label>
+    <input type="text" id="inTitle" placeholder="Скрипт автосборки">
+
+    <label>Язык:</label>
+    <select id="inLang">
+        <option value="python">Python</option>
+        <option value="cpp">C++</option>
+        <option value="blueprint">Blueprint (Text)</option>
+        <option value="json">JSON</option>
+    </select>
+
+    <label>Описание:</label>
+    <input type="text" id="inDesc" placeholder="Что он делает...">
+
+    <label>Код:</label>
+    <textarea id="inCode" placeholder="Вставьте код сюда..."></textarea>
+
+    <button onclick="generateJSON()">СГЕНЕРИРОВАТЬ ДЛЯ ВСТАВКИ</button>
+
+    <div class="result-box" id="resultArea">
+        <p style="color: #4ec9b0; margin-top: 0;">Скопируйте это и вставьте в snippets_db.js:</p>
+        <textarea id="outJson" style="height: 100px;"></textarea>
+    </div>
+
+    <script>
+        function generateJSON() {
+            const title = document.getElementById('inTitle').value;
+            const lang = document.getElementById('inLang').value;
+            const desc = document.getElementById('inDesc').value;
+            const code = document.getElementById('inCode').value;
+
+            // Создаем объект
+            const obj = {
+                id: "id_" + Date.now(), // Генерируем уникальный ID
+                title: title,
+                desc: desc,
+                lang: lang,
+                code: code
+            };
+
+            // Превращаем в строку JSON, но убираем внешние фигурные скобки массива, 
+            // чтобы пользователь просто добавил запятую и вставил объект.
+            let jsonStr = JSON.stringify(obj, null, 4);
+            
+            // Добавляем запятую в конце для удобства
+            jsonStr = "," + jsonStr;
+
+            document.getElementById('outJson').value = jsonStr;
+            document.getElementById('resultArea').style.display = 'block';
+            document.getElementById('outJson').select();
+        }
+    </script>
+</body>
+</html>
