@@ -18,12 +18,15 @@
     <label>Название (Title):</label>
     <input type="text" id="inTitle" placeholder="Скрипт автосборки">
 
-    <label>Язык:</label>
+<label>Язык (Language):</label>
     <select id="inLang">
-        <option value="python">Python</option>
         <option value="cpp">C++</option>
-        <option value="blueprint">Blueprint (Text)</option>
-        <option value="json">JSON</option>
+        <option value="javascript">JavaScript</option>
+        <option value="python">Python</option>
+        <option value="html">HTML</option>
+        <option value="css">CSS</option>
+        <option value="hlsl">HLSL (Shader Code)</option> 
+        <option value="text">Plain Text</option>
     </select>
 
     <label>Описание:</label>
@@ -34,9 +37,12 @@
 
     <button onclick="generateJSON()">СГЕНЕРИРОВАТЬ ДЛЯ ВСТАВКИ</button>
 
-    <div class="result-box" id="resultArea">
-        <p style="color: #4ec9b0; margin-top: 0;">Скопируйте это и вставьте в snippets_db.js:</p>
-        <textarea id="outJson" style="height: 100px;"></textarea>
+<div class="result-box" id="resultArea">
+        <p style="color: #4ec9b0; margin-top: 0;">
+            Скопируйте и вставьте в <b>snippets_db.js</b> (для скриптов) <br> 
+            или в <b>hlsl_db.js</b> (если выбрали HLSL):
+        </p>
+        <textarea id="outJson" style="height: 100px; color: #ce9178; font-family: monospace;"></textarea>
     </div>
 
     <script>
@@ -68,4 +74,5 @@
         }
     </script>
 </body>
+
 </html>
