@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Code Library</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #1e1e1e; color: #d4d4d4; padding: 20px; display: flex; height: 90vh; gap: 20px; }
+        
+        /* ЛЕВАЯ КОЛОНКА (СПИСОК) */
+        .list-panel { width: 300px; display: flex; flex-direction: column; border-right: 1px solid #333; padding-right: 20px; }
+        .search-box { background: #252526; border: 1px solid #333; color: white; padding: 10px; width: 100%; margin-bottom: 15px; border-radius: 4px; }
+        .snippet-list { overflow-y: auto; flex: 1; }
+        
+        .snippet-item {
+            padding: 10px; margin-bottom: 5px; cursor: pointer; border-radius: 4px; transition: 0.2s;
+            border-left: 3px solid transparent;
+        }
+        .snippet-item:hover { background-color: #2a2d2e; }
+        .snippet-item.active { background-color: #37373d; border-left-color: #007acc; color: white; }
+        .s-title { font-weight: bold; display: block; }
+        .s-lang { font-size: 0.8em; color: #666; text-transform: uppercase; margin-top: 2px; }
+
+        /* ПРАВАЯ КОЛОНКА (ДЕТАЛИ) */
+        .detail-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; display: none; /* Скрыто по умолчанию */ }
+        .detail-header { border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 15px; }
+        .detail-title { font-size: 1.5em; color: #4ec9b0; margin-bottom: 10px; }
+        .detail-desc { color: #aaa; line-height: 1.5; margin-bottom: 10px; }
+        
+        .code-container { position: relative; flex: 1; overflow: hidden; background: #111; border-radius: 6px; border: 1px solid #333; }
+        textarea.code-view { 
+            width: 100%; height: 100%; background: #151515; color: #dcdcdc; border: none; 
+            padding: 15px; font-family: 'Consolas', monospace; resize: none; outline: none; font-size: 0.95em;
+        }
+
+        .copy-btn {
+            position: absolute; top: 10px; right: 10px;
+            background: #2d2d2d; border: 1px solid #444; color: white;
+            padding: 5px 10px; cursor: pointer; font-size: 0.8em; border-radius: 4px;
+        }
+        .copy-btn:hover { background: #3e3e3e; }
+    </style>
+</head>
+<body>
+
+    <div class="list-panel">
+        <input type="text" class="search-box" placeholder="Поиск скриптов..." onkeyup="filterList(this.value)">
+        <div class="snippet-list" id="listContainer">
+            </div>
+    </div>
+
+    <div class="detail-panel" id="detailPanel">
+        <div class="detail-header">
+            <div class="detail-title" id="dTitle">Title</div>
+            <div class="detail-desc" id="dDesc">Description</div>
+        </div>
+        <div class="code-container">
+            <button class="copy-btn" onclick="copyCode(this)">COPY</button>
+            <textarea class="code-view" id="dCode" readonly></textarea>
+        </div>
+    </div>
+
+    <script src="snippets_db.js"></script>
+    
+    <script>
+        const listContainer = document.getElementById('listContainer');
+        const detailPanel = document.getElementById('detailPanel');
+
+        // Инициализация списка
+        function renderList(filter = "") {
+            listContainer.innerHTML = "";
+            snippetsData.forEach((item, index) => {
+                // Поиск
+                if (filter && !item.title.toLowerCase().includes(filter.toLowerCase())) return;
+
+                const div = document.createElement('div');
+                div.className = 'snippet-item';
+                div.innerHTML = `
+                    <span class="s-title">${item.title}</span>
+                    <span class="s-lang">${item.lang}</span>
+                `;
+                div.onclick = () => selectSnippet(index, div);
+                listContainer.appendChild(div);
+            });
+        }
+
+        function selectSnippet(index, element) {
+            // Подсветка активного
+            document.querySelectorAll('.snippet-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+
+            // Показ данных
+            const item = snippetsData[index];
+            document.getElementById('dTitle').innerText = item.title;
+            document.getElementById('dDesc').innerText = item.desc;
+            document.getElementById('dCode').value = item.code;
+            
+            detailPanel.style.display = 'flex';
+        }
+
+        function copyCode(btn) {
+            const code = document.getElementById('dCode');
+            code.select();
+            document.execCommand("copy");
+            const original = btn.innerText;
+            btn.innerText = "COPIED!";
+            setTimeout(() => btn.innerText = original, 1500);
+        }
+
+        function filterList(val) {
+            renderList(val);
+        }
+
+        // Запуск
+        renderList();
+    </script>
+</body>
+</html>

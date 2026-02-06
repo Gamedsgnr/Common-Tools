@@ -1,0 +1,16 @@
+// Это ваша база данных. Просто добавляйте новые блоки внутрь квадратных скобок.
+const snippetsData = [
+    {
+        id: "unique_id_1",
+        title: "Пример: Сортировка пузырьком",
+        desc: "Простая реализация сортировки на Python.",
+        lang: "python",
+        code: `def bubble_sort(arr):
+    n = len(arr)
+    for i in range(n):
+        for j in range(0, n-i-1):
+            if arr[j] > arr[j+1] :
+                arr[j], arr[j+1] = arr[j+1], arr[j]`
+    },
+    // Сюда будете вставлять новые блоки (запятая между блоками обязательна!)
+];
