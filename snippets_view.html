@@ -23,9 +23,9 @@
         /* ПРАВАЯ КОЛОНКА */
         .detail-panel { flex: 1; display: flex; flex-direction: column; background: #111; border-radius: 6px; border: 1px solid #333; overflow: hidden; position: relative; }
         
-        /* ОБНОВЛЕННЫЙ ТУЛБАР */
+        /* ТУЛБАР */
         .toolbar { 
-            min-height: 60px; /* Место для двух строк */
+            min-height: 60px; 
             padding: 10px 20px; 
             background: #252526; border-bottom: 1px solid #333; 
             display: flex; justify-content: space-between; align-items: center; 
@@ -73,7 +73,7 @@
     <script>
         const listContainer = document.getElementById('listContainer');
         const detailTitle = document.getElementById('detailTitle');
-        const detailDesc = document.getElementById('detailDesc'); // <-- Вернули переменную
+        const detailDesc = document.getElementById('detailDesc');
         const codeBlock = document.getElementById('codeBlock');
         const copyBtn = document.getElementById('copyBtn');
 
@@ -84,8 +84,17 @@
                 return;
             }
             
+            // Подготовка фильтра: разбиваем на массив слов
+            const searchParts = filter.toLowerCase().split(' ').filter(p => p.trim() !== "");
+
             snippetsData.forEach((item, index) => {
-                if (filter && !item.title.toLowerCase().includes(filter.toLowerCase())) return;
+                // Улучшенная логика фильтрации
+                if (searchParts.length > 0) {
+                    const searchTarget = (item.title + " " + (item.desc || "")).toLowerCase();
+                    // Проверяем, чтобы КАЖДАЯ часть поискового запроса присутствовала в строке
+                    const isMatch = searchParts.every(part => searchTarget.includes(part));
+                    if (!isMatch) return;
+                }
                 
                 const langLabel = item.lang ? item.lang : 'text';
 
@@ -107,11 +116,9 @@
 
             const item = snippetsData[index];
             
-            // Заполняем тексты
             detailTitle.innerText = item.title;
-            detailDesc.innerText = item.desc; // <-- Вернули заполнение описания
+            detailDesc.innerText = item.desc; 
             
-            // Логика языка
             let lang = item.lang || 'text'; 
             if (lang === 'html') lang = 'markup';
             

@@ -53,14 +53,12 @@
             text-transform: uppercase;
         }
 
-        /* Контейнер для кирпичиков */
         #inputDisplay { 
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
         }
 
-        /* Стиль самих кирпичиков */
         .input-brick {
             background: #1e1e1e;
             color: #9cdcfe;
@@ -122,14 +120,21 @@
         const btnCopyInputs = document.getElementById('btnCopyInputs');
         const btnCopyCode = document.getElementById('btnCopyCode');
 
-        let currentFormattedInputs = ""; // Переменная для хранения строки копирования
+        let currentFormattedInputs = ""; 
 
         function renderList(filter = "") {
             listContainer.innerHTML = "";
             if(typeof hlslData === 'undefined') return;
             
+            const searchParts = filter.toLowerCase().split(' ').filter(p => p.trim() !== "");
+
             hlslData.forEach((item, index) => {
-                if (filter && !item.title.toLowerCase().includes(filter.toLowerCase())) return;
+                if (searchParts.length > 0) {
+                    // Ищем и в заголовке, и в описании
+                    const searchTarget = (item.title + " " + (item.desc || "")).toLowerCase();
+                    const isMatch = searchParts.every(part => searchTarget.includes(part));
+                    if (!isMatch) return;
+                }
                 
                 const div = document.createElement('div');
                 div.className = 'list-item';
@@ -151,12 +156,10 @@
             detailTitle.innerText = item.title;
             detailDesc.innerText = item.desc; 
             
-            // Обработка инпутов
-            inputDisplay.innerHTML = ""; // Очищаем старые кирпичики
+            inputDisplay.innerHTML = ""; 
             if (item.inputs && item.inputs.trim() !== "") {
                 const inputArray = item.inputs.split(',').map(i => i.trim());
                 
-                // 1. Создаем визуальные кирпичики
                 inputArray.forEach(inputName => {
                     const brick = document.createElement('div');
                     brick.className = 'input-brick';
@@ -164,7 +167,6 @@
                     inputDisplay.appendChild(brick);
                 });
 
-                // 2. Генерируем строку для копирования в Unreal
                 currentFormattedInputs = "(" + inputArray
                     .map(i => `(InputName="${i}")`)
                     .join(',') + ")";
