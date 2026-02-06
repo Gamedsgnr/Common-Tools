@@ -8,12 +8,28 @@
         input, textarea, select { width: 100%; background: #333; border: 1px solid #444; color: white; padding: 10px; margin-bottom: 15px; border-radius: 4px; display: block; box-sizing: border-box; }
         textarea { height: 150px; font-family: monospace; }
         label { font-size: 0.9em; color: #aaa; margin-bottom: 5px; display: block; }
-        button { background: #007acc; color: white; border: none; padding: 15px; width: 100%; cursor: pointer; font-weight: bold; }
+        
+        /* Оригинальный синий стиль */
+        button { background: #007acc; color: white; border: none; padding: 15px; width: 100%; cursor: pointer; font-weight: bold; border-radius: 4px; transition: 0.2s; }
         button:hover { background: #005a9e; }
+
         .result-box { margin-top: 20px; background: #111; padding: 15px; border: 1px dashed #555; display: none; }
-        /* Стиль для плашек найденных инпутов */
         .input-preview { margin-bottom: 15px; display: none; }
         .badge { display: inline-block; background: #444; color: #4ec9b0; padding: 2px 8px; border-radius: 3px; font-size: 0.8em; margin-right: 5px; border: 1px solid #555; }
+
+        /* Локальная панель в общем стиле */
+        .local-panel { 
+            margin-top: 30px; 
+            padding: 20px; 
+            background: #1a1a1a; 
+            border: 1px solid #333; 
+            border-radius: 4px; 
+            display: none; 
+        }
+        .btn-db-connect { background: #444; margin-bottom: 10px; }
+        .btn-db-connect:hover { background: #555; }
+        .btn-db-connect.connected { border-left: 4px solid #4ec9b0; color: #4ec9b0; }
+        .btn-save-local { background: #007acc; display: none; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -37,7 +53,7 @@
     <input type="text" id="inDesc" placeholder="Что он делает...">
 
     <label>Код:</label>
-    <textarea id="inCode" id="inCode" oninput="togglePreview()" placeholder="Вставьте код сюда..."></textarea>
+    <textarea id="inCode" oninput="togglePreview()" placeholder="Вставьте код сюда..."></textarea>
 
     <div id="inputPreview" class="input-preview">
         <label style="color: #4ec9b0;">Авто-определенные входы (Inputs):</label>
@@ -45,6 +61,13 @@
     </div>
 
     <button onclick="generateJSON()">СГЕНЕРИРОВАТЬ ДЛЯ ВСТАВКИ</button>
+
+    <div id="localAdmin" class="local-panel">
+        <label id="dbLabel" style="color: #4ec9b0;">🏠 ЛОКАЛЬНАЯ БАЗА ДАННЫХ</label>
+        <div style="font-size: 11px; color: #666; margin-bottom: 10px;">Подключите нужный .js файл из папки проекта</div>
+        <button id="btnConnectDB" class="btn-db-connect" onclick="connectDatabase()">ПРИВЯЗАТЬ ФАЙЛ БД (.js)</button>
+        <button id="btnSaveToFile" class="btn-save-local" onclick="saveToLocalFile()">ДОБАВИТЬ В ФАЙЛ БАЗЫ</button>
+    </div>
 
     <div class="result-box" id="resultArea">
         <p id="pasteHint" style="color: #4ec9b0; margin-top: 0; font-size: 0.9em;">
@@ -93,12 +116,15 @@
             preview.style.display = 'none';
         }
 
+        // Модифицированная функция: теперь возвращает объект
         function generateJSON() {
             const title = document.getElementById('inTitle').value;
             const lang = document.getElementById('inLang').value;
             const desc = document.getElementById('inDesc').value;
             const code = document.getElementById('inCode').value;
             const hint = document.getElementById('pasteHint');
+
+            if(!title || !code) { alert("Заполни Title и Code!"); return null; }
 
             const obj = {
                 id: (lang === 'hlsl' ? "hlsl_" : "id_") + Date.now(),
@@ -119,6 +145,65 @@
             document.getElementById('outJson').value = "," + JSON.stringify(obj, null, 4);
             document.getElementById('resultArea').style.display = 'block';
             document.getElementById('outJson').select();
+
+            return obj;
+        }
+
+        // --- ЛОГИКА ЛОКАЛЬНОГО СОХРАНЕНИЯ ---
+        let fileHandle;
+        const localPanel = document.getElementById('localAdmin');
+        const btnConnect = document.getElementById('btnConnectDB');
+        const btnSave = document.getElementById('btnSaveToFile');
+
+        const isLocal = window.location.hostname === "localhost" || 
+                        window.location.hostname === "127.0.0.1" || 
+                        window.location.protocol === "file:";
+
+        if (isLocal) { localPanel.style.display = 'block'; }
+
+        async function connectDatabase() {
+            try {
+                [fileHandle] = await window.showOpenFilePicker({
+                    types: [{ description: 'JS Database', accept: {'text/javascript': ['.js']} }]
+                });
+                btnConnect.innerText = "✅ БД ПОДКЛЮЧЕНА (" + fileHandle.name + ")";
+                btnConnect.classList.add('connected');
+                btnSave.style.display = 'block';
+            } catch (err) { console.log("User cancelled"); }
+        }
+
+        async function saveToLocalFile() {
+            if (!fileHandle) return;
+            const dataObj = generateJSON();
+            if (!dataObj) return;
+
+            try {
+                const file = await fileHandle.getFile();
+                let content = await file.text();
+
+                // Ищем конец массива ];
+                const lastBracketIndex = content.lastIndexOf('];');
+                if (lastBracketIndex === -1) {
+                    alert("Ошибка: Не найдена структура ]; в файле " + file.name);
+                    return;
+                }
+
+                const entryToAppend = `    ${JSON.stringify(dataObj, null, 4)},\n`;
+                const newContent = content.slice(0, lastBracketIndex) + entryToAppend + content.slice(lastBracketIndex);
+
+                const writable = await fileHandle.createWritable();
+                await writable.write(newContent);
+                await writable.close();
+
+                alert("Сниппет успешно добавлен в " + file.name);
+                
+                // Очистка формы
+                document.getElementById('inTitle').value = "";
+                document.getElementById('inCode').value = "";
+                togglePreview();
+            } catch (err) {
+                alert("Ошибка доступа: " + err.message);
+            }
         }
     </script>
 </body>

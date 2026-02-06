@@ -10,10 +10,26 @@
         label { color: #ce9178; font-weight: bold; margin-bottom: 5px; display: block; }
         .hint { font-size: 0.8em; color: #888; margin-bottom: 5px; }
         
-        button { background: #d16969; color: white; border: none; padding: 15px; width: 100%; cursor: pointer; font-weight: bold; font-size: 1.1em; }
+        /* Единый стиль кнопок */
+        button { background: #d16969; color: white; border: none; padding: 15px; width: 100%; cursor: pointer; font-weight: bold; font-size: 1.1em; border-radius: 4px; transition: 0.2s; }
         button:hover { background: #b04c4c; }
 
         .result-box { margin-top: 30px; background: #151515; padding: 20px; border: 2px dashed #444; display: none; }
+
+        /* Стили локальной панели в общем стиле */
+        .local-panel { 
+            margin-top: 30px; 
+            padding: 20px; 
+            background: #1a1a1a; 
+            border: 1px solid #333; 
+            border-radius: 4px; 
+            display: none; 
+        }
+        .btn-db-connect { background: #444; margin-bottom: 10px; } /* Второстепенная кнопка */
+        .btn-db-connect:hover { background: #555; }
+        .btn-db-connect.connected { border-left: 4px solid #ce9178; color: #ce9178; }
+
+        .btn-save-local { background: #d16969; display: none; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -34,12 +50,19 @@
 
     <button onclick="generate()">СГЕНЕРИРОВАТЬ JSON</button>
 
+    <div id="localAdmin" class="local-panel">
+        <label>🏠 ЛОКАЛЬНАЯ БАЗА ДАННЫХ</label>
+        <button id="btnConnectDB" class="btn-db-connect" onclick="connectDatabase()">ПРИВЯЗАТЬ SHADERS_DB.JS</button>
+        <button id="btnSaveToFile" class="btn-save-local" onclick="saveToLocalFile()">ДОБАВИТЬ В ФАЙЛ БАЗЫ</button>
+    </div>
+
     <div class="result-box" id="resultArea">
         <p style="color: #ce9178; margin-top: 0;">Скопируй текст ниже и добавь в файл <b>shaders_db.js</b>:</p>
         <textarea id="outJson" style="height: 150px; color: #d4d4d4; font-family: monospace;"></textarea>
     </div>
 
     <script>
+        // Твоя оригинальная функция без изменений
         function generate() {
             const title = document.getElementById('inTitle').value;
             const desc = document.getElementById('inDesc').value;
@@ -57,12 +80,70 @@
             };
 
             let jsonStr = JSON.stringify(obj, null, 4);
-            jsonStr = "," + jsonStr; 
+            const manualStr = "," + jsonStr; 
 
             const out = document.getElementById('outJson');
-            out.value = jsonStr;
+            out.value = manualStr;
             document.getElementById('resultArea').style.display = 'block';
             out.select();
+
+            return obj;
+        }
+
+        // Логика локальной записи
+        let fileHandle;
+        const localPanel = document.getElementById('localAdmin');
+        const btnConnect = document.getElementById('btnConnectDB');
+        const btnSave = document.getElementById('btnSaveToFile');
+
+        const isLocal = window.location.hostname === "localhost" || 
+                        window.location.hostname === "127.0.0.1" || 
+                        window.location.protocol === "file:";
+
+        if (isLocal) { localPanel.style.display = 'block'; }
+
+        async function connectDatabase() {
+            try {
+                [fileHandle] = await window.showOpenFilePicker({
+                    types: [{ description: 'JS Database', accept: {'text/javascript': ['.js']} }]
+                });
+                btnConnect.innerText = "✅ БД ПОДКЛЮЧЕНА (" + fileHandle.name + ")";
+                btnConnect.classList.add('connected');
+                btnSave.style.display = 'block';
+            } catch (err) { console.log("User cancelled"); }
+        }
+
+        async function saveToLocalFile() {
+            if (!fileHandle) return;
+            const shaderObj = generate();
+            if (!shaderObj) return;
+
+            try {
+                const file = await fileHandle.getFile();
+                let content = await file.text();
+
+                const lastBracketIndex = content.lastIndexOf('];');
+                if (lastBracketIndex === -1) {
+                    alert("Ошибка структуры файла!");
+                    return;
+                }
+
+                const entryToAppend = `    ${JSON.stringify(shaderObj, null, 4)},\n`;
+                const newContent = content.slice(0, lastBracketIndex) + entryToAppend + content.slice(lastBracketIndex);
+
+                const writable = await fileHandle.createWritable();
+                await writable.write(newContent);
+                await writable.close();
+
+                alert("Сохранено в базу!");
+                
+                // Очистка полей
+                document.getElementById('inTitle').value = "";
+                document.getElementById('inId').value = "";
+                document.getElementById('inCode').value = "";
+            } catch (err) {
+                alert("Ошибка: " + err.message);
+            }
         }
     </script>
 </body>

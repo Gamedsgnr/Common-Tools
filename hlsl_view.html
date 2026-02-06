@@ -15,15 +15,63 @@
         .i-title { font-weight: bold; display: block; color: #4ec9b0; }
         .i-lang { font-size: 0.7em; background: #333; padding: 2px 6px; border-radius: 3px; color: #aaa; float: right; }
         .i-desc { font-size: 0.8em; color: #888; margin-top: 4px; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        
         .detail-panel { flex: 1; display: flex; flex-direction: column; background: #111; border-radius: 6px; border: 1px solid #333; overflow: hidden; }
-        .toolbar { padding: 15px 20px; background: #252526; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
-        .t-title { font-size: 1.1em; font-weight: bold; color: #d4d4d4; }
-        .btn-copy { background: #007acc; color: white; border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer; }
+        
+        .toolbar { 
+            min-height: 60px; 
+            padding: 10px 20px; 
+            background: #252526; 
+            border-bottom: 1px solid #333; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+        .header-info { display: flex; flex-direction: column; gap: 4px; max-width: 70%; }
+        .t-title { font-size: 1.1em; font-weight: bold; color: #4ec9b0; }
+        .t-desc { font-size: 0.9em; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .btn-copy { background: #007acc; color: white; border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .btn-copy:hover { background: #005a9e; }
-        /* Новый стиль для инпутов */
-        #inputBox { background: #2d2d2d; padding: 12px 20px; border-bottom: 1px solid #333; display: none; }
-        .input-label { color: #ce9178; font-size: 0.75em; font-weight: bold; letter-spacing: 1px; margin-bottom: 5px; display: block; }
-        #inputDisplay { color: #9cdcfe; font-family: monospace; font-size: 0.85em; word-break: break-all; }
+        
+        #inputBox { 
+            background: #252526; 
+            padding: 15px 20px; 
+            border-bottom: 2px solid #111; 
+            border-left: 4px solid #ce9178; 
+            display: none; 
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        .input-label { 
+            color: #ce9178; 
+            font-size: 0.8em; 
+            font-weight: bold; 
+            letter-spacing: 1.5px; 
+            margin-bottom: 10px; 
+            display: block;
+            text-transform: uppercase;
+        }
+
+        /* Контейнер для кирпичиков */
+        #inputDisplay { 
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        /* Стиль самих кирпичиков */
+        .input-brick {
+            background: #1e1e1e;
+            color: #9cdcfe;
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: 1px solid #333;
+            font-family: 'Consolas', monospace;
+            font-size: 0.95em;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+        }
+
         .code-area { flex: 1; padding: 20px; overflow: auto; margin: 0; background: #1e1e1e; }
         pre { margin: 0; }
     </style>
@@ -37,16 +85,20 @@
 
     <div class="detail-panel">
         <div class="toolbar">
-            <span id="detailTitle" class="t-title">Выберите скрипт</span>
+            <div class="header-info">
+                <span id="detailTitle" class="t-title">Выберите скрипт</span>
+                <span id="detailDesc" class="t-desc"></span>
+            </div>
+            
             <div style="display: flex; gap: 10px;">
                 <button id="btnCopyInputs" class="btn-copy" style="background: #444; display: none;" onclick="copyInputs()">Copy Inputs</button>
-                <button class="btn-copy" onclick="copyCode()">Copy Code</button>
+                <button id="btnCopyCode" class="btn-copy" onclick="copyCode()">Copy Code</button>
             </div>
         </div>
         
         <div id="inputBox">
             <span class="input-label">UNREAL CUSTOM NODE INPUTS:</span>
-            <code id="inputDisplay"></code>
+            <div id="inputDisplay"></div>
         </div>
 
         <div class="code-area">
@@ -63,10 +115,14 @@
     <script>
         const listContainer = document.getElementById('listContainer');
         const detailTitle = document.getElementById('detailTitle');
+        const detailDesc = document.getElementById('detailDesc');
         const codeBlock = document.getElementById('codeBlock');
         const inputBox = document.getElementById('inputBox');
         const inputDisplay = document.getElementById('inputDisplay');
         const btnCopyInputs = document.getElementById('btnCopyInputs');
+        const btnCopyCode = document.getElementById('btnCopyCode');
+
+        let currentFormattedInputs = ""; // Переменная для хранения строки копирования
 
         function renderList(filter = "") {
             listContainer.innerHTML = "";
@@ -93,16 +149,30 @@
 
             const item = hlslData[index];
             detailTitle.innerText = item.title;
+            detailDesc.innerText = item.desc; 
             
             // Обработка инпутов
+            inputDisplay.innerHTML = ""; // Очищаем старые кирпичики
             if (item.inputs && item.inputs.trim() !== "") {
-                const formatted = "(" + item.inputs.split(',')
-                    .map(i => `(InputName="${i.trim()}")`)
+                const inputArray = item.inputs.split(',').map(i => i.trim());
+                
+                // 1. Создаем визуальные кирпичики
+                inputArray.forEach(inputName => {
+                    const brick = document.createElement('div');
+                    brick.className = 'input-brick';
+                    brick.innerText = inputName;
+                    inputDisplay.appendChild(brick);
+                });
+
+                // 2. Генерируем строку для копирования в Unreal
+                currentFormattedInputs = "(" + inputArray
+                    .map(i => `(InputName="${i}")`)
                     .join(',') + ")";
-                inputDisplay.innerText = formatted;
+
                 inputBox.style.display = 'block';
                 btnCopyInputs.style.display = 'inline-block';
             } else {
+                currentFormattedInputs = "";
                 inputBox.style.display = 'none';
                 btnCopyInputs.style.display = 'none';
             }
@@ -113,11 +183,20 @@
         }
 
         function copyCode() {
-            navigator.clipboard.writeText(codeBlock.textContent).then(() => alert("Код скопирован!"));
+            navigator.clipboard.writeText(codeBlock.textContent).then(() => {
+                const oldText = btnCopyCode.innerText;
+                btnCopyCode.innerText = "Copied!";
+                setTimeout(() => btnCopyCode.innerText = oldText, 1500);
+            });
         }
 
         function copyInputs() {
-            navigator.clipboard.writeText(inputDisplay.innerText).then(() => alert("Inputs скопированы!"));
+            if (!currentFormattedInputs) return;
+            navigator.clipboard.writeText(currentFormattedInputs).then(() => {
+                const oldText = btnCopyInputs.innerText;
+                btnCopyInputs.innerText = "Inputs Copied!";
+                setTimeout(() => btnCopyInputs.innerText = oldText, 1500);
+            });
         }
 
         renderList();
