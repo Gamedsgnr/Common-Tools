@@ -23,10 +23,19 @@
         /* ПРАВАЯ КОЛОНКА */
         .detail-panel { flex: 1; display: flex; flex-direction: column; background: #111; border-radius: 6px; border: 1px solid #333; overflow: hidden; position: relative; }
         
-        .toolbar { padding: 15px 20px; background: #252526; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        /* ОБНОВЛЕННЫЙ ТУЛБАР */
+        .toolbar { 
+            min-height: 60px; /* Место для двух строк */
+            padding: 10px 20px; 
+            background: #252526; border-bottom: 1px solid #333; 
+            display: flex; justify-content: space-between; align-items: center; 
+        }
+
+        .header-info { display: flex; flex-direction: column; justify-content: center; gap: 4px; max-width: 80%; }
         .t-title { font-size: 1.1em; font-weight: bold; color: #d4d4d4; }
+        .t-desc { font-size: 0.9em; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
-        .btn-copy { background: #007acc; color: white; border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-weight: bold; }
+        .btn-copy { background: #007acc; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; flex-shrink: 0;}
         .btn-copy:hover { background: #005a9e; }
 
         /* ОБЛАСТЬ КОДА */
@@ -44,7 +53,11 @@
 
     <div class="detail-panel">
         <div class="toolbar">
-            <span id="detailTitle" class="t-title">Выберите скрипт</span>
+            <div class="header-info">
+                <span id="detailTitle" class="t-title">Выберите скрипт</span>
+                <span id="detailDesc" class="t-desc"></span>
+            </div>
+            
             <button class="btn-copy" onclick="copyCode()" id="copyBtn">Copy</button>
         </div>
         <div class="code-area">
@@ -53,7 +66,6 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
 
     <script src="snippets_db.js"></script>
@@ -61,6 +73,7 @@
     <script>
         const listContainer = document.getElementById('listContainer');
         const detailTitle = document.getElementById('detailTitle');
+        const detailDesc = document.getElementById('detailDesc'); // <-- Вернули переменную
         const codeBlock = document.getElementById('codeBlock');
         const copyBtn = document.getElementById('copyBtn');
 
@@ -74,7 +87,6 @@
             snippetsData.forEach((item, index) => {
                 if (filter && !item.title.toLowerCase().includes(filter.toLowerCase())) return;
                 
-                // Проверка на наличие поля lang (для старых записей ставим 'text')
                 const langLabel = item.lang ? item.lang : 'text';
 
                 const div = document.createElement('div');
@@ -90,26 +102,22 @@
         }
 
         function loadSnippet(index, el) {
-            // Подсветка активного элемента списка
             document.querySelectorAll('.list-item').forEach(e => e.classList.remove('active'));
             el.classList.add('active');
 
             const item = snippetsData[index];
+            
+            // Заполняем тексты
             detailTitle.innerText = item.title;
+            detailDesc.innerText = item.desc; // <-- Вернули заполнение описания
             
-            // --- ЛОГИКА ВЫБОРА ЯЗЫКА ---
-            let lang = item.lang || 'text'; // Если язык не указан, считаем текстом
-            
-            // PrismJS использует 'markup' для HTML. Делаем подмену:
+            // Логика языка
+            let lang = item.lang || 'text'; 
             if (lang === 'html') lang = 'markup';
             
-            // Назначаем класс (например, language-cpp или language-python)
             codeBlock.className = `language-${lang}`;
-            
-            // Вставляем код
             codeBlock.textContent = item.code;
             
-            // Запускаем перерисовку подсветки
             Prism.highlightElement(codeBlock);
         }
 
