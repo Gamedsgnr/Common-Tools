@@ -105,90 +105,35 @@
 
     <div class="code-wrapper">
 <textarea id="shaderCode" spellcheck="false">
-// --- AUTO-GENERATED INPUTS ---
-float2 UV = float2(0.5, 0.5);
-float OuterScale = 1.0;
-float ShapeFeather = 1.0;
-float InnerCut = 1.0;
-float LeftBrightness = 1.0;
-float RightBrightness = 1.0;
-float3 BaseColor = float3(1.0, 1.0, 1.0);
-float Progress = 1.0;
-float ProgressAngle = 1.0;
-float ProgressFeather = 1.0;
-float3 FillColor = float3(1.0, 1.0, 1.0);
+// --- INPUTS ---
+Texture2D BaseTexture;
+float3 ShieldColor = float3(0.0, 0.5, 1.0);
+float GridDensity = 15.0;
+float PulseSpeed = 2.5;
+float Distortion = 0.1;
 
-// --------------------
-// UV в -1..1
-float2 p = (UV - 0.5) * 2.0;
+// --- LOGIC ---
+// 1. Создаем анимированное смещение для UV (дисторсия)
+float2 distortedUV = UV + sin(Time * PulseSpeed + UV.y * 10.0) * Distortion;
 
-// Масштаб ромба
-float scale = max(OuterScale, 0.0001);
-p /= scale;
+// 2. Читаем текстуру с небольшим смещением
+float4 texColor = ProcessTexture(BaseTexture, distortedUV);
 
-// Ромб: |x| + |y|
-float d = abs(p.x) + abs(p.y);
+// 3. Создаем сетку (Grid)
+float2 gridUV = frac(UV * GridDensity);
+float gridLine = step(0.95, gridUV.x) + step(0.95, gridUV.y);
 
-// --------------------
-// Мягкость формы
-float sf = max(ShapeFeather, 0.000001);
+// 4. Создаем бегущую волну яркости
+float wave = sin(UV.y * 5.0 - Time * PulseSpeed) * 0.5 + 0.5;
 
-// Внешний край — всегда мягкий
-float outerMask = 1.0 - smoothstep(1.0, 1.0 + sf, d);
+// 5. Финальное смешивание
+float3 finalRGB = lerp(texColor.rgb, ShieldColor, gridLine * wave);
 
-// --------------------
-// Внутренний вырез
-float inner = saturate(InnerCut);
+// Добавляем свечение (Glow) в зависимости от волны
+finalRGB += ShieldColor * wave * 0.3;
 
-// Мягкость внутреннего края — ТОЛЬКО если есть вырез
-float innerMaskSmooth = smoothstep(inner, inner + sf, d);
-float hasInner = step(0.00001, inner);
-float innerMask = lerp(1.0, innerMaskSmooth, hasInner);
+return float4(finalRGB, 1.0);
 
-// Итоговая форма ромба
-float shapeMask = saturate(outerMask * innerMask);
-
-// --------------------
-// Левая / правая сторона
-float side = step(0.0, p.x); // 0 = левая, 1 = правая
-float sideMul = lerp(LeftBrightness, RightBrightness, side);
-
-// Базовый цвет
-float3 baseCol = BaseColor * sideMul;
-
-// --------------------
-// РАДИАЛЬНЫЙ ПРОГРЕСС
-float prog = saturate(Progress);
-
-// Угол точки
-float ang = atan2(p.y, p.x);
-
-// Приводим к 0..1
-float a01 = ang * (1.0 / 6.28318530718) + 0.5;
-
-// Сдвиг старта прогресса
-float start = ProgressAngle * (1.0 / 6.28318530718);
-float angProg = frac(a01 - start);
-
-// Мягкость края прогресса
-float pf = max(ProgressFeather, 0.000001);
-
-// Маска прогресса (по часовой)
-float progMask = smoothstep(prog - pf, prog, angProg);
-
-// Цвет прогресса с той же логикой сторон
-float3 fillCol = FillColor * sideMul;
-
-// Смешивание
-float3 color = lerp(baseCol, fillCol, progMask);
-
-// Применяем форму
-color *= shapeMask;
-
-// Альфа — форма ромба
-float alpha = shapeMask;
-
-return float4(color, alpha);
 </textarea>
     </div>
 </div>
