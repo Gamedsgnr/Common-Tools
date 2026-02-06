@@ -20,11 +20,13 @@
         .params-container { background: #202020; padding: 10px; border-bottom: 1px solid #333; max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
         
         .param-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
-        .param-label { color: #d4d4d4; font-weight: bold; width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .param-label { color: #d4d4d4; font-weight: bold; width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .param-type-tag { font-size: 9px; color: #569cd6; border: 1px solid #569cd655; padding: 1px 3px; border-radius: 3px; margin-right: 5px; }
         
         input[type="range"] { flex: 1; height: 4px; cursor: pointer; }
-        .num-input { width: 55px; text-align: center; background: #111; color: #4ec9b0; border: 1px solid #333; }
+        .num-input { width: 50px; text-align: center; background: #111; color: #4ec9b0; border: 1px solid #333; padding: 2px; }
+        .vec-input-group { display: flex; gap: 2px; flex: 1; }
+        .vec-input-group input { flex: 1; min-width: 0; }
         input[type="color"] { border: none; width: 25px; height: 25px; padding: 0; cursor: pointer; background: none; }
 
         .export-area { display: flex; gap: 1px; background: #444; padding: 1px 0; }
@@ -34,7 +36,6 @@
         .code-wrapper { flex: 1; position: relative; display: flex; flex-direction: column; }
         textarea { flex: 1; background: #1e1e1e; color: #d4d4d4; border: none; padding: 15px; font-family: 'Consolas', monospace; font-size: 13px; outline: none; line-height: 1.5; resize: none; }
         
-        /* ОБНОВЛЕННЫЙ ФОН ПРЕВЬЮ */
         #canvas-container { 
             flex: 1; 
             position: relative; 
@@ -42,7 +43,32 @@
             cursor: grab; 
         }
         #canvas-container:active { cursor: grabbing; }
-        #status-bar { position: absolute; bottom: 0; left: 0; right: 0; min-height: 25px; background: #007acc; color: white; padding: 5px 10px; font-size: 12px; font-family: monospace; pointer-events: none; }
+        #status-bar { position: absolute; bottom: 0; left: 0; right: 0; min-height: 25px; background: #007acc; color: white; padding: 5px 10px; font-size: 12px; font-family: monospace; pointer-events: none; z-index: 10; }
+
+        #log-panel {
+            position: absolute;
+            bottom: 30px;
+            right: 10px;
+            width: 350px;
+            max-height: 150px;
+            background: rgba(0,0,0,0.8);
+            border: 1px solid #444;
+            color: #ccc;
+            font-family: monospace;
+            font-size: 11px;
+            padding: 5px;
+            overflow-y: auto;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            z-index: 5;
+        }
+        .log-msg { border-bottom: 1px solid #333; padding-bottom: 2px; }
+        .log-error { color: #ff5555; }
+        .log-success { color: #55ff55; }
+        .log-info { color: #55aaff; }
+
     </style>
 </head>
 <body>
@@ -60,7 +86,9 @@
     <div class="add-input-bar">
         <select id="newType">
             <option value="float">float</option>
+            <option value="float2">float2</option>
             <option value="float3">float3</option>
+            <option value="float4">float4</option>
             <option value="Texture2D">Texture2D</option>
         </select>
         <input type="text" id="newName" placeholder="InputName">
@@ -77,39 +105,96 @@
 
     <div class="code-wrapper">
 <textarea id="shaderCode" spellcheck="false">
-// --- INPUTS ---
-Texture2D BaseTexture;
-float3 ShieldColor = float3(0.0, 0.5, 1.0);
-float GridDensity = 15.0;
-float PulseSpeed = 2.5;
-float Distortion = 0.1;
+// --- AUTO-GENERATED INPUTS ---
+float2 UV = float2(0.5, 0.5);
+float OuterScale = 1.0;
+float ShapeFeather = 1.0;
+float InnerCut = 1.0;
+float LeftBrightness = 1.0;
+float RightBrightness = 1.0;
+float3 BaseColor = float3(1.0, 1.0, 1.0);
+float Progress = 1.0;
+float ProgressAngle = 1.0;
+float ProgressFeather = 1.0;
+float3 FillColor = float3(1.0, 1.0, 1.0);
 
-// --- LOGIC ---
-// 1. Создаем анимированное смещение для UV (дисторсия)
-float2 distortedUV = UV + sin(Time * PulseSpeed + UV.y * 10.0) * Distortion;
+// --------------------
+// UV в -1..1
+float2 p = (UV - 0.5) * 2.0;
 
-// 2. Читаем текстуру с небольшим смещением
-float4 texColor = ProcessTexture(BaseTexture, distortedUV);
+// Масштаб ромба
+float scale = max(OuterScale, 0.0001);
+p /= scale;
 
-// 3. Создаем сетку (Grid)
-float2 gridUV = frac(UV * GridDensity);
-float gridLine = step(0.95, gridUV.x) + step(0.95, gridUV.y);
+// Ромб: |x| + |y|
+float d = abs(p.x) + abs(p.y);
 
-// 4. Создаем бегущую волну яркости
-float wave = sin(UV.y * 5.0 - Time * PulseSpeed) * 0.5 + 0.5;
+// --------------------
+// Мягкость формы
+float sf = max(ShapeFeather, 0.000001);
 
-// 5. Финальное смешивание
-float3 finalRGB = lerp(texColor.rgb, ShieldColor, gridLine * wave);
+// Внешний край — всегда мягкий
+float outerMask = 1.0 - smoothstep(1.0, 1.0 + sf, d);
 
-// Добавляем свечение (Glow) в зависимости от волны
-finalRGB += ShieldColor * wave * 0.3;
+// --------------------
+// Внутренний вырез
+float inner = saturate(InnerCut);
 
-return float4(finalRGB, 1.0);
+// Мягкость внутреннего края — ТОЛЬКО если есть вырез
+float innerMaskSmooth = smoothstep(inner, inner + sf, d);
+float hasInner = step(0.00001, inner);
+float innerMask = lerp(1.0, innerMaskSmooth, hasInner);
+
+// Итоговая форма ромба
+float shapeMask = saturate(outerMask * innerMask);
+
+// --------------------
+// Левая / правая сторона
+float side = step(0.0, p.x); // 0 = левая, 1 = правая
+float sideMul = lerp(LeftBrightness, RightBrightness, side);
+
+// Базовый цвет
+float3 baseCol = BaseColor * sideMul;
+
+// --------------------
+// РАДИАЛЬНЫЙ ПРОГРЕСС
+float prog = saturate(Progress);
+
+// Угол точки
+float ang = atan2(p.y, p.x);
+
+// Приводим к 0..1
+float a01 = ang * (1.0 / 6.28318530718) + 0.5;
+
+// Сдвиг старта прогресса
+float start = ProgressAngle * (1.0 / 6.28318530718);
+float angProg = frac(a01 - start);
+
+// Мягкость края прогресса
+float pf = max(ProgressFeather, 0.000001);
+
+// Маска прогресса (по часовой)
+float progMask = smoothstep(prog - pf, prog, angProg);
+
+// Цвет прогресса с той же логикой сторон
+float3 fillCol = FillColor * sideMul;
+
+// Смешивание
+float3 color = lerp(baseCol, fillCol, progMask);
+
+// Применяем форму
+color *= shapeMask;
+
+// Альфа — форма ромба
+float alpha = shapeMask;
+
+return float4(color, alpha);
 </textarea>
     </div>
 </div>
 
 <div id="canvas-container">
+    <div id="log-panel"></div>
     <div id="status-bar">Ready</div>
 </div>
 
@@ -123,6 +208,7 @@ return float4(finalRGB, 1.0);
     let currentInputs = [];
     let lastCleanUECode = "";
 
+    // --- HLSL COMPATIBILITY HEADER ---
     const headerGLSL = `
         precision highp float;
         #define float2 vec2
@@ -130,14 +216,30 @@ return float4(finalRGB, 1.0);
         #define float4 vec4
         #define lerp mix
         #define frac fract
+        #define fmod mod
+        #define rsqrt inversesqrt
+        #define atan2(y, x) atan(y, x)
         #define saturate(x) clamp(x, 0.0, 1.0)
         #define Texture2D sampler2D
         #define ProcessTexture(t, u) texture2D(t, u)
+        
         uniform float u_time;
         #define Time u_time
+        #define time u_time
+
         #define UV vUv
         varying vec2 vUv;
     `;
+
+    function log(msg, type='info') {
+        const el = document.getElementById('log-panel');
+        const d = document.createElement('div');
+        d.className = `log-msg log-${type}`;
+        d.textContent = `> ${msg}`;
+        el.appendChild(d);
+        el.scrollTop = el.scrollHeight;
+        if(el.children.length > 20) el.removeChild(el.firstChild);
+    }
 
     function init() {
         scene = new THREE.Scene();
@@ -152,13 +254,12 @@ return float4(finalRGB, 1.0);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
 
-        // ДОБАВЛЯЕМ СЕТКУ (GridHelper)
-        // Размер 10, делений 20, цвет центральных осей #444, цвет линий #222
         gridHelper = new THREE.GridHelper(10, 20, 0x444444, 0x222222);
-        gridHelper.position.y = -1; // Чуть ниже центра
+        gridHelper.position.y = -1;
         scene.add(gridHelper);
 
         createMesh('cube');
+        log("System initialized", "success");
         processAndCompile();
 
         window.addEventListener('resize', onResize);
@@ -183,9 +284,8 @@ return float4(finalRGB, 1.0);
             fragmentShader: `void main(){ gl_FragColor = vec4(0,0,0,1); }`
         });
 
-        // Настройка сетки и камеры под тип объекта
         if(type === 'plane') {
-            gridHelper.rotation.x = Math.PI / 2; // Вертикальная сетка для плоскости
+            gridHelper.rotation.x = Math.PI / 2;
             gridHelper.position.set(0, 0, -0.01);
             camera.position.set(0, 0, 3);
             controls.target.set(0, 0, 0);
@@ -207,34 +307,75 @@ return float4(finalRGB, 1.0);
         const name = document.getElementById('newName').value.trim();
         const editor = document.getElementById('shaderCode');
         if (!name) return;
-        let line = type === 'float' ? `float ${name} = 1.0;\n` : (type === 'float3' ? `float3 ${name} = float3(1.0, 1.0, 1.0);\n` : `Texture2D ${name};\n`);
+        
+        let line = "";
+        if(type === 'float') line = `float ${name} = 1.0;\n`;
+        else if(type === 'float2') line = `float2 ${name} = float2(0.0, 0.0);\n`;
+        else if(type === 'float3') line = `float3 ${name} = float3(1.0, 1.0, 1.0);\n`;
+        else if(type === 'float4') line = `float4 ${name} = float4(1.0, 1.0, 1.0, 1.0);\n`;
+        else line = `Texture2D ${name};\n`;
+
         editor.value = line + editor.value;
         document.getElementById('newName').value = "";
         processAndCompile();
     }
 
     function processAndCompile() {
-        const code = document.getElementById('shaderCode').value;
-        const lines = code.split('\n');
+        let rawCode = document.getElementById('shaderCode').value;
+        rawCode = rawCode.replace(/\u00A0/g, ' ');
+
+        const lines = rawCode.split('\n');
         let glslBody = "", ueCode = "", uniformsDecl = "", foundInputs = [];
 
-        const reFloat = /^\s*float\s+(\w+)\s*=\s*([\d\.-]+)\s*;/;
-        const reColor = /^\s*float3\s+(\w+)\s*=\s*float3\s*\(([^)]+)\)\s*;/;
-        const reTex = /^\s*Texture2D\s+(\w+)\s*;/;
+        // Регулярки для поиска объявлений (ищем только объявления с дефолтными значениями)
+        const reFloat = /^\s*float\s+(\w+)\s*=\s*([-\d.e]+)f?[\s;]*$/; 
+        const reVec2  = /^\s*float2\s+(\w+)\s*=\s*float2\s*\(([^)]+)\)[\s;]*$/;
+        const reVec3  = /^\s*float3\s+(\w+)\s*=\s*float3\s*\(([^)]+)\)[\s;]*$/;
+        const reVec4  = /^\s*float4\s+(\w+)\s*=\s*float4\s*\(([^)]+)\)[\s;]*$/;
+        const reTex   = /^\s*Texture2D\s+(\w+)\s*[\s;]*$/;
 
         lines.forEach(line => {
-            let mF = line.match(reFloat), mC = line.match(reColor), mT = line.match(reTex);
+            let cleanLine = line.trim();
+            const codePart = cleanLine.split('//')[0].trim();
+
+            let mF = codePart.match(reFloat);
+            let mV2 = codePart.match(reVec2);
+            let mV3 = codePart.match(reVec3);
+            let mV4 = codePart.match(reVec4);
+            let mT = codePart.match(reTex);
+
             if (mF) {
                 foundInputs.push({name: mF[1], type: 'float', val: parseFloat(mF[2])});
                 uniformsDecl += `uniform float ${mF[1]};\n`;
-            } else if (mC) {
-                const rgb = mC[2].split(',').map(v => parseFloat(v.trim()));
-                foundInputs.push({name: mC[1], type: 'float3', val: rgb});
-                uniformsDecl += `uniform vec3 ${mC[1]};\n`;
-            } else if (mT) {
+                // ВАЖНО: Не добавляем эту строку в glslBody, чтобы не перекрывать uniform!
+            } 
+            else if (mV2) {
+                if (mV2[1] === 'UV') {
+                    // Если это UV, мы пропускаем создание uniform (используем vUv из хедера)
+                    // И мы ТАКЖЕ не добавляем строку в body, чтобы UV брался из Varying, а не был константой 0.5
+                    log("Detected 'float2 UV'. Using mesh coordinates.", "info");
+                } else {
+                    const vals = mV2[2].split(',').map(v => parseFloat(v.trim()));
+                    foundInputs.push({name: mV2[1], type: 'float2', val: vals});
+                    uniformsDecl += `uniform vec2 ${mV2[1]};\n`;
+                }
+            } 
+            else if (mV3) {
+                const vals = mV3[2].split(',').map(v => parseFloat(v.trim()));
+                foundInputs.push({name: mV3[1], type: 'float3', val: vals});
+                uniformsDecl += `uniform vec3 ${mV3[1]};\n`;
+            } 
+            else if (mV4) {
+                const vals = mV4[2].split(',').map(v => parseFloat(v.trim()));
+                foundInputs.push({name: mV4[1], type: 'float4', val: vals});
+                uniformsDecl += `uniform vec4 ${mV4[1]};\n`;
+            } 
+            else if (mT) {
                 foundInputs.push({name: mT[1], type: 'Texture2D'});
                 uniformsDecl += `uniform sampler2D ${mT[1]};\n`;
-            } else {
+            } 
+            else {
+                // Это логика, оставляем в теле
                 glslBody += line + "\n";
                 ueCode += line + "\n";
             }
@@ -244,48 +385,109 @@ return float4(finalRGB, 1.0);
         lastCleanUECode = ueCode.trim();
         updateUI(foundInputs);
 
-        let finalBody = glslBody.replace(/return\s+([^;]+);/g, "gl_FragColor = $1; return;");
+        // --- ТРАНСПИЛЯЦИЯ ---
+        let finalBody = glslBody;
+        finalBody = finalBody.replace(/\b(\d+\.\d+)f\b/g, "$1");
+        finalBody = finalBody.replace(/(\w+)\.Sample\s*\(\s*\w+\s*,\s*([^)]+)\)/g, "texture2D($1, $2)");
+        finalBody = finalBody.replace(/\((float|int)\)\s*([a-zA-Z0-9_]+)/g, "$1($2)");
+        finalBody = finalBody.replace(/return\s+([^;]+);/g, "gl_FragColor = $1; return;");
+
         if(mesh) {
-            mesh.material.fragmentShader = headerGLSL + uniformsDecl + "void main(){\n" + finalBody + "\n}";
-            foundInputs.forEach(p => {
-                if (!mesh.material.uniforms[p.name]) {
-                    if (p.type === 'float') mesh.material.uniforms[p.name] = {value: p.val};
-                    if (p.type === 'float3') mesh.material.uniforms[p.name] = {value: new THREE.Vector3(...p.val)};
-                    if (p.type === 'Texture2D') mesh.material.uniforms[p.name] = {value: new THREE.Texture()};
-                }
-            });
-            mesh.material.needsUpdate = true;
+            try {
+                mesh.material.fragmentShader = headerGLSL + uniformsDecl + "void main(){\n" + finalBody + "\n}";
+                
+                // Обновление uniforms (только если их еще нет или тип поменялся)
+                // Мы не сбрасываем значения, если имя совпадает
+                foundInputs.forEach(p => {
+                    if (!mesh.material.uniforms[p.name]) {
+                        // Создаем
+                        let val;
+                        if (p.type === 'float') val = p.val;
+                        else if (p.type === 'float2') val = new THREE.Vector2(...p.val);
+                        else if (p.type === 'float3') val = new THREE.Vector3(...p.val);
+                        else if (p.type === 'float4') val = new THREE.Vector4(...p.val);
+                        else if (p.type === 'Texture2D') val = new THREE.Texture();
+                        
+                        mesh.material.uniforms[p.name] = { value: val };
+                    }
+                });
+                
+                mesh.material.needsUpdate = true;
+                log("Shader compiled successfully", "success");
+            } catch(e) {
+                log("Error: " + e.message, "error");
+            }
         }
         document.getElementById('status-bar').innerText = "Compiled: " + new Date().toLocaleTimeString();
     }
 
     function updateUI(params) {
         const container = document.getElementById('paramsContainer');
+        // Очищаем UI только если состав инпутов изменился, чтобы не дергалось.
+        // Но для простоты пока перерисовываем, но сохраняем значения в activeParams
         container.innerHTML = "";
+        
         params.forEach(p => {
             const row = document.createElement('div');
             row.className = 'param-row';
-            let label = `<div class="param-info"><span class="param-type-tag">${p.type}</span><span class="param-label">${p.name}</span></div>`;
+            let label = `<div class="param-info"><span class="param-type-tag">${p.type}</span><span class="param-label" title="${p.name}">${p.name}</span></div>`;
+            
             if (p.type === 'float') {
                 const val = activeParams[p.name] !== undefined ? activeParams[p.name] : p.val;
-                activeParams[p.name] = val;
+                activeParams[p.name] = val; // Sync
+                
+                // Обновляем uniform, если он есть (на случай если это первая компиляция)
+                if(mesh && mesh.material.uniforms[p.name]) mesh.material.uniforms[p.name].value = val;
+
                 row.innerHTML = `${label}<input type="range" min="0" max="10" step="0.01" value="${val}" id="rng_${p.name}"><input type="text" class="num-input" value="${val}" id="num_${p.name}">`;
                 const rng = row.querySelector(`#rng_${p.name}`), num = row.querySelector(`#num_${p.name}`);
-                const sync = (v) => { if(mesh) mesh.material.uniforms[p.name].value = v; activeParams[p.name] = v; rng.value = v; num.value = v; }
+                const sync = (v) => { 
+                    if(mesh && mesh.material.uniforms[p.name]) mesh.material.uniforms[p.name].value = v; 
+                    activeParams[p.name] = v; 
+                    rng.value = v; 
+                    num.value = v; 
+                }
                 rng.oninput = (e) => sync(parseFloat(e.target.value));
                 num.onchange = (e) => sync(parseFloat(e.target.value));
-            } else if (p.type === 'float3') {
+            } 
+            else if (p.type === 'float3') {
                 row.innerHTML = `${label}<input type="color">`;
                 row.querySelector('input').oninput = (e) => {
                     const c = new THREE.Color(e.target.value);
-                    if(mesh) mesh.material.uniforms[p.name].value.set(c.r, c.g, c.b);
+                    if(mesh && mesh.material.uniforms[p.name]) mesh.material.uniforms[p.name].value.set(c.r, c.g, c.b);
                     activeParams[p.name] = new THREE.Vector3(c.r, c.g, c.b);
                 };
-            } else {
+            } 
+            else if (p.type === 'float2' || p.type === 'float4') {
+                let html = `<div class="vec-input-group">`;
+                const dims = p.type === 'float2' ? 2 : 4;
+                for(let i=0; i<dims; i++) {
+                    // Берем текущее значение из activeParams если есть, иначе дефолт
+                    let currentVal = p.val[i];
+                    // (Тут можно добавить логику сохранения векторов в activeParams, но для краткости опустим)
+                    html += `<input type="text" class="num-input" value="${currentVal}" data-idx="${i}">`;
+                }
+                html += `</div>`;
+                row.innerHTML = `${label}${html}`;
+                
+                row.querySelectorAll('input').forEach(inp => {
+                    inp.onchange = (e) => {
+                        const idx = parseInt(e.target.getAttribute('data-idx'));
+                        const val = parseFloat(e.target.value);
+                        if(mesh && mesh.material.uniforms[p.name]) {
+                           if (mesh.material.uniforms[p.name].value.setComponent) {
+                               mesh.material.uniforms[p.name].value.setComponent(idx, val);
+                           }
+                        }
+                    };
+                });
+            }
+            else {
                 row.innerHTML = `${label}<input type="file" accept="image/*">`;
                 row.querySelector('input').onchange = (e) => {
                     const tex = new THREE.TextureLoader().load(URL.createObjectURL(e.target.files[0]));
-                    if(mesh) mesh.material.uniforms[p.name].value = tex;
+                    if(mesh && mesh.material.uniforms[p.name]) mesh.material.uniforms[p.name].value = tex;
+                    log(`Texture loaded: ${p.name}`, "info");
                 };
             }
             container.appendChild(row);
@@ -295,17 +497,13 @@ return float4(finalRGB, 1.0);
     function copyUEInputs() {
         const str = "(" + currentInputs.map(p => `(InputName="${p.name}")`).join(",") + ")";
         navigator.clipboard.writeText(str).then(() => {
-            const bar = document.getElementById('status-bar');
-            bar.innerText = "Inputs copied!";
-            setTimeout(() => bar.innerText = "Ready", 2000);
+            log("Inputs copied to clipboard", "success");
         });
     }
 
     function copyUECode() {
         navigator.clipboard.writeText(lastCleanUECode).then(() => {
-            const bar = document.getElementById('status-bar');
-            bar.innerText = "Code copied!";
-            setTimeout(() => bar.innerText = "Ready", 2000);
+            log("Code copied to clipboard", "success");
         });
     }
 

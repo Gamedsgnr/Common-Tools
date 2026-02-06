@@ -27,12 +27,16 @@
             justify-content: space-between; 
             align-items: center; 
         }
-        .header-info { display: flex; flex-direction: column; gap: 4px; max-width: 70%; }
+        .header-info { display: flex; flex-direction: column; gap: 4px; max-width: 50%; }
         .t-title { font-size: 1.1em; font-weight: bold; color: #4ec9b0; }
         .t-desc { font-size: 0.9em; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
-        .btn-copy { background: #007acc; color: white; border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-copy { background: #007acc; color: white; border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 12px; }
         .btn-copy:hover { background: #005a9e; }
+        
+        /* СЕРАЯ КНОПКА ДЛЯ STUDIO */
+        .btn-gray { background: #444; color: #ddd; border: 1px solid #555; }
+        .btn-gray:hover { background: #555; color: #fff; }
         
         #inputBox { 
             background: #252526; 
@@ -88,8 +92,9 @@
                 <span id="detailDesc" class="t-desc"></span>
             </div>
             
-            <div style="display: flex; gap: 10px;">
-                <button id="btnCopyInputs" class="btn-copy" style="background: #444; display: none;" onclick="copyInputs()">Copy Inputs</button>
+            <div style="display: flex; gap: 8px;">
+                <button id="btnCopyInputs" class="btn-copy btn-gray" style="display: none;" onclick="copyInputs()">Copy Inputs</button>
+                <button id="btnCopyStudio" class="btn-copy btn-gray" style="display: none;" onclick="copyForStudio()">Copy for Studio</button>
                 <button id="btnCopyCode" class="btn-copy" onclick="copyCode()">Copy Code</button>
             </div>
         </div>
@@ -119,8 +124,10 @@
         const inputDisplay = document.getElementById('inputDisplay');
         const btnCopyInputs = document.getElementById('btnCopyInputs');
         const btnCopyCode = document.getElementById('btnCopyCode');
+        const btnCopyStudio = document.getElementById('btnCopyStudio');
 
         let currentFormattedInputs = ""; 
+        let currentRawInputs = []; 
 
         function renderList(filter = "") {
             listContainer.innerHTML = "";
@@ -130,7 +137,6 @@
 
             hlslData.forEach((item, index) => {
                 if (searchParts.length > 0) {
-                    // Ищем и в заголовке, и в описании
                     const searchTarget = (item.title + " " + (item.desc || "")).toLowerCase();
                     const isMatch = searchParts.every(part => searchTarget.includes(part));
                     if (!isMatch) return;
@@ -158,30 +164,82 @@
             
             inputDisplay.innerHTML = ""; 
             if (item.inputs && item.inputs.trim() !== "") {
-                const inputArray = item.inputs.split(',').map(i => i.trim());
+                currentRawInputs = item.inputs.split(',').map(i => i.trim());
                 
-                inputArray.forEach(inputName => {
+                currentRawInputs.forEach(inputName => {
                     const brick = document.createElement('div');
                     brick.className = 'input-brick';
                     brick.innerText = inputName;
                     inputDisplay.appendChild(brick);
                 });
 
-                currentFormattedInputs = "(" + inputArray
+                currentFormattedInputs = "(" + currentRawInputs
                     .map(i => `(InputName="${i}")`)
                     .join(',') + ")";
 
                 inputBox.style.display = 'block';
                 btnCopyInputs.style.display = 'inline-block';
+                btnCopyStudio.style.display = 'inline-block';
             } else {
+                currentRawInputs = [];
                 currentFormattedInputs = "";
                 inputBox.style.display = 'none';
                 btnCopyInputs.style.display = 'none';
+                btnCopyStudio.style.display = 'none';
             }
 
             codeBlock.className = `language-${item.lang === 'hlsl' ? 'cpp' : item.lang}`;
             codeBlock.textContent = item.code;
             Prism.highlightElement(codeBlock);
+        }
+
+        // --- УЛУЧШЕННАЯ ЛОГИКА ОПРЕДЕЛЕНИЯ ТИПОВ ---
+        function copyForStudio() {
+            let header = "// --- AUTO-GENERATED INPUTS ---\n";
+            const codeBody = codeBlock.textContent;
+
+            currentRawInputs.forEach(name => {
+                let type = "float";
+                const n = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Экранирование имени для RegExp
+                
+                // 1. ТЕКСТУРА: Проверяем .Sample, ProcessTexture или ключевые слова в имени
+                if (new RegExp(`\\b${n}\\.Sample\\b`).test(codeBody) ||
+                    new RegExp(`ProcessTexture\\s*\\(\\s*${n}\\b`).test(codeBody) ||
+                    /Tex$|Texture$|Map$/i.test(name)) {
+                    type = "Texture2D";
+                }
+                // 2. VECTOR 3: Проверяем .rgb, .xyz, присваивание во float3 или слова Color/Dir
+                else if (new RegExp(`\\b${n}\\.[xyzrgb]{3}\\b`).test(codeBody) ||
+                         /Color$|Tint$|Vector$|Pos$|Dir$|Normal$/i.test(name) ||
+                         new RegExp(`float3\\s+\\w+\\s*=\\s*.*\\b${n}\\b`).test(codeBody)) {
+                     type = "float3";
+                }
+                // 3. VECTOR 2: Проверяем .uv, .xy, присваивание во float2 или слова UV/Coords
+                else if (new RegExp(`\\b${n}\\.[xyuv]{2}\\b`).test(codeBody) ||
+                         /UV$|Coords$/i.test(name) ||
+                         new RegExp(`float2\\s+\\w+\\s*=\\s*.*\\b${n}\\b`).test(codeBody)) {
+                     type = "float2";
+                }
+
+                // Генерация строки
+                if (type === "Texture2D") {
+                    header += `Texture2D ${name};\n`;
+                } else if (type === "float3") {
+                    header += `float3 ${name} = float3(1.0, 1.0, 1.0);\n`;
+                } else if (type === "float2") {
+                    header += `float2 ${name} = float2(0.5, 0.5);\n`;
+                } else {
+                    header += `float ${name} = 1.0;\n`;
+                }
+            });
+
+            const fullCode = header + "\n" + codeBody;
+
+            navigator.clipboard.writeText(fullCode).then(() => {
+                const oldText = btnCopyStudio.innerText;
+                btnCopyStudio.innerText = "Copied!";
+                setTimeout(() => btnCopyStudio.innerText = oldText, 1500);
+            });
         }
 
         function copyCode() {
