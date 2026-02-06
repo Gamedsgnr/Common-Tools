@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Shader Library</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #1e1e1e; color: #d4d4d4; padding: 20px; display: flex; height: 95vh; gap: 20px; box-sizing: border-box; margin: 0; }
+        
+        /* ЛЕВАЯ КОЛОНКА */
+        .list-panel { width: 300px; display: flex; flex-direction: column; border-right: 1px solid #333; padding-right: 20px; flex-shrink: 0; }
+        .search-box { background: #252526; border: 1px solid #333; color: white; padding: 10px; width: 100%; margin-bottom: 15px; border-radius: 4px; box-sizing: border-box; }
+        .sh-list { overflow-y: auto; flex: 1; }
+        
+        .sh-item {
+            padding: 12px; margin-bottom: 5px; cursor: pointer; border-radius: 4px; transition: 0.2s;
+            border-left: 3px solid transparent; background: #252526;
+        }
+        .sh-item:hover { background-color: #2a2d2e; }
+        .sh-item.active { background-color: #37373d; border-left-color: #d16969; color: white; } /* Красный акцент для шейдеров */
+        .s-title { font-weight: bold; display: block; color: #ce9178; } /* Оранжевый оттенок текста */
+        .s-desc { font-size: 0.8em; color: #888; margin-top: 4px; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+        /* ПРАВАЯ КОЛОНКА */
+        .detail-panel { flex: 1; display: flex; flex-direction: column; background: #111; border-radius: 6px; border: 1px solid #333; overflow: hidden; position: relative; }
+        
+        .toolbar {
+            height: 50px; background: #252526; border-bottom: 1px solid #333;
+            display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
+        }
+        
+        .btn-copy {
+            background-color: #d16969; color: white; border: none; padding: 8px 16px; 
+            border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px;
+        }
+        .btn-copy:hover { background-color: #b04c4c; }
+        .btn-copy:active { transform: translateY(1px); }
+
+        .frame-container { flex: 1; position: relative; background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTAgMGg0MHY0MEgwVjB6IiBmaWxsPSIjZmZmIi8+PC9zdmc+'); }
+        
+        iframe { width: 100%; height: 100%; border: none; display: none; }
+        .placeholder { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #555; font-size: 1.2em; }
+    </style>
+</head>
+<body>
+
+    <div class="list-panel">
+        <input type="text" class="search-box" placeholder="Поиск шейдера..." onkeyup="filterList(this.value)">
+        <div class="sh-list" id="listContainer"></div>
+    </div>
+
+    <div class="detail-panel">
+        <div class="toolbar">
+            <span id="headerTitle" style="font-weight: bold; color: #ddd;">Выберите материал</span>
+            <button class="btn-copy" onclick="copyRawCode()" id="copyBtn" style="display:none;">
+                🎨 COPY NODES
+            </button>
+        </div>
+        <div class="frame-container">
+            <div class="placeholder" id="placeholder">Select a Material/Shader</div>
+            <iframe id="bpFrame" scrolling="no" allowfullscreen></iframe>
+        </div>
+    </div>
+
+    <script src="shaders_db.js"></script>
+    
+    <script>
+        const listContainer = document.getElementById('listContainer');
+        const bpFrame = document.getElementById('bpFrame');
+        const placeholder = document.getElementById('placeholder');
+        const headerTitle = document.getElementById('headerTitle');
+        const copyBtn = document.getElementById('copyBtn');
+
+        let currentRawCode = "";
+
+        function renderList(filter = "") {
+            listContainer.innerHTML = "";
+            if(typeof shadersData === 'undefined') {
+                listContainer.innerHTML = "<div style='padding:10px; color:red'>Ошибка: shaders_db.js не найден</div>";
+                return;
+            }
+
+            shadersData.forEach((item, index) => {
+                if (filter && !item.title.toLowerCase().includes(filter.toLowerCase())) return;
+
+                const div = document.createElement('div');
+                div.className = 'sh-item';
+                div.innerHTML = `
+                    <span class="s-title">🔮 ${item.title}</span>
+                    <span class="s-desc">${item.desc}</span>
+                `;
+                div.onclick = () => loadShader(index, div);
+                listContainer.appendChild(div);
+            });
+        }
+
+        function loadShader(index, element) {
+            const item = shadersData[index];
+            
+            document.querySelectorAll('.sh-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+
+            placeholder.style.display = 'none';
+            bpFrame.style.display = 'block';
+            copyBtn.style.display = 'flex';
+            headerTitle.innerText = item.title;
+
+            // BlueprintUE работает одинаково и для материалов
+            bpFrame.src = `https://blueprintue.com/render/${item.embedId}/`;
+            currentRawCode = item.rawCode || "";
+        }
+
+        function copyRawCode() {
+            if (!currentRawCode) {
+                alert("Нет кода для копирования");
+                return;
+            }
+            navigator.clipboard.writeText(currentRawCode).then(() => {
+                const originalText = copyBtn.innerHTML;
+                copyBtn.innerHTML = "✅ COPIED!";
+                setTimeout(() => copyBtn.innerHTML = originalText, 1500);
+            });
+        }
+
+        function filterList(val) { renderList(val); }
+
+        renderList();
+    </script>
+</body>
+</html>
