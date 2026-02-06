@@ -1,16 +1,12 @@
 // Это ваша база данных. Просто добавляйте новые блоки внутрь квадратных скобок.
 const snippetsData = [
     {
-        id: "unique_id_1",
-        title: "Пример: Сортировка пузырьком",
-        desc: "Простая реализация сортировки на Python.",
-        lang: "python",
-        code: `def bubble_sort(arr):
-    n = len(arr)
-    for i in range(n):
-        for j in range(0, n-i-1):
-            if arr[j] > arr[j+1] :
-                arr[j], arr[j+1] = arr[j+1], arr[j]`
-    },
+    "id": "ue_batch_refresh",
+    "title": "Batch Blueprint Refresh & Compile",
+    "desc": "Массовое обновление (Refresh Nodes), компиляция и сохранение блюпринтов. Исправляет сломанные ссылки после изменений в C++.",
+    "lang": "python",
+    "code": "import unreal\n\ndef batch_refresh_blueprints(raw_path_list: str):\n    \"\"\"\n    Принимает строку с путями (через запятую, новую строку или массив), \n    нормализует их, обновляет ноды (Refresh All Nodes), компилирует и сохраняет.\n    \"\"\"\n    \n    # --- ВНУТРЕННИЕ УТИЛИТЫ ---\n    def _extract_path(token: str) -> str:\n        \"\"\"Очищает мусор от Reference Viewer (WidgetBlueprint'...').\"\"\"\n        t = token.strip()\n        if t.startswith(\"(\") and t.endswith(\")\"): t = t[1:-1].strip()\n        if \"'\" in t: # Если формат Class'/Path/To/Asset.Asset'\n            first, last = t.find(\"'\"), t.rfind(\"'\")\n            if first != -1 and last > first: return t[first+1:last].strip()\n        return t\n\n    def _normalize_object_path(p: str) -> str:\n        \"\"\"Гарантирует формат /Game/Folder/Asset.Asset\"\"\"\n        s = _extract_path(p)\n        if \".\" in s: # Удаляем суффикс _C если есть\n            left, right = s.rsplit(\".\", 1)\n            if right.endswith(\"_C\"): s = f\"{left}.{right[:-2]}\"\n        else: # Добавляем имя ассета если его нет\n            leaf = s.rsplit(\"/\", 1)[-1]\n            s = f\"{s}.{leaf}\"\n        return s\n\n    # --- ОСНОВНАЯ ЛОГИКА ---\n    clean_input = raw_path_list.strip()\n    if clean_input.startswith(\"(\") and clean_input.endswith(\")\"):\n        clean_input = clean_input[1:-1]\n\n    # Разбиваем строку на список путей\n    tokens = [t.strip() for t in clean_input.split(\",\")] if \",\" in clean_input else [clean_input.strip()]\n    tokens = [t for t in tokens if t]\n    \n    paths = [_normalize_object_path(t) for t in tokens]\n    \n    processed_count = 0\n    \n    with unreal.ScopedSlowTask(len(paths), \"Refreshing Blueprints...\") as task:\n        task.make_dialog(True)\n        \n        for path in paths:\n            if task.should_cancel(): break\n            task.enter_progress_frame(1, desc=f\"Processing: {path}\")\n\n            if not unreal.EditorAssetLibrary.does_asset_exist(path):\n                unreal.log_warning(f\"[AutoRefresh] Asset not found: {path}\")\n                continue\n\n            asset = unreal.EditorAssetLibrary.load_asset(path)\n            if not asset: continue\n\n            try:\n                # Магия обновления нод и компиляции\n                unreal.BlueprintEditorLibrary.refresh_all_nodes(asset)\n                unreal.BlueprintEditorLibrary.compile_blueprint(asset)\n                \n                # Сохраняем, даже если движок не пометил как Dirty\n                unreal.EditorAssetLibrary.save_asset(path, only_if_is_dirty=False)\n                unreal.log(f\"[AutoRefresh] ✅ Success: {asset.get_name()}\")\n                processed_count += 1\n            except Exception as e:\n                unreal.log_error(f\"[AutoRefresh] ❌ Error processing {path}: {e}\")\n\n    unreal.log(f\"[AutoRefresh] Completed. Processed {processed_count}/{len(paths)} assets.\")"
+}
     // Сюда будете вставлять новые блоки (запятая между блоками обязательна!)
+
 ];
