@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>HLSL Custom Node Studio</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; color: #ccc; }
+        .editor-panel { width: 500px; display: flex; flex-direction: column; border-right: 2px solid #333; z-index: 10; background: #1e1e1e; }
+        
+        .toolbar { padding: 10px; background: #252526; border-bottom: 1px solid #333; display: flex; justify-content: space-between; gap: 5px; }
+        .add-input-bar { padding: 8px 10px; background: #2d2d30; border-bottom: 1px solid #111; display: flex; gap: 5px; align-items: center; }
+        
+        select, input[type="text"], .btn-ui { background: #333; color: white; border: 1px solid #444; padding: 5px; border-radius: 4px; font-size: 12px; }
+        input[type="text"] { flex: 1; }
+        .btn-ui { cursor: pointer; font-weight: bold; border: none; }
+        .btn-add { background: #007acc; }
+        .btn-apply { background: #28a745; padding: 5px 15px; }
+
+        .params-header { background: #252526; padding: 5px 10px; font-size: 10px; font-weight: bold; color: #777; text-transform: uppercase; }
+        .params-container { background: #202020; padding: 10px; border-bottom: 1px solid #333; max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        
+        .param-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+        .param-label { color: #d4d4d4; font-weight: bold; width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .param-type-tag { font-size: 9px; color: #569cd6; border: 1px solid #569cd655; padding: 1px 3px; border-radius: 3px; margin-right: 5px; }
+        
+        input[type="range"] { flex: 1; height: 4px; cursor: pointer; }
+        .num-input { width: 55px; text-align: center; background: #111; color: #4ec9b0; border: 1px solid #333; }
+        input[type="color"] { border: none; width: 25px; height: 25px; padding: 0; cursor: pointer; background: none; }
+
+        .export-area { display: flex; gap: 1px; background: #444; padding: 1px 0; }
+        .btn-export { flex: 1; background: #333; border: none; color: #aaa; padding: 10px; cursor: pointer; font-size: 10px; font-weight: 600; }
+        .btn-export:hover { background: #444; color: white; }
+
+        .code-wrapper { flex: 1; position: relative; display: flex; flex-direction: column; }
+        textarea { flex: 1; background: #1e1e1e; color: #d4d4d4; border: none; padding: 15px; font-family: 'Consolas', monospace; font-size: 13px; outline: none; line-height: 1.5; resize: none; }
+        
+        /* ОБНОВЛЕННЫЙ ФОН ПРЕВЬЮ */
+        #canvas-container { 
+            flex: 1; 
+            position: relative; 
+            background: radial-gradient(circle at center, #080808 0%, #181818 100%);
+            cursor: grab; 
+        }
+        #canvas-container:active { cursor: grabbing; }
+        #status-bar { position: absolute; bottom: 0; left: 0; right: 0; min-height: 25px; background: #007acc; color: white; padding: 5px 10px; font-size: 12px; font-family: monospace; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<div class="editor-panel">
+    <div class="toolbar">
+        <select id="shapeSelect" onchange="changeMesh()">
+            <option value="cube">Cube</option>
+            <option value="sphere">Sphere</option>
+            <option value="plane">Plane</option>
+        </select>
+        <button class="btn-ui btn-apply" onclick="processAndCompile()">▶ APPLY (Ctrl+S)</button>
+    </div>
+
+    <div class="add-input-bar">
+        <select id="newType">
+            <option value="float">float</option>
+            <option value="float3">float3</option>
+            <option value="Texture2D">Texture2D</option>
+        </select>
+        <input type="text" id="newName" placeholder="InputName">
+        <button class="btn-ui btn-add" onclick="addNewInput()">+ Add</button>
+    </div>
+
+    <div class="params-header">Material Inputs</div>
+    <div id="paramsContainer" class="params-container"></div>
+
+    <div class="export-area">
+        <button class="btn-export" onclick="copyUEInputs()">📋 COPY INPUTS STRING</button>
+        <button class="btn-export" onclick="copyUECode()">📋 COPY HLSL CODE</button>
+    </div>
+
+    <div class="code-wrapper">
+<textarea id="shaderCode" spellcheck="false">
+// --- INPUTS ---
+Texture2D BaseTexture;
+float3 ShieldColor = float3(0.0, 0.5, 1.0);
+float GridDensity = 15.0;
+float PulseSpeed = 2.5;
+float Distortion = 0.1;
+
+// --- LOGIC ---
+// 1. Создаем анимированное смещение для UV (дисторсия)
+float2 distortedUV = UV + sin(Time * PulseSpeed + UV.y * 10.0) * Distortion;
+
+// 2. Читаем текстуру с небольшим смещением
+float4 texColor = ProcessTexture(BaseTexture, distortedUV);
+
+// 3. Создаем сетку (Grid)
+float2 gridUV = frac(UV * GridDensity);
+float gridLine = step(0.95, gridUV.x) + step(0.95, gridUV.y);
+
+// 4. Создаем бегущую волну яркости
+float wave = sin(UV.y * 5.0 - Time * PulseSpeed) * 0.5 + 0.5;
+
+// 5. Финальное смешивание
+float3 finalRGB = lerp(texColor.rgb, ShieldColor, gridLine * wave);
+
+// Добавляем свечение (Glow) в зависимости от волны
+finalRGB += ShieldColor * wave * 0.3;
+
+return float4(finalRGB, 1.0);
+</textarea>
+    </div>
+</div>
+
+<div id="canvas-container">
+    <div id="status-bar">Ready</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+    let camera, scene, renderer, mesh, material, controls, gridHelper;
+    let startTime = Date.now();
+    let activeParams = {};
+    let currentInputs = [];
+    let lastCleanUECode = "";
+
+    const headerGLSL = `
+        precision highp float;
+        #define float2 vec2
+        #define float3 vec3
+        #define float4 vec4
+        #define lerp mix
+        #define frac fract
+        #define saturate(x) clamp(x, 0.0, 1.0)
+        #define Texture2D sampler2D
+        #define ProcessTexture(t, u) texture2D(t, u)
+        uniform float u_time;
+        #define Time u_time
+        #define UV vUv
+        varying vec2 vUv;
+    `;
+
+    function init() {
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(45, (window.innerWidth - 500) / window.innerHeight, 0.1, 100);
+        camera.position.set(2, 2, 4);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth - 500, window.innerHeight);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // ДОБАВЛЯЕМ СЕТКУ (GridHelper)
+        // Размер 10, делений 20, цвет центральных осей #444, цвет линий #222
+        gridHelper = new THREE.GridHelper(10, 20, 0x444444, 0x222222);
+        gridHelper.position.y = -1; // Чуть ниже центра
+        scene.add(gridHelper);
+
+        createMesh('cube');
+        processAndCompile();
+
+        window.addEventListener('resize', onResize);
+        document.addEventListener('keydown', e => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); processAndCompile(); }
+        });
+    }
+
+    function createMesh(type) {
+        if (mesh) {
+            scene.remove(mesh);
+            mesh.geometry.dispose();
+            mesh.material.dispose();
+        }
+
+        const geo = type==='cube' ? new THREE.BoxGeometry(1.5, 1.5, 1.5) : 
+                    type==='sphere' ? new THREE.SphereGeometry(1, 32, 32) : new THREE.PlaneGeometry(2, 2);
+        
+        material = new THREE.ShaderMaterial({
+            uniforms: { u_time: { value: 0 } },
+            vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+            fragmentShader: `void main(){ gl_FragColor = vec4(0,0,0,1); }`
+        });
+
+        // Настройка сетки и камеры под тип объекта
+        if(type === 'plane') {
+            gridHelper.rotation.x = Math.PI / 2; // Вертикальная сетка для плоскости
+            gridHelper.position.set(0, 0, -0.01);
+            camera.position.set(0, 0, 3);
+            controls.target.set(0, 0, 0);
+        } else {
+            gridHelper.rotation.x = 0;
+            gridHelper.position.set(0, -1, 0);
+        }
+
+        for (let key in activeParams) {
+            material.uniforms[key] = { value: activeParams[key] };
+        }
+
+        mesh = new THREE.Mesh(geo, material);
+        scene.add(mesh);
+    }
+
+    function addNewInput() {
+        const type = document.getElementById('newType').value;
+        const name = document.getElementById('newName').value.trim();
+        const editor = document.getElementById('shaderCode');
+        if (!name) return;
+        let line = type === 'float' ? `float ${name} = 1.0;\n` : (type === 'float3' ? `float3 ${name} = float3(1.0, 1.0, 1.0);\n` : `Texture2D ${name};\n`);
+        editor.value = line + editor.value;
+        document.getElementById('newName').value = "";
+        processAndCompile();
+    }
+
+    function processAndCompile() {
+        const code = document.getElementById('shaderCode').value;
+        const lines = code.split('\n');
+        let glslBody = "", ueCode = "", uniformsDecl = "", foundInputs = [];
+
+        const reFloat = /^\s*float\s+(\w+)\s*=\s*([\d\.-]+)\s*;/;
+        const reColor = /^\s*float3\s+(\w+)\s*=\s*float3\s*\(([^)]+)\)\s*;/;
+        const reTex = /^\s*Texture2D\s+(\w+)\s*;/;
+
+        lines.forEach(line => {
+            let mF = line.match(reFloat), mC = line.match(reColor), mT = line.match(reTex);
+            if (mF) {
+                foundInputs.push({name: mF[1], type: 'float', val: parseFloat(mF[2])});
+                uniformsDecl += `uniform float ${mF[1]};\n`;
+            } else if (mC) {
+                const rgb = mC[2].split(',').map(v => parseFloat(v.trim()));
+                foundInputs.push({name: mC[1], type: 'float3', val: rgb});
+                uniformsDecl += `uniform vec3 ${mC[1]};\n`;
+            } else if (mT) {
+                foundInputs.push({name: mT[1], type: 'Texture2D'});
+                uniformsDecl += `uniform sampler2D ${mT[1]};\n`;
+            } else {
+                glslBody += line + "\n";
+                ueCode += line + "\n";
+            }
+        });
+
+        currentInputs = foundInputs;
+        lastCleanUECode = ueCode.trim();
+        updateUI(foundInputs);
+
+        let finalBody = glslBody.replace(/return\s+([^;]+);/g, "gl_FragColor = $1; return;");
+        if(mesh) {
+            mesh.material.fragmentShader = headerGLSL + uniformsDecl + "void main(){\n" + finalBody + "\n}";
+            foundInputs.forEach(p => {
+                if (!mesh.material.uniforms[p.name]) {
+                    if (p.type === 'float') mesh.material.uniforms[p.name] = {value: p.val};
+                    if (p.type === 'float3') mesh.material.uniforms[p.name] = {value: new THREE.Vector3(...p.val)};
+                    if (p.type === 'Texture2D') mesh.material.uniforms[p.name] = {value: new THREE.Texture()};
+                }
+            });
+            mesh.material.needsUpdate = true;
+        }
+        document.getElementById('status-bar').innerText = "Compiled: " + new Date().toLocaleTimeString();
+    }
+
+    function updateUI(params) {
+        const container = document.getElementById('paramsContainer');
+        container.innerHTML = "";
+        params.forEach(p => {
+            const row = document.createElement('div');
+            row.className = 'param-row';
+            let label = `<div class="param-info"><span class="param-type-tag">${p.type}</span><span class="param-label">${p.name}</span></div>`;
+            if (p.type === 'float') {
+                const val = activeParams[p.name] !== undefined ? activeParams[p.name] : p.val;
+                activeParams[p.name] = val;
+                row.innerHTML = `${label}<input type="range" min="0" max="10" step="0.01" value="${val}" id="rng_${p.name}"><input type="text" class="num-input" value="${val}" id="num_${p.name}">`;
+                const rng = row.querySelector(`#rng_${p.name}`), num = row.querySelector(`#num_${p.name}`);
+                const sync = (v) => { if(mesh) mesh.material.uniforms[p.name].value = v; activeParams[p.name] = v; rng.value = v; num.value = v; }
+                rng.oninput = (e) => sync(parseFloat(e.target.value));
+                num.onchange = (e) => sync(parseFloat(e.target.value));
+            } else if (p.type === 'float3') {
+                row.innerHTML = `${label}<input type="color">`;
+                row.querySelector('input').oninput = (e) => {
+                    const c = new THREE.Color(e.target.value);
+                    if(mesh) mesh.material.uniforms[p.name].value.set(c.r, c.g, c.b);
+                    activeParams[p.name] = new THREE.Vector3(c.r, c.g, c.b);
+                };
+            } else {
+                row.innerHTML = `${label}<input type="file" accept="image/*">`;
+                row.querySelector('input').onchange = (e) => {
+                    const tex = new THREE.TextureLoader().load(URL.createObjectURL(e.target.files[0]));
+                    if(mesh) mesh.material.uniforms[p.name].value = tex;
+                };
+            }
+            container.appendChild(row);
+        });
+    }
+
+    function copyUEInputs() {
+        const str = "(" + currentInputs.map(p => `(InputName="${p.name}")`).join(",") + ")";
+        navigator.clipboard.writeText(str).then(() => {
+            const bar = document.getElementById('status-bar');
+            bar.innerText = "Inputs copied!";
+            setTimeout(() => bar.innerText = "Ready", 2000);
+        });
+    }
+
+    function copyUECode() {
+        navigator.clipboard.writeText(lastCleanUECode).then(() => {
+            const bar = document.getElementById('status-bar');
+            bar.innerText = "Code copied!";
+            setTimeout(() => bar.innerText = "Ready", 2000);
+        });
+    }
+
+    function onResize() {
+        renderer.setSize(window.innerWidth - 500, window.innerHeight);
+        camera.aspect = (window.innerWidth - 500) / window.innerHeight;
+        camera.updateProjectionMatrix();
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        if (controls) controls.update();
+        if (mesh && mesh.material && mesh.material.uniforms.u_time) {
+            mesh.material.uniforms.u_time.value = (Date.now() - startTime)/1000;
+        }
+        renderer.render(scene, camera);
+    }
+
+    function changeMesh() {
+        const type = document.getElementById('shapeSelect').value;
+        createMesh(type);
+        processAndCompile();
+    }
+
+    init();
+    animate();
+</script>
+</body>
+</html>
