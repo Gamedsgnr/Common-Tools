@@ -27,10 +27,20 @@
         .detail-desc { color: #aaa; line-height: 1.5; margin-bottom: 10px; }
         
         .code-container { position: relative; flex: 1; overflow: hidden; background: #111; border-radius: 6px; border: 1px solid #333; }
-        textarea.code-view { 
-            width: 100%; height: 100%; background: #151515; color: #dcdcdc; border: none; 
-            padding: 15px; font-family: 'Consolas', monospace; resize: none; outline: none; font-size: 0.95em;
-        }
+textarea.code-view { 
+    width: 100%; 
+    height: 100%; 
+    background: #1e1e1e;       /* Темный фон редактора */
+    color: #d4d4d4;            /* Светло-серый текст */
+    border: none; 
+    padding: 20px; 
+    font-family: 'Consolas', 'Courier New', monospace; /* Моноширинный шрифт */
+    resize: none; 
+    outline: none; 
+    font-size: 14px;
+    line-height: 1.5;          /* Отступы между строк для читаемости */
+    white-space: pre;          /* Сохранять отступы кода */
+}
 
         .copy-btn {
             position: absolute; top: 10px; right: 10px;
@@ -114,4 +124,5 @@
         renderList();
     </script>
 </body>
+
 </html>
