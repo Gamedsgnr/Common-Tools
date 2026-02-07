@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curve & Gradient Baker Pro</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --accent-color: #007acc;
+            --accent-hover: #005f9e;
+            --border-color: #333;
+            --input-bg: #2d2d2d;
+            --grid-color: #333;
+            --curve-color: #007acc;
+            --handle-color: #ffcc00;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Layout */
+        .container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        .editor-area {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            border-right: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        .sidebar {
+            flex: 1;
+            background-color: var(--panel-bg);
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-width: 350px;
+        }
+
+        /* Canvas */
+        .canvas-container {
+            flex-grow: 1;
+            background-color: #181818;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+            cursor: crosshair;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .canvas-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            pointer-events: none;
+            color: #666;
+            font-size: 12px;
+        }
+
+        /* Controls */
+        h2, h3 { margin-top: 0; color: #fff; }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: var(--input-bg);
+            padding: 15px;
+            border-radius: 6px;
+        }
+
+        label {
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        input[type="number"], select, textarea {
+            background-color: #121212;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 8px;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 150px;
+            white-space: pre;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        button:hover { background-color: var(--accent-hover); }
+        button.secondary { background-color: #444; }
+        button.secondary:hover { background-color: #555; }
+
+        .row { display: flex; gap: 10px; }
+        .row > * { flex: 1; }
+
+        /* Gradient Preview */
+        .gradient-preview {
+            height: 40px;
+            width: 100%;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin-top: 5px;
+            background-image: 
+                linear-gradient(45deg, #222 25%, transparent 25%), 
+                linear-gradient(-45deg, #222 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #222 75%), 
+                linear-gradient(-45deg, transparent 75%, #222 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        #gradCanvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .instructions {
+            font-size: 12px;
+            color: #888;
+            margin-top: 10px;
+            line-height: 1.4;
+        }
+
+        /* Keyframe Info */
+        .key-info {
+            display: none; /* Hidden unless key selected */
+            border-left: 2px solid var(--accent-color);
+            padding-left: 10px;
+        }
+        .key-info.active { display: flex; flex-direction: column; gap: 5px; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="editor-area">
+        <div class="row" style="justify-content: space-between; align-items: center; margin-bottom: 10px; flex: 0;">
+            <h3>Curve Editor</h3>
+            <div style="font-size: 12px; color: #888;">
+                Double Click: Add Point | Right Click: Delete | Drag: Move
+            </div>
+        </div>
+        
+        <div class="canvas-container" id="canvasContainer">
+            <canvas id="curveCanvas"></canvas>
+            <div class="canvas-overlay">Value: 1.0</div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <label>Gradient Preview (LUT)</label>
+            <div class="gradient-preview">
+                <canvas id="gradCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        
+        <div class="control-group">
+            <h3>Export Settings</h3>
+            <div class="row">
+                <div>
+                    <label>Resolution (Samples)</label>
+                    <input type="number" id="resolution" value="64" min="2" max="2048">
+                </div>
+                <div>
+                    <label>Precision (Decimals)</label>
+                    <input type="number" id="precision" value="3" min="1" max="8">
+                </div>
+            </div>
+            <div class="row">
+                <div>
+                    <label>Output Range Min</label>
+                    <input type="number" id="rangeMin" value="0.0" step="0.1">
+                </div>
+                <div>
+                    <label>Output Range Max</label>
+                    <input type="number" id="rangeMax" value="1.0" step="0.1">
+                </div>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>Selected Keyframe</h3>
+            <div id="keyInfoMsg" style="color:#666; font-style:italic;">Select a point to edit properties</div>
+            <div id="keyInfoControls" class="key-info">
+                <div class="row">
+                    <div>
+                        <label>Time (X)</label>
+                        <input type="number" id="keyTime" step="0.01" min="0" max="1">
+                    </div>
+                    <div>
+                        <label>Value (Y)</label>
+                        <input type="number" id="keyValue" step="0.01" min="0" max="1">
+                    </div>
+                </div>
+                <label>Interpolation Mode</label>
+                <select id="keyInterp">
+                    <option value="smooth">Smooth (Cubic)</option>
+                    <option value="linear">Linear</option>
+                    <option value="step">Step (Constant)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>Generate Code</h3>
+            <label>Format</label>
+            <select id="exportFormat">
+                <option value="hlsl">HLSL / GLSL Array</option>
+                <option value="ue_cpp">Unreal C++ TArray</option>
+                <option value="python">Python List</option>
+                <option value="json">Raw JSON (Save)</option>
+                <option value="csv">CSV (Excel)</option>
+            </select>
+            
+            <div style="margin-top:10px;">
+                <button id="btnCopy">Copy to Clipboard</button>
+            </div>
+            
+            <label style="margin-top:10px;">Output Preview</label>
+            <textarea id="outputCode" readonly></textarea>
+        </div>
+
+        <div class="control-group">
+            <h3>Download Texture</h3>
+            <div class="row">
+                <button class="secondary" id="btnDownloadLUT">Download .PNG (LUT)</button>
+            </div>
+            <div class="instructions">
+                Generates a 1px height texture based on Resolution. Useful for "Lookup Textures" in VFX.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * Core Logic for Curve Editor
+ */
+
+const canvas = document.getElementById('curveCanvas');
+const ctx = canvas.getContext('2d');
+const gradCanvas = document.getElementById('gradCanvas');
+const gradCtx = gradCanvas.getContext('2d');
+
+// State
+let keys = [
+    { t: 0.0, v: 0.0, interp: 'smooth' },
+    { t: 0.5, v: 0.5, interp: 'smooth' },
+    { t: 1.0, v: 1.0, interp: 'smooth' }
+];
+let selectedKeyIndex = -1;
+let isDragging = false;
+let dragIndex = -1;
+
+// Inputs
+const uiRes = document.getElementById('resolution');
+const uiPrec = document.getElementById('precision');
+const uiMin = document.getElementById('rangeMin');
+const uiMax = document.getElementById('rangeMax');
+const uiOutput = document.getElementById('outputCode');
+const uiFormat = document.getElementById('exportFormat');
+
+// Key Inputs
+const uiKeyInfoMsg = document.getElementById('keyInfoMsg');
+const uiKeyInfoControls = document.getElementById('keyInfoControls');
+const uiKeyTime = document.getElementById('keyTime');
+const uiKeyValue = document.getElementById('keyValue');
+const uiKeyInterp = document.getElementById('keyInterp');
+
+// Resize Handling
+function resize() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+    gradCanvas.width = gradCanvas.parentElement.clientWidth;
+    gradCanvas.height = gradCanvas.parentElement.clientHeight;
+    draw();
+}
+window.addEventListener('resize', resize);
+setTimeout(resize, 100);
+
+// Coordinate Mapping
+function toScreen(t, v) {
+    const pad = 20;
+    const w = canvas.width - pad * 2;
+    const h = canvas.height - pad * 2;
+    // v is 0..1 (0 at bottom)
+    return {
+        x: pad + t * w,
+        y: pad + (1 - v) * h
+    };
+}
+
+function toLogic(x, y) {
+    const pad = 20;
+    const w = canvas.width - pad * 2;
+    const h = canvas.height - pad * 2;
+    let t = (x - pad) / w;
+    let v = 1 - (y - pad) / h;
+    return {
+        t: Math.max(0, Math.min(1, t)),
+        v: Math.max(0, Math.min(1, v))
+    };
+}
+
+// Math: Interpolation
+function getTangent(k_prev, k_curr, k_next) {
+    if (!k_prev || !k_next) return 0;
+    // Simple Catmull-Rom style tangent for smoothness
+    const dt = k_next.t - k_prev.t;
+    const dv = k_next.v - k_prev.v;
+    if (dt <= 0) return 0;
+    return dv / dt;
+}
+
+function sampleCurve(t) {
+    // Sort keys just in case
+    keys.sort((a, b) => a.t - b.t);
+
+    if (keys.length === 0) return 0;
+    if (t <= keys[0].t) return keys[0].v;
+    if (t >= keys[keys.length - 1].t) return keys[keys.length - 1].v;
+
+    // Find segment
+    let i = 0;
+    while (keys[i + 1].t < t) i++;
+    
+    const k0 = keys[i];
+    const k1 = keys[i + 1];
+
+    if (k0.interp === 'step') return k0.v;
+    
+    const segmentT = (t - k0.t) / (k1.t - k0.t);
+
+    if (k0.interp === 'linear') {
+        return k0.v + (k1.v - k0.v) * segmentT;
+    }
+
+    // Smooth (Cubic Hermite)
+    const k_prev = keys[i - 1] || k0; // boundary check
+    const k_next = keys[i + 2] || k1; // boundary check
+
+    // Calculate slopes (m0, m1)
+    // Using finite difference for tangents to ensure monotonicity or simple smoothness
+    // Let's use simple cardinal spline approach for "general smoothness"
+    // To strictly match UE4 curve editor without handles is hard, but Monotone Cubic is safest for Tools
+    
+    // Simplified Hermite for this demo:
+    // t2 = t*t, t3 = t*t*t
+    // h00 = 2t3 - 3t2 + 1
+    // h10 = t3 - 2t2 + t
+    // h01 = -2t3 + 3t2
+    // h11 = t3 - t2
+    
+    // Tangent Scaling needs to be relative to the interval width (dx)
+    const dx = k1.t - k0.t;
+    
+    // Tangents (approximate)
+    let m0 = (k1.v - k_prev.v) / (k1.t - k_prev.t + 0.0001); 
+    if (i === 0) m0 = (k1.v - k0.v) / dx; // Start
+    
+    let m1 = (k_next.v - k0.v) / (k_next.t - k0.t + 0.0001);
+    if (i === keys.length - 2) m1 = (k1.v - k0.v) / dx; // End
+
+    // Scale tangents by interval
+    m0 *= dx;
+    m1 *= dx;
+
+    const st = segmentT;
+    const st2 = st * st;
+    const st3 = st2 * st;
+
+    const h00 = 2*st3 - 3*st2 + 1;
+    const h10 = st3 - 2*st2 + st;
+    const h01 = -2*st3 + 3*st2;
+    const h11 = st3 - st2;
+
+    return h00 * k0.v + h10 * m0 + h01 * k1.v + h11 * m1;
+}
+
+// Draw Loop
+function draw() {
+    // Clear
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Grid
+    const pad = 20;
+    const w = canvas.width - pad * 2;
+    const h = canvas.height - pad * 2;
+    
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    // Horizontals
+    for(let i=0; i<=10; i++) {
+        let y = pad + (i/10)*h;
+        ctx.moveTo(pad, y);
+        ctx.lineTo(canvas.width-pad, y);
+    }
+    // Verticals
+    for(let i=0; i<=10; i++) {
+        let x = pad + (i/10)*w;
+        ctx.moveTo(x, pad);
+        ctx.lineTo(x, canvas.height-pad);
+    }
+    ctx.stroke();
+
+    // Draw Curve
+    ctx.strokeStyle = '#007acc';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    
+    const samples = w; // Draw 1 pixel per step for smoothness
+    let first = true;
+    for (let i = 0; i <= samples; i++) {
+        let t = i / samples;
+        let v = sampleCurve(t);
+        // Clamp v 0..1 for drawing within bounds
+        let coords = toScreen(t, Math.max(0, Math.min(1, v)));
+        if (first) { ctx.moveTo(coords.x, coords.y); first = false; }
+        else { ctx.lineTo(coords.x, coords.y); }
+    }
+    ctx.stroke();
+
+    // Draw Keys
+    keys.forEach((k, idx) => {
+        let coords = toScreen(k.t, k.v);
+        ctx.fillStyle = (idx === selectedKeyIndex) ? '#ffcc00' : '#fff';
+        ctx.beginPath();
+        ctx.arc(coords.x, coords.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        // Ring for selection
+        if (idx === selectedKeyIndex) {
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+    });
+
+    updateOutput();
+    drawGradient();
+}
+
+function drawGradient() {
+    const w = gradCanvas.width;
+    const h = gradCanvas.height;
+    gradCtx.clearRect(0, 0, w, h);
+    
+    // Draw using pixel manipulation for accuracy or create linear gradient based on samples
+    // Using sampleCurve per pixel column for accurate preview
+    const imgData = gradCtx.createImageData(w, h);
+    const data = imgData.data;
+
+    const minOut = parseFloat(uiMin.value);
+    const maxOut = parseFloat(uiMax.value);
+    const range = maxOut - minOut;
+
+    for (let x = 0; x < w; x++) {
+        let t = x / w;
+        let v01 = Math.max(0, Math.min(1, sampleCurve(t)));
+        
+        // This tool visualizes the 0-1 value as greyscale intensity
+        // If the user mapped 0-100, we still visualize normalized 0-1 for the "shape"
+        
+        let intensity = Math.floor(v01 * 255);
+        
+        for (let y = 0; y < h; y++) {
+            let idx = (y * w + x) * 4;
+            data[idx] = intensity;     // R
+            data[idx+1] = intensity; // G
+            data[idx+2] = intensity; // B
+            data[idx+3] = 255;       // A
+        }
+    }
+    gradCtx.putImageData(imgData, 0, 0);
+}
+
+function updateOutput() {
+    const res = parseInt(uiRes.value);
+    const prec = parseInt(uiPrec.value);
+    const format = uiFormat.value;
+    const minVal = parseFloat(uiMin.value);
+    const maxVal = parseFloat(uiMax.value);
+    const delta = maxVal - minVal;
+
+    let result = "";
+
+    if (format === 'json') {
+        result = JSON.stringify(keys, null, 2);
+    } else {
+        let values = [];
+        for (let i = 0; i < res; i++) {
+            // center sampling or edge sampling? usually edge for arrays (0 to 1 inclusive logic depends on usage)
+            // For texture LUTs, it's usually center of pixel: (i + 0.5) / res
+            // For vertex arrays, it's usually i / (res - 1)
+            
+            // Defaulting to 0..1 inclusive for arrays
+            let t = (res > 1) ? i / (res - 1) : 0;
+            let vNorm = sampleCurve(t);
+            // Remap
+            let vFinal = minVal + (vNorm * delta);
+            values.push(vFinal.toFixed(prec));
+        }
+
+        if (format === 'hlsl') {
+            result = `// Generated Curve (Range: ${minVal} to ${maxVal})\n`;
+            result += `static const int CurveSamples = ${res};\n`;
+            result += `static const float CurveData[${res}] = {\n    `;
+            result += values.join(", ");
+            result += "\n};";
+        } else if (format === 'ue_cpp') {
+            result = `TArray<float> CurveData = {\n    `;
+            result += values.join(", ");
+            result += "\n};";
+        } else if (format === 'python') {
+            result = `curve_data = [${values.join(", ")}]`;
+        } else if (format === 'csv') {
+             result = values.join("\n");
+        }
+    }
+
+    uiOutput.value = result;
+}
+
+// Interaction
+canvas.addEventListener('mousedown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Check hit
+    let hit = -1;
+    keys.forEach((k, i) => {
+        let coords = toScreen(k.t, k.v);
+        let dist = Math.hypot(coords.x - x, coords.y - y);
+        if (dist < 10) hit = i;
+    });
+
+    if (hit !== -1) {
+        selectedKeyIndex = hit;
+        dragIndex = hit;
+        isDragging = true;
+        updateUIFromSelection();
+    }
+    draw();
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    if (isDragging && dragIndex !== -1) {
+        const rect = canvas.getBoundingClientRect();
+        const logic = toLogic(e.clientX - rect.left, e.clientY - rect.top);
+        
+        // Constraints
+        keys[dragIndex].t = logic.t;
+        keys[dragIndex].v = logic.v;
+        
+        // Sort keys to maintain T order, but track the dragged one
+        // Actually sorting while dragging can be jumpy. 
+        // Better: sort only on release, or handle swap. 
+        // For simple tool: Just update values.
+        
+        updateUIFromSelection();
+        draw();
+    }
+});
+
+canvas.addEventListener('mouseup', () => {
+    if (isDragging) {
+        keys.sort((a, b) => a.t - b.t);
+        // Find new index of what we were dragging
+        // (Skipping for MVP complexity, selection might jump if keys crossed)
+    }
+    isDragging = false;
+    dragIndex = -1;
+    draw();
+});
+
+canvas.addEventListener('dblclick', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const logic = toLogic(e.clientX - rect.left, e.clientY - rect.top);
+    
+    // Add key
+    keys.push({ t: logic.t, v: logic.v, interp: 'smooth' });
+    keys.sort((a, b) => a.t - b.t);
+    selectedKeyIndex = keys.findIndex(k => k.t === logic.t && k.v === logic.v);
+    
+    updateUIFromSelection();
+    draw();
+});
+
+// Right click to delete
+canvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    let hit = -1;
+    keys.forEach((k, i) => {
+        let coords = toScreen(k.t, k.v);
+        let dist = Math.hypot(coords.x - x, coords.y - y);
+        if (dist < 10) hit = i;
+    });
+
+    if (hit !== -1 && keys.length > 1) {
+        keys.splice(hit, 1);
+        selectedKeyIndex = -1;
+        updateUIFromSelection();
+        draw();
+    }
+});
+
+// UI Updates
+function updateUIFromSelection() {
+    if (selectedKeyIndex !== -1 && keys[selectedKeyIndex]) {
+        const k = keys[selectedKeyIndex];
+        uiKeyInfoMsg.style.display = 'none';
+        uiKeyInfoControls.classList.add('active');
+        
+        uiKeyTime.value = k.t.toFixed(3);
+        uiKeyValue.value = k.v.toFixed(3);
+        uiKeyInterp.value = k.interp;
+    } else {
+        uiKeyInfoMsg.style.display = 'block';
+        uiKeyInfoControls.classList.remove('active');
+    }
+}
+
+// Event Listeners for Controls
+[uiRes, uiPrec, uiMin, uiMax, uiFormat].forEach(el => {
+    el.addEventListener('input', draw);
+    el.addEventListener('change', draw);
+});
+
+// Key Props Change
+function updateKeyFromUI() {
+    if (selectedKeyIndex === -1) return;
+    keys[selectedKeyIndex].t = parseFloat(uiKeyTime.value);
+    keys[selectedKeyIndex].v = parseFloat(uiKeyValue.value);
+    keys[selectedKeyIndex].interp = uiKeyInterp.value;
+    keys.sort((a, b) => a.t - b.t);
+    draw();
+}
+[uiKeyTime, uiKeyValue, uiKeyInterp].forEach(el => el.addEventListener('change', updateKeyFromUI));
+
+// Copy Button
+document.getElementById('btnCopy').addEventListener('click', () => {
+    uiOutput.select();
+    document.execCommand('copy');
+    const originalText = document.getElementById('btnCopy').innerText;
+    document.getElementById('btnCopy').innerText = "Copied!";
+    setTimeout(() => document.getElementById('btnCopy').innerText = originalText, 1500);
+});
+
+// Download Button
+document.getElementById('btnDownloadLUT').addEventListener('click', () => {
+    // Create a temporary canvas of the exact requested resolution
+    const res = parseInt(uiRes.value);
+    const tempC = document.createElement('canvas');
+    tempC.width = res;
+    tempC.height = 1;
+    const tc = tempC.getContext('2d');
+    
+    const imgData = tc.createImageData(res, 1);
+    const d = imgData.data;
+    
+    for (let i = 0; i < res; i++) {
+        // Use center sampling for LUTs
+        let t = (i + 0.5) / res;
+        let v = Math.max(0, Math.min(1, sampleCurve(t)));
+        let val = Math.floor(v * 255);
+        
+        d[i*4] = val;
+        d[i*4+1] = val;
+        d[i*4+2] = val;
+        d[i*4+3] = 255;
+    }
+    tc.putImageData(imgData, 0, 0);
+    
+    const link = document.createElement('a');
+    link.download = 'curve_lut.png';
+    link.href = tempC.toDataURL();
+    link.click();
+});
+
+// Initial Draw
+draw();
+
+</script>
+</body>
+</html>

@@ -63,19 +63,35 @@
         <button class="btn-preset" onclick="loadPreset('step(0.5, frac(x * freq))')">🟦 Square Pulse</button>
         <button class="btn-preset" onclick="loadPreset('abs(frac(x * freq) * 2.0 - 1.0)')">🔺 Triangle</button>
         <button class="btn-preset" onclick="loadPreset('smoothstep(0.0, 1.0, sin(x + Time) * 0.5 + 0.5)')">🌊 Soft Glow</button>
-        <button class="btn-preset" onclick="loadPreset('pow(abs(sin(x)), exp)')">🔋 Sharp Pulse</button>
+        <button class="btn-preset" onclick="loadPreset('exp(-pow(x * freq, 2.0))')">🔋 Gaussian (Exp)</button>
     </div>
 
     <div class="section-header">Quick HLSL functions</div>
     <div class="quick-fill">
+        <button class="btn-func" onclick="insert('sin(')">sin</button>
+        <button class="btn-func" onclick="insert('cos(')">cos</button>
+        <button class="btn-func" onclick="insert('tan(')">tan</button>
         <button class="btn-func" onclick="insert('abs(')">abs</button>
+        
         <button class="btn-func" onclick="insert('frac(')">frac</button>
-        <button class="btn-func" onclick="insert('step(0.5, ')">step</button>
+        <button class="btn-func" onclick="insert('floor(')">floor</button>
+        <button class="btn-func" onclick="insert('ceil(')">ceil</button>
+        <button class="btn-func" onclick="insert('sign(')">sign</button>
+        
+        <button class="btn-func" onclick="insert('min(')">min</button>
+        <button class="btn-func" onclick="insert('max(')">max</button>
         <button class="btn-func" onclick="insert('saturate(')">saturate</button>
-        <button class="btn-func" onclick="insert('smoothstep(0., 1., ')">s-step</button>
-        <button class="btn-func" onclick="insert('lerp(a, b, t)')">lerp</button>
         <button class="btn-func" onclick="insert('clamp(x, 0., 1.)')">clamp</button>
+        
+        <button class="btn-func" onclick="insert('lerp(a, b, t)')">lerp</button>
+        <button class="btn-func" onclick="insert('step(0.5, ')">step</button>
+        <button class="btn-func" onclick="insert('smoothstep(0., 1., ')">s-step</button>
         <button class="btn-func" onclick="insert('pow(x, 2.)')">pow</button>
+        
+        <button class="btn-func" onclick="insert('sqrt(')">sqrt</button>
+        <button class="btn-func" onclick="insert('exp(')">exp</button>
+        <button class="btn-func" onclick="insert('log(')">log</button>
+        <button class="btn-func" onclick="insert('length(')">length</button>
     </div>
 
     <div class="section-header">Formula (y =)</div>
@@ -159,11 +175,18 @@
     function compileFormula() {
         const rawCode = formulaInput.value;
         const words = rawCode.match(/[a-zA-Z_]\w*/g) || [];
-        const reserved = ['sin','cos','abs','step','smoothstep','frac','lerp','clamp','saturate','x','PI','pow','exp','log','sqrt','tan','max','min','Time','floor','ceil'];
+        // UPDATED: Added exp, log, sqrt, tan, sign, min, max to reserved list
+        const reserved = ['sin','cos','abs','step','smoothstep','frac','lerp','clamp','saturate','x','PI','pow','exp','log','sqrt','tan','max','min','Time','floor','ceil','sign'];
         currentParamNames = [...new Set(words.filter(w => !reserved.includes(w)))];
 
         try {
-            const argNames = ['x', 'Time', ...currentParamNames, 'sin', 'cos', 'abs', 'frac', 'step', 'smoothstep', 'lerp', 'clamp', 'saturate', 'pow', 'PI', 'floor', 'ceil'];
+            // UPDATED: Added matching JS Math functions to arguments list
+            const argNames = [
+                'x', 'Time', ...currentParamNames, 
+                'sin', 'cos', 'abs', 'frac', 'step', 'smoothstep', 
+                'lerp', 'clamp', 'saturate', 'pow', 'PI', 'floor', 'ceil',
+                'exp', 'log', 'sqrt', 'tan', 'sign', 'min', 'max'
+            ];
             compiledFunc = new Function(...argNames, `return ${rawCode};`);
             
             errorDisplay.style.display = 'none';
@@ -213,11 +236,25 @@
         updateOutputs(formulaInput.value); 
     };
 
+    // UPDATED: Auto-close parentheses logic
     window.insert = (text) => {
         const start = formulaInput.selectionStart;
         const end = formulaInput.selectionEnd;
-        formulaInput.value = formulaInput.value.substring(0, start) + text + formulaInput.value.substring(end);
+        let textToInsert = text;
+        let moveCursorBack = 0;
+
+        // If inserting something like "sin(" without closing paren, add it
+        if (text.endsWith('(') && !text.includes(')')) {
+            textToInsert += ')';
+            moveCursorBack = 1; // We will move cursor between ( and )
+        }
+
+        formulaInput.value = formulaInput.value.substring(0, start) + textToInsert + formulaInput.value.substring(end);
         compileFormula();
+        
+        // Calculate new cursor position
+        const newPos = start + textToInsert.length - moveCursorBack;
+        formulaInput.setSelectionRange(newPos, newPos);
         formulaInput.focus();
     };
 
@@ -336,7 +373,12 @@
 
         // 2. ГРАФИК И ГРАДИЕНТ
         const pValues = currentParamNames.map(n => params[n]);
-        const mathArgs = [Math.sin, Math.cos, Math.abs, frac, step, smoothstep, lerp, clamp, saturate, Math.pow, Math.PI, Math.floor, Math.ceil];
+        // UPDATED: Added Math functions to execution arguments. Order must match argNames!
+        const mathArgs = [
+            Math.sin, Math.cos, Math.abs, frac, step, smoothstep, 
+            lerp, clamp, saturate, Math.pow, Math.PI, Math.floor, Math.ceil,
+            Math.exp, Math.log, Math.sqrt, Math.tan, Math.sign, Math.min, Math.max
+        ];
 
         ctx.strokeStyle = '#4ec9b0';
         ctx.lineWidth = 2.5;
