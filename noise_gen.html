@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Texture Lab v2.0 - CommonToolHub</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --input-bg: #2c2c2c;
+            --text-main: #e0e0e0;
+            --text-muted: #a0a0a0;
+            --accent: #00bcd4; /* Cyan accent for Sci-Fi feel */
+            --border: #333;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- SCROLLBARS --- */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 380px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--border);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        h2 { margin: 0 0 5px 0; font-size: 1.4rem; color: var(--accent); letter-spacing: 1px; }
+        .subtitle { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px; }
+
+        h3 { 
+            margin: 10px 0 10px 0; 
+            font-size: 0.85rem; 
+            text-transform: uppercase; 
+            color: var(--text-muted); 
+            border-bottom: 1px solid var(--border); 
+            padding-bottom: 5px; 
+            letter-spacing: 0.5px;
+        }
+
+        .control-group { display: flex; flex-direction: column; gap: 15px; }
+        .control-row { display: flex; flex-direction: column; gap: 6px; }
+
+        .label-row { display: flex; justify-content: space-between; font-size: 0.85rem; align-items: center; }
+        
+        .input-row { display: flex; gap: 10px; align-items: center; }
+
+        input[type="range"] { flex-grow: 1; cursor: pointer; accent-color: var(--accent); height: 4px; border-radius: 2px;}
+        
+        input[type="number"] {
+            width: 65px;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 5px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        
+        input[type="number"]:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+
+        select {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        select:focus { outline: 1px solid var(--accent); }
+
+        /* --- MAIN AREA --- */
+        .main-area {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            /* Checkerboard BG for transparency feel */
+            background-image: 
+                linear-gradient(45deg, #151515 25%, transparent 25%), 
+                linear-gradient(-45deg, #151515 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #151515 75%), 
+                linear-gradient(-45deg, transparent 75%, #151515 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        .canvas-wrapper {
+            box-shadow: 0 0 30px rgba(0,0,0,0.7);
+            border: 1px solid #333;
+            background: black;
+            padding: 0;
+            display: flex;
+        }
+
+        canvas { image-rendering: pixelated; max-width: 100%; height: auto; display: block; }
+
+        .toolbar {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+            background: var(--panel-bg);
+            padding: 10px 20px;
+            border-radius: 50px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 0.95rem;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary { background-color: var(--accent); color: #000; }
+        .btn-primary:hover { background-color: #00e5ff; transform: translateY(-2px); }
+        
+        .btn-sec { background-color: #333; color: white; }
+        .btn-sec:hover { background-color: #444; transform: translateY(-2px); }
+
+        /* Checkbox Row */
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 0.9rem;
+            padding: 5px;
+            background: #252525;
+            border-radius: 4px;
+        }
+        .checkbox-row:hover { background: #303030; }
+        .checkbox-row input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div>
+            <h2>Texture Generator</h2>
+            <div class="subtitle">Procedural Texture Generation</div>
+        </div>
+
+        <div class="control-group">
+            <h3>Base Generator</h3>
+            <select id="selType">
+                <optgroup label="Organic Noise">
+                    <option value="perlin">Perlin Noise (FBM)</option>
+                    <option value="ridged">Ridged Noise (Electric)</option>
+                    <option value="wood">Wood / Marble</option>
+                    <option value="voronoi">Voronoi (Cellular)</option>
+                    <option value="worley">Worley (Spots/Bubbles)</option>
+                    <option value="curl">Curl Noise (Fluid)</option>
+                    <option value="stratified">Stratified (Stars/Dust)</option>
+                    <option value="white">White Noise</option>
+                </optgroup>
+                <optgroup label="Patterns & Tiles">
+                    <option value="checker">Checkerboard</option>
+                    <option value="grid">Grid Lines</option>
+                    <option value="bricks">Bricks</option>
+                    <option value="hex">Hex Grid</option>
+                    <option value="zigzag">ZigZag / Sawtooth</option>
+                </optgroup>
+                <optgroup label="Gradients">
+                    <option value="linear">Linear Gradient</option>
+                    <option value="radial">Radial Gradient</option>
+                    <option value="conical">Conical (Angle) Gradient</option>
+                </optgroup>
+            </select>
+            
+            <div class="control-row">
+                <div class="label-row"><span>Resolution</span></div>
+                <select id="selRes">
+                    <option value="256">256 x 256</option>
+                    <option value="512" selected>512 x 512</option>
+                    <option value="1024">1024 x 1024</option>
+                    <option value="2048">2048 x 2048</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="dynamicControls" class="control-group">
+            </div>
+
+        <div class="control-group">
+            <h3>Post Process</h3>
+            
+            <div class="control-row">
+                <div class="label-row"><span>Brightness</span></div>
+                <div class="input-row">
+                    <input type="range" id="slBright" min="-1" max="1" step="0.05" value="0">
+                    <input type="number" id="numBright" value="0" step="0.1">
+                </div>
+            </div>
+
+            <div class="control-row">
+                <div class="label-row"><span>Contrast</span></div>
+                <div class="input-row">
+                    <input type="range" id="slContrast" min="0" max="3" step="0.1" value="1">
+                    <input type="number" id="numContrast" value="1" step="0.1">
+                </div>
+            </div>
+
+            <div class="checkbox-group">
+                <label class="checkbox-row">
+                    <input type="checkbox" id="chkInvert">
+                    <span>Invert Color</span>
+                </label>
+                <label class="checkbox-row">
+                    <input type="checkbox" id="chkNormal">
+                    <span>Normal Map</span>
+                </label>
+            </div>
+
+            <div id="normalSettings" class="control-row" style="display:none;">
+                <div class="label-row"><span>Normal Strength</span></div>
+                <div class="input-row">
+                    <input type="range" id="slNormalStr" min="0.1" max="10" step="0.1" value="3">
+                    <input type="number" id="numNormalStr" value="3" step="0.1">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-area">
+        <div class="canvas-wrapper">
+            <canvas id="previewCanvas" width="512" height="512"></canvas>
+        </div>
+        
+        <div class="toolbar">
+            <button class="btn-sec" id="btnGen">
+                <span>↻</span> Regenerate Seed
+            </button>
+            <button class="btn-primary" id="btnDownload">
+                <span>⬇</span> Download PNG
+            </button>
+        </div>
+    </div>
+
+<script>
+    // --- ENGINE CORE ---
+
+    const canvas = document.getElementById('previewCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let state = {
+        type: 'perlin',
+        res: 512,
+        seed: 12345,
+        params: {},
+        post: {
+            invert: false,
+            brightness: 0,
+            contrast: 1,
+            normal: false,
+            normalStrength: 3.0
+        }
+    };
+
+    // --- MATH HELPERS ---
+    class RNG {
+        constructor(seed) { this.seed = seed; }
+        next() {
+            var t = this.seed += 0x6D2B79F5;
+            t = Math.imul(t ^ t >>> 15, t | 1);
+            t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        }
+    }
+    
+    const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+    const lerp = (a, b, t) => a + t * (b - a);
+    const smoothstep = (min, max, value) => {
+        var x = Math.max(0, Math.min(1, (value-min)/(max-min)));
+        return x*x*(3 - 2*x);
+    };
+
+    // --- ALGORITHMS LIB ---
+    // (Reusable noise functions)
+    
+    // Improved Perlin Implementation
+    const PerlinCore = {
+        perm: new Uint8Array(512),
+        init: function(rng) {
+            const p = new Uint8Array(256);
+            for(let i=0; i<256; i++) p[i] = i;
+            for(let i=255; i>0; i--) {
+                const j = Math.floor(rng.next() * (i+1));
+                [p[i], p[j]] = [p[j], p[i]];
+            }
+            for(let i=0; i<512; i++) this.perm[i] = p[i & 255];
+        },
+        grad: function(hash, x, y) {
+            const h = hash & 15;
+            const u = h < 8 ? x : y;
+            const v = h < 4 ? y : (h === 12 || h === 14 ? x : 0);
+            return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+        },
+        fade: function(t) { return t * t * t * (t * (t * 6 - 15) + 10); },
+        noise: function(x, y) {
+            const X = Math.floor(x) & 255;
+            const Y = Math.floor(y) & 255;
+            x -= Math.floor(x);
+            y -= Math.floor(y);
+            const u = this.fade(x);
+            const v = this.fade(y);
+            const A = this.perm[X] + Y, B = this.perm[X+1] + Y;
+            return lerp(
+                lerp(this.grad(this.perm[A], x, y), this.grad(this.perm[B], x-1, y), u),
+                lerp(this.grad(this.perm[A+1], x, y-1), this.grad(this.perm[B+1], x-1, y-1), u),
+                v
+            );
+        }
+    };
+
+    const Algorithms = {
+        // --- ORGANIC ---
+        perlin: {
+            name: "Perlin Noise",
+            params: [
+                { id: 'scale', name: 'Scale', min: 1, max: 50, val: 5 },
+                { id: 'octaves', name: 'Octaves', min: 1, max: 8, val: 4, step: 1 },
+                { id: 'persist', name: 'Persistence', min: 0.1, max: 1, val: 0.5 },
+                { id: 'lacunar', name: 'Lacunarity', min: 1, max: 4, val: 2 }
+            ],
+            generate: (w, h, p, rng) => {
+                PerlinCore.init(rng);
+                const buf = new Float32Array(w*h);
+                for(let y=0; y<h; y++) {
+                    for(let x=0; x<w; x++) {
+                        let amp=1, freq=p.scale/w, val=0, max=0;
+                        for(let o=0; o<p.octaves; o++) {
+                            val += PerlinCore.noise(x*freq, y*freq) * amp;
+                            max += amp;
+                            amp *= p.persist; freq *= p.lacunar;
+                        }
+                        buf[y*w+x] = (val/max) * 0.5 + 0.5;
+                    }
+                }
+                return buf;
+            }
+        },
+        ridged: {
+            name: "Ridged Noise",
+            params: [
+                { id: 'scale', name: 'Scale', min: 1, max: 50, val: 5 },
+                { id: 'octaves', name: 'Octaves', min: 1, max: 8, val: 4, step: 1 },
+                { id: 'sharp', name: 'Sharpness', min: 0.1, max: 2, val: 1 }
+            ],
+            generate: (w, h, p, rng) => {
+                PerlinCore.init(rng);
+                const buf = new Float32Array(w*h);
+                for(let y=0; y<h; y++) {
+                    for(let x=0; x<w; x++) {
+                        let amp=1, freq=p.scale/w, val=0, max=0;
+                        for(let o=0; o<p.octaves; o++) {
+                            // Ridged formula: 1 - abs(noise)
+                            let n = PerlinCore.noise(x*freq, y*freq);
+                            n = 1.0 - Math.abs(n); 
+                            n = Math.pow(n, p.sharp);
+                            val += n * amp;
+                            max += amp;
+                            amp *= 0.5; freq *= 2.0;
+                        }
+                        buf[y*w+x] = val/max;
+                    }
+                }
+                return buf;
+            }
+        },
+        wood: {
+            name: "Wood / Marble",
+            params: [
+                { id: 'scale', name: 'Noise Scale', min: 1, max: 50, val: 10 },
+                { id: 'rings', name: 'Rings Amount', min: 1, max: 100, val: 20 },
+                { id: 'turb', name: 'Turbulence', min: 0, max: 2, val: 0.5 }
+            ],
+            generate: (w, h, p, rng) => {
+                PerlinCore.init(rng);
+                const buf = new Float32Array(w*h);
+                for(let y=0; y<h; y++) {
+                    for(let x=0; x<w; x++) {
+                        // Standard marble formula: sin(x + noise(p)*turb)
+                        let nx = x/w, ny = y/h;
+                        let n = PerlinCore.noise(x * (p.scale/w), y * (p.scale/w));
+                        
+                        let val = Math.sin((nx + ny + n * p.turb) * p.rings);
+                        buf[y*w+x] = val * 0.5 + 0.5;
+                    }
+                }
+                return buf;
+            }
+        },
+        voronoi: {
+            name: "Voronoi",
+            params: [
+                { id: 'scale', name: 'Cell Scale', min: 2, max: 50, val: 10 },
+                { id: 'rand', name: 'Randomness', min: 0, max: 1, val: 1 }
+            ],
+            generate: (w, h, p, rng) => {
+                const buf = new Float32Array(w*h);
+                const cols = Math.floor(p.scale);
+                // Points generation (simple grid + jitter)
+                const pts = [];
+                for(let y=0; y<cols; y++) for(let x=0; x<cols; x++) {
+                    pts.push({ cx:x, cy:y, ox:rng.next()*p.rand, oy:rng.next()*p.rand });
+                }
+                
+                for(let y=0; y<h; y++) {
+                    for(let x=0; x<w; x++) {
+                        let nx = (x/w)*cols, ny = (y/h)*cols;
+                        let cx = Math.floor(nx), cy = Math.floor(ny);
+                        let minDist = 10;
+                        
+                        // Check neighbors 3x3
+                        for(let j=-1; j<=1; j++) {
+                            for(let i=-1; i<=1; i++) {
+                                let nc = (cx+i+cols)%cols;
+                                let nr = (cy+j+cols)%cols;
+                                let pt = pts[nr*cols + nc];
+                                
+                                // Distance with tile wrapping support
+                                let px = (nc < cx && i===1) ? nc+cols : (nc > cx && i===-1) ? nc-cols : nc;
+                                let py = (nr < cy && j===1) ? nr+cols : (nr > cy && j===-1) ? nr-cols : nr;
+                                
+                                let dx = (px + pt.ox) - nx;
+                                let dy = (py + pt.oy) - ny;
+                                let d = Math.sqrt(dx*dx + dy*dy);
+                                if(d<minDist) minDist=d;
+                            }
+                        }
+                        buf[y*w+x] = clamp(minDist, 0, 1);
+                    }
+                }
+                return buf;
+            }
+        },
+        
+        // --- PATTERNS ---
+        checker: {
+            name: "Checkerboard",
+            params: [ { id: 'tiles', name: 'Tiles Count', min: 2, max: 64, val: 8, step: 2 } ],
+            generate: (w, h, p, rng) => {
+                const buf = new Float32Array(w*h);
+                for(let y=0; y<h; y++) {
+                    for(let x=0; x<w; x++) {
+                        let cx = Math.floor(x / w * p.tiles);
+                        let cy = Math.floor(y / h * p.tiles);
+                        buf[y*w+x] = (cx+cy)%2 === 0 ? 0 : 1;
+                    }
+                }
+                return buf;
+            }
+        },
+        grid: {
+            name: "Grid Lines",
+            params: [ 
+                { id: 'tiles', name: 'Grid Size', min: 2, max: 64, val: 10 },
+                { id: 'thick', name: 'Thickness', min: 0.01, max: 0.5, val: 0.05 }
+            ],
+            generate: (w, h, p, rng) => {
+                const buf = new Float32Array(w*h);
+                for(let y=0; y<h; y++) {
+                    for(let x=0; x<w; x++) {
+                        let u = (x/w * p.tiles) % 1;
+                        let v = (y/h * p.tiles) % 1;
+                        // Center lines logic
+                        let val = 0;
+                        if(u < p.thick || v < p.thick) val = 1;
+                        buf[y*w+x] = val;
+                    }
+                }
+                return buf;
+            }
+        },
+        hex: {
+            name: "Hex Grid",
+            params: [
+                 { id: 'scale', name: 'Scale', min: 2, max: 50, val: 10 },
+                 { id: 'thick', name: 'Border', min: 0, max: 0.5, val: 0.05 }
+            ],
+            generate: (w, h, p, rng) => {
+                const buf = new Float32Array(w*h);
+                // Simplified Hex approximation via offset rows
+                for(let y=0; y<h; y++) {
+                    for(let x=0; x<w; x++) {
+                        let u = (x/w)*p.scale * 1.732;
+                        let v = (y/h)*p.scale;
+                        
+                        // Offset every odd row
+                        if(Math.floor(v)%2 !== 0) u += 0.5;
+                        
+                        let du = Math.abs((u%1) - 0.5);
+                        let dv = Math.abs((v%1) - 0.5);
+                        
+                        // Hex SDF-ish
+                        let dist = Math.max(du + dv*0.5, dv); 
+                        
+                        buf[y*w+x] = smoothstep(0.5 - p.thick - 0.01, 0.5 - p.thick, dist);
+                    }
+                }
+                return buf;
+            }
+        },
+        zigzag: {
+            name: "ZigZag / Sawtooth",
+            params: [
+                { id: 'freq', name: 'Frequency', min: 1, max: 50, val: 10 },
+                { id: 'amp', name: 'Amplitude', min: 0, max: 1, val: 0.2 }
+            ],
+            generate: (w, h, p, rng) => {
+                const buf = new Float32Array(w*h);
+                for(let y=0; y<h; y++) {
+                    for(let x=0; x<w; x++) {
+                        let u = x/w;
+                        let v = y/h;
+                        // Triangle wave
+                        let wave = Math.abs( ((u * p.freq) % 1) - 0.5 ) * 2.0; 
+                        // Compare to Y
+                        let val = Math.abs(v - wave * p.amp - 0.5);
+                        // Make it a gradient or line? Let's return gradient field
+                        buf[y*w+x] = wave; 
+                    }
+                }
+                return buf;
+            }
+        },
+        bricks: {
+            name: "Bricks",
+            params: [
+                { id: 'rows', name: 'Rows', min: 2, max: 64, val: 10 },
+                { id: 'ratio', name: 'Brick Ratio', min: 1, max: 4, val: 2 },
+                { id: 'mortar', name: 'Mortar', min: 0, max: 0.1, val: 0.02 }
+            ],
+            generate: (w, h, p, rng) => {
+                const buf = new Float32Array(w*h);
+                for(let y=0; y<h; y++) {
+                    for(let x=0; x<w; x++) {
+                        let ry = y/h * p.rows;
+                        let rowI = Math.floor(ry);
+                        let off = (rowI%2)*0.5;
+                        let rx = (x/w * p.rows * p.ratio) + off;
+                        
+                        let bx = rx%1; 
+                        let by = ry%1;
+                        
+                        let val = 1;
+                        if(bx < p.mortar || by < p.mortar) val = 0;
+                        
+                        // Random brick brightness
+                        let bid = Math.floor(rx) + rowI*123;
+                        let noise = (Math.sin(bid*12.9898)*43758.5453)%1; // pseudo random
+                        
+                        buf[y*w+x] = val * (0.5 + 0.5*Math.abs(noise));
+                    }
+                }
+                return buf;
+            }
+        },
+        
+        // --- GRADIENTS ---
+        linear: {
+            name: "Linear Gradient",
+            params: [ 
+                { id: 'angle', name: 'Angle (Deg)', min: 0, max: 360, val: 0 },
+                { id: 'scale', name: 'Tiling', min: 1, max: 10, val: 1 }
+            ],
+            generate: (w, h, p, rng) => {
+                const buf = new Float32Array(w*h);
+                const rad = p.angle * Math.PI / 180;
+                const cos = Math.cos(rad), sin = Math.sin(rad);
+                for(let y=0; y<h; y++) {
+                    for(let x=0; x<w; x++) {
+                        let u = (x/w - 0.5);
+                        let v = (y/h - 0.5);
+                        let d = u*cos + v*sin; // Rotate
+                        d = (d + 0.5) * p.scale; // Scale
+                        buf[y*w+x] = d % 1;
+                    }
+                }
+                return buf;
+            }
+        },
+        radial: {
+            name: "Radial Gradient",
+            params: [ { id: 'pow', name: 'Falloff Power', min: 0.1, max: 5, val: 1 } ],
+            generate: (w, h, p, rng) => {
+                const buf = new Float32Array(w*h);
+                for(let y=0; y<h; y++) {
+                    for(let x=0; x<w; x++) {
+                        let dx = (x/w)-0.5, dy = (y/h)-0.5;
+                        let d = Math.sqrt(dx*dx + dy*dy) * 2.0;
+                        buf[y*w+x] = Math.pow(1.0 - clamp(d,0,1), p.pow);
+                    }
+                }
+                return buf;
+            }
+        },
+        conical: {
+            name: "Conical Gradient",
+            params: [ { id: 'angle', name: 'Offset', min: 0, max: 360, val: 0 } ],
+            generate: (w, h, p, rng) => {
+                const buf = new Float32Array(w*h);
+                const off = p.angle * Math.PI/180;
+                for(let y=0; y<h; y++) {
+                    for(let x=0; x<w; x++) {
+                        let dx = x - w/2;
+                        let dy = y - h/2;
+                        let a = Math.atan2(dy, dx) + off;
+                        let n = (a + Math.PI) / (2*Math.PI); // 0..1
+                        buf[y*w+x] = n % 1;
+                    }
+                }
+                return buf;
+            }
+        },
+        
+        // --- OTHERS ---
+        worley: {
+            name: "Worley (Spots)",
+            params: [{ id: 'scale', name: 'Scale', min: 2, max: 50, val: 10 }],
+            generate: (w, h, p, rng) => {
+                let vor = Algorithms.voronoi.generate(w,h,{...p, rand:1}, rng);
+                for(let i=0; i<vor.length; i++) vor[i] = 1.0 - vor[i];
+                return vor;
+            }
+        },
+        stratified: {
+            name: "Stratified (Stars)",
+            params: [{ id: 'dens', name: 'Density', min: 10, max: 200, val: 50 }],
+            generate: (w, h, p, rng) => {
+                const buf = new Float32Array(w*h);
+                const step = w/p.dens;
+                for(let y=0; y<p.dens; y++) for(let x=0; x<p.dens; x++) {
+                    let px = Math.floor(x*step + rng.next()*step);
+                    let py = Math.floor(y*step + rng.next()*step);
+                    if(px<w && py<h) buf[py*w+px] = rng.next();
+                }
+                return buf;
+            }
+        },
+        white: {
+            name: "White Noise",
+            params: [],
+            generate: (w, h, p, rng) => {
+                const buf = new Float32Array(w*h);
+                for(let i=0; i<buf.length; i++) buf[i] = rng.next();
+                return buf;
+            }
+        },
+        curl: {
+            name: "Curl Noise",
+            params: [{ id: 'scale', name: 'Scale', min: 2, max: 50, val: 10 }],
+            generate: (w, h, p, rng) => {
+                // Reuse perlin to calc curl approximation (domain warp vis)
+                PerlinCore.init(rng);
+                const buf = new Float32Array(w*h);
+                for(let y=0; y<h; y++) {
+                    for(let x=0; x<w; x++) {
+                        let nx = x/w*p.scale, ny=y/h*p.scale;
+                        // Simple domain warping
+                        let q = PerlinCore.noise(nx, ny);
+                        let r = PerlinCore.noise(nx + q, ny + q);
+                        buf[y*w+x] = r * 0.5 + 0.5;
+                    }
+                }
+                return buf;
+            }
+        }
+    };
+
+    // --- RENDERER ---
+
+    function render() {
+        const w = state.res;
+        const h = state.res;
+        canvas.width = w; canvas.height = h;
+        
+        const rng = new RNG(state.seed);
+        const algo = Algorithms[state.type];
+        
+        // 1. Generate Raw Map (Float 0..1)
+        const map = algo.generate(w, h, state.params, rng);
+        
+        const imgData = ctx.createImageData(w, h);
+        const d = imgData.data;
+
+        // 2. Post Process & Display
+        if(state.post.normal) {
+            // NORMAL MAP GEN
+            const str = state.post.normalStrength;
+            for(let y=0; y<h; y++) {
+                for(let x=0; x<w; x++) {
+                    // Sample neighbors
+                    const xL = (x-1+w)%w, xR = (x+1)%w;
+                    const yU = (y-1+h)%h, yD = (y+1)%h;
+                    
+                    let hL = map[y*w+xL], hR = map[y*w+xR];
+                    let hU = map[yU*w+x], hD = map[yD*w+x];
+                    
+                    // Sobel filter basically
+                    let dx = (hL - hR) * str;
+                    let dy = (hU - hD) * str;
+                    let dz = 1.0;
+                    
+                    let len = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                    let nx = dx/len, ny = dy/len, nz = dz/len;
+                    
+                    let idx = (y*w+x)*4;
+                    d[idx]   = (nx*0.5+0.5)*255;
+                    d[idx+1] = (ny*0.5+0.5)*255;
+                    d[idx+2] = (nz*0.5+0.5)*255;
+                    d[idx+3] = 255;
+                }
+            }
+        } else {
+            // GRAYSCALE + Post FX
+            for(let i=0; i<map.length; i++) {
+                let v = map[i];
+                
+                // Invert
+                if(state.post.invert) v = 1.0 - v;
+                
+                // Contrast
+                v = (v - 0.5) * state.post.contrast + 0.5;
+                
+                // Brightness
+                v += state.post.brightness;
+                
+                v = clamp(v, 0, 1) * 255;
+                
+                d[i*4] = v;
+                d[i*4+1] = v;
+                d[i*4+2] = v;
+                d[i*4+3] = 255;
+            }
+        }
+        
+        ctx.putImageData(imgData, 0, 0);
+    }
+
+    // --- UI LOGIC ---
+
+    const uiContainer = document.getElementById('dynamicControls');
+    let debounceTimer;
+    
+    function update() {
+        if(debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(render, 15);
+    }
+
+    function buildUI() {
+        uiContainer.innerHTML = '';
+        const algo = Algorithms[state.type];
+        
+        // Ensure defaults
+        algo.params.forEach(p => {
+            if(state.params[p.id] === undefined) state.params[p.id] = p.val;
+        });
+
+        // Create Controls
+        algo.params.forEach(p => {
+            const row = document.createElement('div');
+            row.className = 'control-row';
+            
+            row.innerHTML = `
+                <div class="label-row"><span>${p.name}</span></div>
+                <div class="input-row">
+                    <input type="range" class="dyn-slider" data-id="${p.id}" min="${p.min}" max="${p.max}" step="${p.step||(p.max-p.min)/100}" value="${state.params[p.id]}">
+                    <input type="number" class="dyn-num" data-id="${p.id}" step="${p.step||0.01}" value="${state.params[p.id]}">
+                </div>
+            `;
+            uiContainer.appendChild(row);
+        });
+
+        // Bind events
+        uiContainer.querySelectorAll('.dyn-slider').forEach(el => {
+            el.oninput = (e) => {
+                const val = parseFloat(e.target.value);
+                state.params[e.target.dataset.id] = val;
+                e.target.nextElementSibling.value = val;
+                update();
+            };
+        });
+        uiContainer.querySelectorAll('.dyn-num').forEach(el => {
+            el.oninput = (e) => {
+                const val = parseFloat(e.target.value);
+                state.params[e.target.dataset.id] = val;
+                e.target.previousElementSibling.value = val;
+                update();
+            };
+        });
+    }
+
+    // Global Listeners
+    document.getElementById('selType').onchange = (e) => {
+        state.type = e.target.value;
+        state.params = {};
+        buildUI();
+        render();
+    };
+
+    document.getElementById('selRes').onchange = (e) => {
+        state.res = parseInt(e.target.value);
+        render();
+    };
+
+    document.getElementById('btnGen').onclick = () => {
+        state.seed = Math.random() * 99999;
+        render();
+    };
+
+    document.getElementById('btnDownload').onclick = () => {
+        const link = document.createElement('a');
+        const suffix = state.post.normal ? '_normal' : '';
+        link.download = `TexLab_${state.type}${suffix}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+    };
+
+    // Post Process Listeners
+    const bindPost = (id, key, isBool=false) => {
+        const el = document.getElementById(id);
+        el.oninput = (e) => {
+            const val = isBool ? e.target.checked : parseFloat(e.target.value);
+            state.post[key] = val;
+            
+            // Sync slider/number
+            if(!isBool) {
+                if(el.type === 'range') document.getElementById(id.replace('sl','num')).value = val;
+                if(el.type === 'number') document.getElementById(id.replace('num','sl')).value = val;
+            }
+            
+            if(key === 'normal') {
+                document.getElementById('normalSettings').style.display = val ? 'block' : 'none';
+            }
+            
+            update();
+        };
+    };
+
+    bindPost('slBright', 'brightness');
+    bindPost('numBright', 'brightness');
+    bindPost('slContrast', 'contrast');
+    bindPost('numContrast', 'contrast');
+    bindPost('chkInvert', 'invert', true);
+    bindPost('chkNormal', 'normal', true);
+    bindPost('slNormalStr', 'normalStrength');
+    bindPost('numNormalStr', 'normalStrength');
+
+    // Init
+    buildUI();
+    render();
+
+</script>
+</body>
+</html>
