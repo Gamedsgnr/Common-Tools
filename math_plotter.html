@@ -147,10 +147,11 @@
     // Logic State
     let params = { freq: 2.0, amp: 1.0, exp: 4.0 };
     let compiledFunc = null;
-    let currentParamNames = [];
+    let currentParamNames = []; // Для UI (слайдеры)
+    let activeParamNames = [];  // Для отрисовки (фиксированный список успешной компиляции)
     
     // View State
-    let viewScale = 70; // Pixels per unit
+    let viewScale = 70; 
     let offsetX = 0;
     let offsetY = 0;
     let isDragging = false;
@@ -172,22 +173,42 @@
     };
     const clamp = (x, min, max) => Math.max(min, Math.min(max, x));
 
+    // СПИСОК МАТЕМАТИЧЕСКИХ ФУНКЦИЙ (порядок критически важен)
+    const MATH_FUNC_NAMES = [
+        'sin', 'cos', 'abs', 'frac', 'step', 'smoothstep', 
+        'lerp', 'clamp', 'saturate', 'pow', 'PI', 'floor', 'ceil',
+        'exp', 'log', 'sqrt', 'tan', 'sign', 'min', 'max'
+    ];
+
+    const MATH_FUNC_REFS = [
+        Math.sin, Math.cos, Math.abs, frac, step, smoothstep, 
+        lerp, clamp, saturate, Math.pow, Math.PI, Math.floor, Math.ceil,
+        Math.exp, Math.log, Math.sqrt, Math.tan, Math.sign, Math.min, Math.max
+    ];
+
     function compileFormula() {
         const rawCode = formulaInput.value;
         const words = rawCode.match(/[a-zA-Z_]\w*/g) || [];
-        // UPDATED: Added exp, log, sqrt, tan, sign, min, max to reserved list
-        const reserved = ['sin','cos','abs','step','smoothstep','frac','lerp','clamp','saturate','x','PI','pow','exp','log','sqrt','tan','max','min','Time','floor','ceil','sign'];
+        const reserved = ['x', 'Time', ...MATH_FUNC_NAMES];
+        
+        // Обновляем список для UI
         currentParamNames = [...new Set(words.filter(w => !reserved.includes(w)))];
 
         try {
-            // UPDATED: Added matching JS Math functions to arguments list
+            // Формируем аргументы: x, Time, [параметры пользователя], [мат. функции]
             const argNames = [
-                'x', 'Time', ...currentParamNames, 
-                'sin', 'cos', 'abs', 'frac', 'step', 'smoothstep', 
-                'lerp', 'clamp', 'saturate', 'pow', 'PI', 'floor', 'ceil',
-                'exp', 'log', 'sqrt', 'tan', 'sign', 'min', 'max'
+                'x', 'Time', 
+                ...currentParamNames, 
+                ...MATH_FUNC_NAMES
             ];
-            compiledFunc = new Function(...argNames, `return ${rawCode};`);
+            
+            const newFunc = new Function(...argNames, `return ${rawCode};`);
+            
+            // Если new Function не упала с ошибкой, сохраняем результат
+            compiledFunc = newFunc;
+            
+            // !ВАЖНО: Запоминаем список параметров, актуальный для ЭТОЙ версии функции
+            activeParamNames = [...currentParamNames]; 
             
             errorDisplay.style.display = 'none';
             formulaInput.style.border = "1px solid #333";
@@ -197,15 +218,15 @@
             errorDisplay.innerText = "Error: " + e.message;
             errorDisplay.style.display = 'block';
             formulaInput.style.border = "1px solid #f44747";
-            compiledFunc = null;
+            // Не обнуляем compiledFunc, чтобы график не исчезал при наборе текста
         }
     }
 
     function updateOutputs(code) {
-        let inputs = currentParamNames.length > 0 ? `// Inputs: x, ${currentParamNames.join(', ')}\n` : `// Input: x\n`;
+        let inputs = activeParamNames.length > 0 ? `// Inputs: x, ${activeParamNames.join(', ')}\n` : `// Input: x\n`;
         hlslOutput.innerText = `${inputs}return ${code};`;
 
-        let studioParams = currentParamNames
+        let studioParams = activeParamNames
             .map(p => `float ${p} = ${params[p] !== undefined ? params[p].toFixed(2) : '1.0'};`)
             .join('\n');
         
@@ -214,6 +235,8 @@
     }
 
     function updateParamsUI() {
+        // UI строим на базе currentParamNames (то, что сейчас в тексте), 
+        // чтобы слайдеры появлялись сразу, даже если формула еще невалидна
         const existingSliders = Array.from(paramsContainer.querySelectorAll('.param-row span:first-child')).map(s => s.innerText);
         if (JSON.stringify(existingSliders.sort()) === JSON.stringify(currentParamNames.sort())) return;
 
@@ -232,30 +255,29 @@
 
     window.updateParamValue = (name, val) => {
         params[name] = parseFloat(val);
-        document.getElementById(`v_${name}`).innerText = params[name].toFixed(2);
-        updateOutputs(formulaInput.value); 
+        const display = document.getElementById(`v_${name}`);
+        if(display) display.innerText = params[name].toFixed(2);
+        // Не перекомпилируем всё, просто обновляем тексты вывода
+        if (compiledFunc) updateOutputs(formulaInput.value); 
     };
 
-    // UPDATED: Auto-close parentheses logic
     window.insert = (text) => {
         const start = formulaInput.selectionStart;
         const end = formulaInput.selectionEnd;
         let textToInsert = text;
         let moveCursorBack = 0;
 
-        // If inserting something like "sin(" without closing paren, add it
         if (text.endsWith('(') && !text.includes(')')) {
             textToInsert += ')';
-            moveCursorBack = 1; // We will move cursor between ( and )
+            moveCursorBack = 1; 
         }
 
         formulaInput.value = formulaInput.value.substring(0, start) + textToInsert + formulaInput.value.substring(end);
-        compileFormula();
         
-        // Calculate new cursor position
         const newPos = start + textToInsert.length - moveCursorBack;
         formulaInput.setSelectionRange(newPos, newPos);
         formulaInput.focus();
+        compileFormula(); // Тут вызовется компиляция
     };
 
     window.loadPreset = (f) => {
@@ -322,13 +344,13 @@
         }
         lastFrameTime = now;
 
-        // 1. УМНАЯ СЕТКА и ОЧИСТКА
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
         const w = canvas.width, h = canvas.height;
         const cX = w / 2 + offsetX;
         const cY = h / 2 + offsetY;
 
+        // Grid Logic
         let stepSize = 1;
         if (viewScale > 150) stepSize = 0.5;
         if (viewScale > 300) stepSize = 0.1;
@@ -371,47 +393,41 @@
 
         if (!compiledFunc) return;
 
-        // 2. ГРАФИК И ГРАДИЕНТ
-        const pValues = currentParamNames.map(n => params[n]);
-        // UPDATED: Added Math functions to execution arguments. Order must match argNames!
-        const mathArgs = [
-            Math.sin, Math.cos, Math.abs, frac, step, smoothstep, 
-            lerp, clamp, saturate, Math.pow, Math.PI, Math.floor, Math.ceil,
-            Math.exp, Math.log, Math.sqrt, Math.tan, Math.sign, Math.min, Math.max
-        ];
-
+        // !ВАЖНО: Собираем значения переменных, используя activeParamNames - 
+        // тот список, который был при компиляции функции.
+        const pValues = activeParamNames.map(n => params[n] || 0.0);
+        
         ctx.strokeStyle = '#4ec9b0';
         ctx.lineWidth = 2.5;
         ctx.beginPath();
 
         let started = false;
-        
-        // Подготовка градиента
-        // ИЗМЕНЕНО: Берем актуальные размеры дляImageData
         const gw = gradCanvas.width; 
         const gh = gradCanvas.height;
-        // Убрана лишняя gCtx.clearRect, так как putImageData перезапишет все
         const imgData = gCtx.createImageData(gw, gh);
         const data = imgData.data;
 
         for(let px = 0; px < w; px++) {
             const x = (px - cX) / viewScale;
             try {
-                const y = compiledFunc(x, time, ...pValues, ...mathArgs);
+                // Вызов функции: X, Time, [USER_PARAMS], [MATH_FUNCS]
+                const y = compiledFunc(x, time, ...pValues, ...MATH_FUNC_REFS);
+                
                 const py = cY - y * viewScale;
                 
                 if (!started) { ctx.moveTo(px, py); started = true; }
                 else {
-                    // Использование предыдущего значения для проверки разрыва
-                    const prevY = cY - compiledFunc((px-1-cX)/viewScale, time, ...pValues, ...mathArgs) * viewScale;
+                    const prevX = (px - 1 - cX) / viewScale;
+                    const prevYWorld = compiledFunc(prevX, time, ...pValues, ...MATH_FUNC_REFS);
+                    const prevY = cY - prevYWorld * viewScale;
+                    
                     if (Math.abs(py - prevY) > h) ctx.moveTo(px, py);
                     else ctx.lineTo(px, py);
                 }
 
-                // ГРАДИЕНТ (Заполнение столбца пикселей)
+                // Gradient
                 const val = Math.max(0, Math.min(1, y)); 
                 const col = Math.floor(val * 255);
-                
                 for(let gy = 0; gy < gh; gy++) {
                     const idx = (gy * gw + px) * 4;
                     data[idx] = col; data[idx+1] = col; data[idx+2] = col; data[idx+3] = 255;
@@ -420,21 +436,14 @@
             } catch(e) {}
         }
         ctx.stroke();
-
-        // Применение градиента
         gCtx.putImageData(imgData, 0, 0);
     }
 
-    // ИЗМЕНЕНО: Критическое исправление для ресайза и артефактов
     window.onresize = () => { 
-        // Основной график
         canvas.width = mainView.clientWidth; 
         canvas.height = mainView.clientHeight;
-        
-        // Градиент: ВАЖНО обновлять внутреннее разрешение, чтобы оно совпадало с CSS-размером.
-        // Это убирает артефакты растягивания и гарантирует четкость на всю ширину.
         gradCanvas.width = mainView.clientWidth;
-        gradCanvas.height = gradCanvas.clientHeight; // Берем высоту из CSS (60px)
+        gradCanvas.height = gradCanvas.clientHeight;
     };
     
     window.onresize();
