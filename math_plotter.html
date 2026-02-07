@@ -41,7 +41,6 @@
         .main-view { flex: 1; position: relative; background: #0c0c0c; cursor: crosshair; overflow: hidden; }
         canvas { display: block; }
         
-        /* ИЗМЕНЕНО: Поднял инфо-панель выше, чтобы не перекрывать увеличенный градиент */
         .coord-info { position: absolute; bottom: 75px; left: 15px; background: rgba(0,0,0,0.7); padding: 5px 12px; font-size: 11px; color: #888; border-radius: 20px; border: 1px solid #333; pointer-events: none; }
         
         /* Floating Controls */
@@ -49,7 +48,6 @@
         .btn-icon { width: 30px; height: 30px; background: #252526; border: 1px solid #444; color: #eee; border-radius: 4px; cursor: pointer; display: flex; justify-content: center; align-items: center; font-size: 14px; opacity: 0.8; }
         .btn-icon:hover { opacity: 1; background: #007acc; border-color: #007acc; }
 
-        /* ИЗМЕНЕНО: Увеличил высоту с 25px до 60px */
         .grad-strip { position: absolute; bottom: 0; left: 0; right: 0; height: 60px; border-top: 1px solid #333; background: #000; }
     </style>
 </head>
@@ -147,8 +145,8 @@
     // Logic State
     let params = { freq: 2.0, amp: 1.0, exp: 4.0 };
     let compiledFunc = null;
-    let currentParamNames = []; // Для UI (слайдеры)
-    let activeParamNames = [];  // Для отрисовки (фиксированный список успешной компиляции)
+    let currentParamNames = []; 
+    let activeParamNames = [];  
     
     // View State
     let viewScale = 70; 
@@ -173,7 +171,7 @@
     };
     const clamp = (x, min, max) => Math.max(min, Math.min(max, x));
 
-    // СПИСОК МАТЕМАТИЧЕСКИХ ФУНКЦИЙ (порядок критически важен)
+    // СПИСОК МАТЕМАТИЧЕСКИХ ФУНКЦИЙ
     const MATH_FUNC_NAMES = [
         'sin', 'cos', 'abs', 'frac', 'step', 'smoothstep', 
         'lerp', 'clamp', 'saturate', 'pow', 'PI', 'floor', 'ceil',
@@ -191,11 +189,9 @@
         const words = rawCode.match(/[a-zA-Z_]\w*/g) || [];
         const reserved = ['x', 'Time', ...MATH_FUNC_NAMES];
         
-        // Обновляем список для UI
         currentParamNames = [...new Set(words.filter(w => !reserved.includes(w)))];
 
         try {
-            // Формируем аргументы: x, Time, [параметры пользователя], [мат. функции]
             const argNames = [
                 'x', 'Time', 
                 ...currentParamNames, 
@@ -203,11 +199,7 @@
             ];
             
             const newFunc = new Function(...argNames, `return ${rawCode};`);
-            
-            // Если new Function не упала с ошибкой, сохраняем результат
             compiledFunc = newFunc;
-            
-            // !ВАЖНО: Запоминаем список параметров, актуальный для ЭТОЙ версии функции
             activeParamNames = [...currentParamNames]; 
             
             errorDisplay.style.display = 'none';
@@ -218,7 +210,6 @@
             errorDisplay.innerText = "Error: " + e.message;
             errorDisplay.style.display = 'block';
             formulaInput.style.border = "1px solid #f44747";
-            // Не обнуляем compiledFunc, чтобы график не исчезал при наборе текста
         }
     }
 
@@ -235,8 +226,6 @@
     }
 
     function updateParamsUI() {
-        // UI строим на базе currentParamNames (то, что сейчас в тексте), 
-        // чтобы слайдеры появлялись сразу, даже если формула еще невалидна
         const existingSliders = Array.from(paramsContainer.querySelectorAll('.param-row span:first-child')).map(s => s.innerText);
         if (JSON.stringify(existingSliders.sort()) === JSON.stringify(currentParamNames.sort())) return;
 
@@ -257,7 +246,6 @@
         params[name] = parseFloat(val);
         const display = document.getElementById(`v_${name}`);
         if(display) display.innerText = params[name].toFixed(2);
-        // Не перекомпилируем всё, просто обновляем тексты вывода
         if (compiledFunc) updateOutputs(formulaInput.value); 
     };
 
@@ -277,7 +265,7 @@
         const newPos = start + textToInsert.length - moveCursorBack;
         formulaInput.setSelectionRange(newPos, newPos);
         formulaInput.focus();
-        compileFormula(); // Тут вызовется компиляция
+        compileFormula(); 
     };
 
     window.loadPreset = (f) => {
@@ -391,12 +379,36 @@
         ctx.moveTo(0, cY); ctx.lineTo(w, cY);
         ctx.stroke();
 
+        // --- UV VISUALIZER (Main Plot) ---
+        ctx.save();
+        const uvScreenX = cX;                 
+        const uvScreenY = cY - viewScale;     
+        const uvSize = viewScale;             
+
+        ctx.strokeStyle = 'rgba(255, 235, 59, 0.6)'; 
+        ctx.fillStyle = 'rgba(255, 235, 59, 0.05)';  
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 3]); 
+
+        ctx.beginPath();
+        ctx.rect(uvScreenX, uvScreenY, uvSize, uvSize);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Labels for UV Box
+        ctx.fillStyle = 'rgba(255, 235, 59, 0.8)';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'left';
+        ctx.setLineDash([]); 
+        ctx.fillText("UV (0,1)", uvScreenX + 5, uvScreenY + 12);
+        ctx.fillText("UV (1,0)", uvScreenX + uvSize + 5, uvScreenY + uvSize - 5);
+        ctx.restore();
+
         if (!compiledFunc) return;
 
-        // !ВАЖНО: Собираем значения переменных, используя activeParamNames - 
-        // тот список, который был при компиляции функции.
         const pValues = activeParamNames.map(n => params[n] || 0.0);
         
+        // --- FUNCTION PLOT ---
         ctx.strokeStyle = '#4ec9b0';
         ctx.lineWidth = 2.5;
         ctx.beginPath();
@@ -410,7 +422,6 @@
         for(let px = 0; px < w; px++) {
             const x = (px - cX) / viewScale;
             try {
-                // Вызов функции: X, Time, [USER_PARAMS], [MATH_FUNCS]
                 const y = compiledFunc(x, time, ...pValues, ...MATH_FUNC_REFS);
                 
                 const py = cY - y * viewScale;
@@ -425,7 +436,7 @@
                     else ctx.lineTo(px, py);
                 }
 
-                // Gradient
+                // Main Bottom Gradient
                 const val = Math.max(0, Math.min(1, y)); 
                 const col = Math.floor(val * 255);
                 for(let gy = 0; gy < gh; gy++) {
@@ -437,6 +448,42 @@
         }
         ctx.stroke();
         gCtx.putImageData(imgData, 0, 0);
+
+        // --- NEW: UV [0-1] GRADIENT PREVIEW (Bottom Right) ---
+        // Рисуем мини-превью того, как выглядит градиент именно в 0..1
+        const previewW = 200;
+        const previewH = 200;
+        const marginR = 15;
+        const marginB = 280; // Над нижней панелью (60px) + отступ
+        
+        const prX = w - previewW - marginR;
+        const prY = h - marginB;
+
+        // Рамка
+        ctx.fillStyle = '#000';
+        ctx.fillRect(prX, prY, previewW, previewH);
+        ctx.strokeStyle = '#666';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(prX, prY, previewW, previewH);
+        
+        // Подпись
+        ctx.fillStyle = '#aaa';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText("UV [0-1] Output", prX + previewW, prY - 5);
+
+        // Заполнение градиентом
+        for(let i = 0; i < previewW; i++) {
+            const u = i / previewW; // 0..1
+            try {
+                const val = compiledFunc(u, time, ...pValues, ...MATH_FUNC_REFS);
+                const c = Math.max(0, Math.min(1, val));
+                const colVal = Math.floor(c * 255);
+                
+                ctx.fillStyle = `rgb(${colVal}, ${colVal}, ${colVal})`;
+                ctx.fillRect(prX + i, prY, 1, previewH);
+            } catch(e){}
+        }
     }
 
     window.onresize = () => { 
