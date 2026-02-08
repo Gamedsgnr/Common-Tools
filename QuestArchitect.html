@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quest Architect Pro v4.0 - NPC Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow/dist/drawflow.min.css">
+    <script src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow/dist/drawflow.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --df-node-bg: #1f2937;
+            --df-node-border: #374151;
+            --df-node-text: #f3f4f6;
+            --df-connection-color: #3b82f6;
+            --df-connection-width: 3px;
+        }
+        #drawflow {
+            background-size: 25px 25px;
+            background-image: radial-gradient(#374151 1px, transparent 1px);
+            background-color: #111827;
+            height: 100%; width: 100%;
+        }
+        .drawflow .drawflow-node {
+            background: var(--df-node-bg);
+            border: 2px solid var(--df-node-border);
+            border-radius: 8px;
+            min-width: 220px; /* Чуть шире для селекта */
+            color: var(--df-node-text);
+            padding: 0;
+            z-index: 2;
+        }
+        .drawflow .drawflow-node.selected {
+            background: var(--df-node-bg) !important;
+            border-color: #3b82f6;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.6);
+        }
+        
+        /* Порты */
+        .drawflow-node .output {
+            cursor: pointer;
+            border: 2px solid #000;
+            width: 15px; height: 15px;
+        }
+        .drawflow-node .output:hover {
+            transform: scale(1.2);
+            background: #60a5fa;
+        }
+        .drawflow-node .input {
+            width: 15px; height: 15px;
+            background: #4b5563;
+        }
+
+        .node-header { @apply p-2 border-b border-gray-700 font-bold text-xs uppercase tracking-wider flex items-center gap-2 rounded-t-lg; }
+        .node-content { @apply p-3 text-sm; }
+        .header-dialogue { background: #1e3a8a; }
+        .header-condition { background: #7c2d12; }
+        .header-action { background: #064e3b; }
+        .header-start { background: #4338ca; }
+
+        .custom-menu { 
+            position: fixed; z-index: 999; background: #1f2937; 
+            border: 1px solid #374151; border-radius: 6px; 
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); min-width: 160px;
+        }
+        .menu-item { @apply w-full text-left px-4 py-2 text-xs hover:bg-blue-600 flex items-center gap-2 transition-colors; }
+
+        .connection-label {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            background: #1f2937;
+            color: #93c5fd;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid #3b82f6;
+            font-size: 10px;
+            font-weight: bold;
+            pointer-events: none;
+            white-space: nowrap;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            z-index: 1;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .edit-modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000;
+            display: flex; align-items: center; justify-content: center;
+        }
+        
+        textarea.nodrag { resize: vertical; min-height: 60px; }
+        select.nodrag { cursor: pointer; }
+
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 overflow-hidden h-screen flex flex-col" x-data="questEditor()">
+
+    <header class="h-16 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-6 z-10 shadow-xl">
+        <div class="flex items-center gap-3">
+            <div class="bg-indigo-600 p-2 rounded"><i class="fa-solid fa-sitemap text-xl"></i></div>
+            <div>
+                <h1 class="text-lg font-black tracking-tighter">QUEST ARCHITECT <span class="text-indigo-400">PRO v4</span></h1>
+                <p class="text-[10px] text-gray-400 uppercase font-bold">Инструментарий Геймдизайнера</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <button @click="togglePlayMode()" :class="isPlayMode ? 'bg-red-600' : 'bg-green-600'" class="px-4 py-2 rounded text-xs font-bold flex items-center gap-2 transition-all">
+                <i :class="isPlayMode ? 'fa-solid fa-stop' : 'fa-solid fa-play'"></i>
+                <span x-text="isPlayMode ? 'СТОП' : 'ТЕСТ'"></span>
+            </button>
+            <div class="h-8 w-px bg-gray-600 mx-2"></div>
+            <input type="file" x-ref="fileInput" @change="importData($event)" class="hidden" accept=".json">
+            <button @click="$refs.fileInput.click()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-xs font-bold uppercase border border-gray-600">Import JSON</button>
+            <button @click="exportData()" class="px-4 py-2 bg-blue-700 hover:bg-blue-600 rounded text-xs font-bold uppercase border border-blue-600">Export JSON</button>
+        </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden relative">
+        <aside class="w-64 bg-gray-800 border-r border-gray-700 p-4 flex flex-col gap-4 overflow-y-auto z-10">
+            
+            <h3 class="text-[10px] font-black text-gray-500 uppercase">Базовые узлы</h3>
+            <div class="grid gap-2">
+                <div draggable="true" @dragstart="drag($event, 'start')" class="cursor-grab p-3 bg-gray-700 rounded border border-gray-600 hover:border-indigo-500 transition-all flex items-center gap-3">
+                    <i class="fa-solid fa-play text-indigo-400"></i><span class="text-xs font-bold">Старт</span>
+                </div>
+                <div draggable="true" @dragstart="drag($event, 'dialogue')" class="cursor-grab p-3 bg-gray-700 rounded border border-gray-600 hover:border-blue-500 transition-all flex items-center gap-3">
+                    <i class="fa-solid fa-comment text-blue-400"></i><span class="text-xs font-bold">Диалог</span>
+                </div>
+                <div draggable="true" @dragstart="drag($event, 'condition')" class="cursor-grab p-3 bg-gray-700 rounded border border-gray-600 hover:border-orange-500 flex items-center gap-3">
+                    <i class="fa-solid fa-code-branch text-orange-400"></i><span class="text-xs font-bold">Условие</span>
+                </div>
+                <div draggable="true" @dragstart="drag($event, 'action')" class="cursor-grab p-3 bg-gray-700 rounded border border-gray-600 hover:border-green-500 flex items-center gap-3">
+                    <i class="fa-solid fa-bolt text-green-400"></i><span class="text-xs font-bold">Действие</span>
+                </div>
+            </div>
+
+            <div class="border-t border-gray-700 pt-4 mt-2">
+                <h3 class="text-[10px] font-black text-gray-500 uppercase mb-2">Персонажи (NPC)</h3>
+                <div class="space-y-2 mb-2">
+                    <template x-for="(npc, index) in npcList" :key="index">
+                        <div class="flex items-center justify-between bg-gray-900 p-2 rounded border border-gray-700 group">
+                            <span class="text-xs font-bold text-blue-300" x-text="npc"></span>
+                            <button @click="removeNPC(index)" class="text-gray-600 hover:text-red-400"><i class="fa-solid fa-times"></i></button>
+                        </div>
+                    </template>
+                </div>
+                <button @click="addNPC()" class="w-full text-[9px] text-gray-400 hover:text-white border border-dashed border-gray-600 py-1.5 rounded tracking-widest bg-gray-800/50">+ ДОБАВИТЬ NPC</button>
+            </div>
+
+            <div class="border-t border-gray-700 pt-4 mt-2">
+                <h3 class="text-[10px] font-black text-gray-500 uppercase mb-2">Переменные мира</h3>
+                <div class="bg-gray-900 p-2 rounded border border-gray-700 space-y-2">
+                    <template x-for="(f, n) in worldState" :key="n">
+                        <div class="p-1 border-b border-gray-800 flex flex-col gap-1">
+                            <div class="flex justify-between text-[9px] text-gray-500 font-mono"><span x-text="n"></span><span x-text="f.type"></span></div>
+                            <template x-if="f.type === 'bool'"><input type="checkbox" x-model="f.value" class="rounded bg-gray-700"></template>
+                            <template x-if="f.type === 'number'"><input type="number" x-model.number="f.value" class="bg-gray-800 text-[10px] p-1 rounded border-none w-full text-blue-400"></template>
+                            <template x-if="f.type === 'string'"><input type="text" x-model="f.value" class="bg-gray-800 text-[10px] p-1 rounded border-none w-full text-green-400"></template>
+                        </div>
+                    </template>
+                    <button @click="addFlag()" class="w-full text-[9px] text-gray-500 hover:text-white border border-dashed border-gray-700 py-1 mt-2 tracking-widest">+ ПЕРЕМЕННАЯ</button>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 relative" @mousemove="handleGlobalMove($event)">
+            
+            <div id="drawflow" 
+                 @dragover.prevent 
+                 @drop="drop($event)"
+                 @dblclick="handleDblClick($event)"
+                 @contextmenu.prevent="openContextMenu($event)"
+                 @mouseup="handleMouseUp($event)"
+                 @mousedown="closeMenus()"></div>
+
+            <div x-show="menu.show" x-cloak class="custom-menu" :style="`left: ${menu.x}px; top: ${menu.y}px`" @click.stop>
+                <div class="text-[9px] font-black text-gray-500 px-4 py-1 uppercase border-b border-gray-700">Создать</div>
+                <button class="menu-item" @click="createFromMenu('dialogue')"><i class="fa-solid fa-comment text-blue-400"></i> Диалог</button>
+                <button class="menu-item" @click="createFromMenu('condition')"><i class="fa-solid fa-code-branch text-orange-400"></i> Условие</button>
+                <button class="menu-item" @click="createFromMenu('action')"><i class="fa-solid fa-bolt text-green-400"></i> Действие</button>
+            </div>
+
+            <div x-show="connEditor.show" x-cloak class="edit-modal-overlay" @click.self="closeMenus()">
+                <div class="bg-gray-800 p-5 rounded-xl border border-gray-600 shadow-2xl w-96 transform transition-all">
+                    <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                        <label class="text-sm font-bold text-blue-400 uppercase tracking-wider">Ответ игрока</label>
+                        <span class="text-[10px] text-gray-500">Редактирование выхода</span>
+                    </div>
+                    <input type="text" x-ref="connInput" x-model="connEditor.label" @keyup.enter="saveAndCloseConn()" class="w-full bg-gray-900 border border-gray-700 rounded p-3 text-sm text-white focus:border-blue-500 outline-none" placeholder="Например: 'Я согласен'">
+                    <div class="flex justify-end mt-6 gap-2">
+                        <button @click="closeMenus()" class="px-4 py-2 rounded text-xs font-bold text-gray-400 hover:bg-gray-700">Отмена</button>
+                        <button @click="saveAndCloseConn()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-xs font-bold text-white shadow-lg shadow-blue-900/50">Сохранить</button>
+                    </div>
+                </div>
+            </div>
+
+            <div x-show="isPlayMode" x-cloak class="absolute inset-0 bg-black/80 z-[100] flex items-center justify-center p-10">
+                <div class="bg-gray-800 w-full max-w-2xl rounded-2xl border border-gray-600 shadow-2xl overflow-hidden flex flex-col">
+                    <div class="bg-gray-700 p-4 flex justify-between items-center border-b border-gray-600">
+                        <span class="text-xs font-bold uppercase tracking-widest text-gray-400">Тест сценария</span>
+                        <button @click="isPlayMode = false"><i class="fa-solid fa-times"></i></button>
+                    </div>
+                    <div class="p-8">
+                        <div class="mb-6">
+                            <span class="text-blue-400 text-xs font-black uppercase tracking-widest border border-blue-900 bg-blue-900/20 px-2 py-0.5 rounded" x-text="sim.npc || '???'"></span>
+                            <p class="text-xl mt-3 font-serif whitespace-pre-wrap leading-relaxed" x-text="sim.content || '...'"></p>
+                        </div>
+                        <div class="space-y-2">
+                            <template x-if="sim.options.length === 0">
+                                <div class="text-center text-gray-500 text-sm italic py-4 border border-dashed border-gray-700 rounded">Конец сценария</div>
+                            </template>
+                            <template x-for="opt in sim.options" :key="opt.id">
+                                <button @click="makeChoice(opt.toNode)" class="w-full text-left p-4 bg-gray-700 hover:bg-blue-600 rounded-lg border border-gray-600 flex justify-between items-center transition-all group">
+                                    <span x-text="opt.text"></span>
+                                    <i class="fa-solid fa-chevron-right text-xs opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all"></i>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function questEditor() {
+            return {
+                editor: null,
+                isPlayMode: false,
+                worldState: {
+                    gold: { type: 'number', value: 100 },
+                    knows_truth: { type: 'bool', value: false }
+                },
+                npcList: ['Рассказчик', 'Трактирщик', 'Герой'], // Базовый список
+                menu: { show: false, x: 0, y: 0, fromNode: null, fromPort: null },
+                connEditor: { show: false, label: '', id: null, port: null },
+                sim: { npc: '', content: '', options: [] },
+
+                init() {
+                    const el = document.getElementById("drawflow");
+                    this.editor = new Drawflow(el);
+                    this.editor.start();
+                    
+                    if(Object.keys(this.editor.drawflow.Home.data).length === 0) {
+                        this.addNodeAtPos('start', 50, 100);
+                    }
+
+                    this.editor.on('connectionCreated', this.onConnectionCreated.bind(this));
+                    this.editor.on('connectionStart', (info) => {
+                        this.menu.fromNode = info.node_id;
+                        this.menu.fromPort = info.output_class;
+                    });
+
+                    const update = () => this.updateLabels();
+                    this.editor.on('connectionRemoved', update);
+                    this.editor.on('nodeMoved', update);
+                    this.editor.on('zoom', update);
+                    this.editor.on('translate', update);
+                    this.editor.on('import', () => {
+                        setTimeout(() => this.restoreDataBindings(), 50);
+                    });
+                },
+
+                // --- NPC MANAGEMENT ---
+                addNPC() {
+                    const name = prompt("Имя персонажа:");
+                    if (name && !this.npcList.includes(name)) {
+                        this.npcList.push(name);
+                        this.updateAllDialogueSelects(); // Обновить списки во всех узлах
+                    }
+                },
+
+                removeNPC(index) {
+                    if(confirm(`Удалить персонажа "${this.npcList[index]}"?`)) {
+                        this.npcList.splice(index, 1);
+                        this.updateAllDialogueSelects();
+                    }
+                },
+
+                // Функция, которая находит все селекты NPC в DOM и обновляет их опции
+                updateAllDialogueSelects() {
+                    const selects = document.querySelectorAll('.npc-selector');
+                    selects.forEach(sel => {
+                        const currentVal = sel.value; // Запоминаем текущий выбор
+                        // Генерируем новые опции
+                        sel.innerHTML = this.npcList.map(name => `<option value="${name}">${name}</option>`).join('');
+                        
+                        // Пытаемся восстановить значение. Если удалили NPC, сбросится на первого.
+                        if (this.npcList.includes(currentVal)) {
+                            sel.value = currentVal;
+                        } else if (this.npcList.length > 0) {
+                            sel.value = this.npcList[0];
+                            // Нужно обновить данные ноды, так как значение изменилось принудительно
+                            sel.dispatchEvent(new Event('change'));
+                        }
+                    });
+                },
+
+                // --- BINDING ---
+                bindNodeInputs(id, type, data) {
+                    const el = document.getElementById(`node-${id}`);
+                    if(!el) return;
+
+                    if (type === 'dialogue') {
+                        // 1. Textarea binding
+                        const ta = el.querySelector('textarea');
+                        if(ta) {
+                            ta.value = data.text || '';
+                            ta.oninput = (e) => {
+                                const n = this.editor.getNodeFromId(id);
+                                n.data.text = e.target.value;
+                                this.editor.updateNodeDataFromId(id, n.data);
+                            };
+                            ta.onmousedown = (e) => e.stopPropagation(); 
+                        }
+
+                        // 2. NPC Selector binding
+                        const sel = el.querySelector('.npc-selector');
+                        if(sel) {
+                            // Заполняем список при инициализации
+                            sel.innerHTML = this.npcList.map(name => `<option value="${name}">${name}</option>`).join('');
+                            // Устанавливаем сохраненное значение или дефолтное
+                            sel.value = data.npc || (this.npcList.length > 0 ? this.npcList[0] : '');
+                            
+                            // Слушатель изменений
+                            sel.onchange = (e) => {
+                                const n = this.editor.getNodeFromId(id);
+                                n.data.npc = e.target.value;
+                                this.editor.updateNodeDataFromId(id, n.data);
+                            };
+                            // Блокируем drag
+                            sel.onmousedown = (e) => e.stopPropagation();
+                        }
+                    } 
+                    else if (type === 'condition') {
+                        const selects = el.querySelectorAll('select');
+                        const input = el.querySelector('input');
+                        if(selects.length >= 2 && input) {
+                            selects[0].value = data.varName || Object.keys(this.worldState)[0];
+                            selects[1].value = data.op || '==';
+                            input.value = data.val || '';
+                            const updateData = () => {
+                                const n = this.editor.getNodeFromId(id);
+                                n.data.varName = selects[0].value;
+                                n.data.op = selects[1].value;
+                                n.data.val = input.value;
+                                this.editor.updateNodeDataFromId(id, n.data);
+                            };
+                            selects[0].onchange = updateData;
+                            selects[1].onchange = updateData;
+                            input.oninput = updateData;
+                        }
+                    }
+                    else if (type === 'action') {
+                        const list = el.querySelector('.act-list');
+                        list.innerHTML = '';
+                        if (data.actions && Array.isArray(data.actions)) {
+                            data.actions.forEach((act, index) => {
+                                this.createActionRow(list, id, act, index);
+                            });
+                        }
+                        const btn = el.querySelector('button');
+                        const newBtn = btn.cloneNode(true);
+                        btn.parentNode.replaceChild(newBtn, btn);
+                        newBtn.onclick = () => {
+                            const n = this.editor.getNodeFromId(id);
+                            if(!n.data.actions) n.data.actions = [];
+                            const newAct = { var: Object.keys(this.worldState)[0], op: '=', val: 1 };
+                            n.data.actions.push(newAct);
+                            this.editor.updateNodeDataFromId(id, n.data);
+                            this.createActionRow(list, id, newAct, n.data.actions.length - 1);
+                        };
+                    }
+                },
+
+                // --- HELPERS ---
+                createActionRow(container, nodeId, actionData, index) {
+                    const row = document.createElement('div');
+                    row.className = "flex gap-1 items-center mb-1";
+                    const varOpts = Object.keys(this.worldState).map(k => `<option value="${k}" ${k===actionData.var?'selected':''}>${k}</option>`).join('');
+                    row.innerHTML = `
+                        <select class="bg-gray-900 text-[9px] rounded p-0.5 text-blue-400 w-1/2 var-sel">${varOpts}</select>
+                        <select class="bg-gray-800 text-[9px] rounded p-0.5 op-sel">
+                            <option value="=" ${actionData.op==='='?'selected':''}>=</option>
+                            <option value="+" ${actionData.op==='+'?'selected':''}>+</option>
+                            <option value="-" ${actionData.op==='-'?'selected':''}>-</option>
+                        </select>
+                        <input type="text" class="bg-gray-800 text-[9px] rounded p-0.5 w-full val-inp" value="${actionData.val}">
+                        <button class="text-red-500 hover:text-red-300 px-1 text-[9px] del-btn"><i class="fa-solid fa-times"></i></button>
+                    `;
+                    const updateRow = () => {
+                        const n = this.editor.getNodeFromId(nodeId);
+                        const allRows = container.querySelectorAll('div.flex');
+                        const newActions = [];
+                        allRows.forEach(r => {
+                            newActions.push({
+                                var: r.querySelector('.var-sel').value,
+                                op: r.querySelector('.op-sel').value,
+                                val: r.querySelector('.val-inp').value
+                            });
+                        });
+                        n.data.actions = newActions;
+                        this.editor.updateNodeDataFromId(nodeId, n.data);
+                    };
+                    row.querySelector('.var-sel').onchange = updateRow;
+                    row.querySelector('.op-sel').onchange = updateRow;
+                    row.querySelector('.val-inp').oninput = updateRow;
+                    row.querySelector('.del-btn').onclick = () => { row.remove(); updateRow(); };
+                    container.appendChild(row);
+                },
+
+                restoreDataBindings() {
+                    const nodes = this.editor.export().drawflow.Home.data;
+                    Object.values(nodes).forEach(node => {
+                        this.bindNodeInputs(node.id, node.name, node.data);
+                    });
+                    this.updateLabels();
+                },
+
+                // --- CORE DRAWFLOW ---
+                onConnectionCreated(info) {
+                    const nodeOut = this.editor.getNodeFromId(info.output_id);
+                    const nodeIn = this.editor.getNodeFromId(info.input_id);
+                    if(nodeOut.outputs[info.output_class].connections.length > 1) {
+                        this.editor.removeSingleConnection(info.output_id, info.input_id, info.output_class, info.input_class);
+                        return;
+                    }
+                    if(nodeIn.inputs[info.input_class].connections.length > 1) {
+                        this.editor.removeSingleConnection(info.output_id, info.input_id, info.output_class, info.input_class);
+                        return;
+                    }
+                    if(nodeOut.name === 'dialogue') {
+                        const currentOuts = Object.keys(nodeOut.outputs).length;
+                        if(info.output_class === `output_${currentOuts}`) {
+                            this.editor.addNodeOutput(info.output_id);
+                        }
+                    }
+                    this.updateLabels();
+                },
+
+                handleGlobalMove(e) { if (e.buttons === 1) this.updateLabels(); },
+
+                handleDblClick(e) {
+                    const outputEl = e.target.closest('.output');
+                    if (outputEl) {
+                        const nodeEl = outputEl.closest('.drawflow-node');
+                        const nodeId = nodeEl.id.replace('node-', '');
+                        const node = this.editor.getNodeFromId(nodeId);
+                        if (node.name === 'dialogue') {
+                            const classes = Array.from(outputEl.classList);
+                            const portClass = classes.find(c => c.startsWith('output_'));
+                            if (portClass) {
+                                this.connEditor.id = nodeId;
+                                this.connEditor.port = portClass;
+                                this.connEditor.label = node.data.labels?.[portClass] || "";
+                                this.connEditor.show = true;
+                                this.$nextTick(() => this.$refs.connInput.focus());
+                            }
+                        }
+                    }
+                },
+
+                saveAndCloseConn() {
+                    let node = this.editor.getNodeFromId(this.connEditor.id);
+                    if(!node.data.labels) node.data.labels = {};
+                    node.data.labels[this.connEditor.port] = this.connEditor.label;
+                    this.editor.updateNodeDataFromId(this.connEditor.id, node.data);
+                    this.updateLabels();
+                    this.closeMenus();
+                },
+
+                updateLabels() {
+                    requestAnimationFrame(() => {
+                        const container = document.querySelector('#drawflow .drawflow');
+                        if(!container) return;
+                        const existing = container.querySelectorAll('.connection-label');
+                        existing.forEach(el => el.remove());
+
+                        const data = this.editor.export().drawflow.Home.data;
+                        const zoom = this.editor.zoom;
+                        const canvasRect = container.getBoundingClientRect();
+
+                        Object.values(data).forEach(node => {
+                            if(!node.outputs) return;
+                            Object.keys(node.outputs).forEach(outKey => {
+                                const output = node.outputs[outKey];
+                                const labelText = node.data.labels?.[outKey];
+                                if(labelText && output.connections.length > 0) {
+                                    output.connections.forEach(conn => {
+                                        const outElem = document.querySelector(`#node-${node.id} .outputs .${outKey}`);
+                                        const inElem = document.querySelector(`#node-${conn.node} .inputs .${conn.output}`);
+                                        if(outElem && inElem) {
+                                            const outRect = outElem.getBoundingClientRect();
+                                            const inRect = inElem.getBoundingClientRect();
+                                            const startX = (outRect.left + outRect.width/2 - canvasRect.left) / zoom;
+                                            const startY = (outRect.top + outRect.height/2 - canvasRect.top) / zoom;
+                                            const endX = (inRect.left + inRect.width/2 - canvasRect.left) / zoom;
+                                            const endY = (inRect.top + inRect.height/2 - canvasRect.top) / zoom;
+                                            const midX = startX * 0.125 + (startX + Math.abs(endX - startX) * 0.5) * 0.75 + endX * 0.125;
+                                            const midY = (startY + endY) / 2; 
+                                            const el = document.createElement('div');
+                                            el.className = 'connection-label';
+                                            el.innerText = labelText;
+                                            el.style.left = `${midX}px`;
+                                            el.style.top = `${midY}px`;
+                                            container.appendChild(el);
+                                        }
+                                    });
+                                }
+                            });
+                        });
+                    });
+                },
+
+                exportData() { 
+                    const data = {
+                        drawflow: this.editor.export(),
+                        worldState: this.worldState,
+                        npcList: this.npcList // Сохраняем список NPC
+                    };
+                    const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
+                    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'quest_project.json'; a.click();
+                },
+
+                importData(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const json = JSON.parse(e.target.result);
+                            this.editor.import(json.drawflow || json);
+                            if (json.worldState) this.worldState = json.worldState;
+                            if (json.npcList) this.npcList = json.npcList; // Загружаем список NPC
+                            this.restoreDataBindings();
+                        } catch (err) {
+                            alert("Ошибка файла!");
+                        }
+                    };
+                    reader.readAsText(file);
+                    e.target.value = '';
+                },
+
+                addNodeAtPos(type, x, y) {
+                    let html = '', hClass = '', title = '', inputs = 1, outputs = 1;
+                    let data = { labels: {}, actions: [], text: '', varName: '', op: '==', val: '', npc: '' };
+
+                    switch(type) {
+                        case 'start':
+                            title = 'START'; hClass = 'header-start'; inputs = 0;
+                            html = `<div class="node-content text-center italic text-gray-500">Старт<br><span class="text-[9px]">Входная точка</span></div>`;
+                            break;
+                        case 'dialogue':
+                            title = 'DIALOGUE'; hClass = 'header-dialogue'; outputs = 2;
+                            // Добавлен селект для NPC
+                            html = `<div class="node-content flex flex-col gap-2">
+                                <select class="npc-selector nodrag w-full bg-gray-800 text-xs text-blue-300 font-bold border border-gray-700 rounded p-1 outline-none"></select>
+                                <textarea class="nodrag w-full bg-gray-900 border-none text-xs rounded p-1 text-white focus:ring-1 ring-blue-500 outline-none" rows="3" placeholder="Текст NPC..."></textarea>
+                            </div>`;
+                            break;
+                        case 'action':
+                            title = 'ACTIONS'; hClass = 'header-action';
+                            html = `<div class="node-content space-y-2">
+                                <div class="act-list space-y-1"></div>
+                                <button class="w-full py-1 bg-green-900/30 hover:bg-green-900/50 text-green-400 text-[9px] font-bold border border-green-900/50 rounded transition-colors">+ ДЕЙСТВИЕ</button>
+                            </div>`;
+                            break;
+                        case 'condition':
+                            title = 'CONDITION'; hClass = 'header-condition'; outputs = 2;
+                            html = `<div class="node-content space-y-2">
+                                <select class="w-full bg-gray-900 text-[10px] border-none rounded p-1 text-blue-400 focus:ring-1 outline-none">
+                                    ${Object.keys(this.worldState).map(k => `<option value="${k}">${k}</option>`).join('')}
+                                </select>
+                                <div class="flex gap-1">
+                                    <select class="bg-gray-800 text-[10px] rounded outline-none"><option>==</option><option>&gt;</option><option>&lt;</option></select>
+                                    <input type="text" class="bg-gray-800 text-[10px] rounded w-full p-1 outline-none" placeholder="Значение">
+                                </div>
+                            </div>`;
+                            break;
+                    }
+
+                    const temp = `<div><div class="node-header ${hClass}"><i class="fa-solid ${this.getIcon(type)}"></i><span>${title}</span></div>${html}</div>`;
+                    const id = this.editor.addNode(type, inputs, outputs, x, y, type, data, temp);
+                    this.bindNodeInputs(id, type, data);
+                    return id;
+                },
+
+                getIcon(t) { return {start:'fa-play', dialogue:'fa-comment', condition:'fa-code-branch', action:'fa-bolt'}[t] || 'fa-circle'; },
+                
+                addFlag() {
+                    const n = prompt("Имя переменной (eng):");
+                    if(!n) return;
+                    const t = prompt("Тип (bool, number, string):", "number");
+                    this.worldState[n] = { type: t, value: t === 'number' ? 0 : t === 'string' ? "" : false };
+                },
+                drag(ev, t) { ev.dataTransfer.setData("node", t); },
+                drop(ev) {
+                    ev.preventDefault();
+                    this.addNodeAtPos(ev.dataTransfer.getData("node"), ev.clientX - 300, ev.clientY - 100);
+                },
+                openContextMenu(e) {
+                    this.closeMenus();
+                    this.menu.x = e.clientX;
+                    this.menu.y = e.clientY;
+                    this.menu.show = true;
+                },
+                handleMouseUp(e) {
+                    if (this.editor.connection && !e.target.closest('.drawflow-node')) {
+                        this.menu.x = e.clientX;
+                        this.menu.y = e.clientY;
+                        this.menu.show = true;
+                    }
+                },
+                closeMenus() {
+                    this.menu.show = false;
+                    this.connEditor.show = false;
+                },
+                createFromMenu(type) {
+                    const rect = this.editor.precanvas.getBoundingClientRect();
+                    const x = (this.menu.x - rect.left) / this.editor.zoom;
+                    const y = (this.menu.y - rect.top) / this.editor.zoom;
+                    const id = this.addNodeAtPos(type, x, y);
+                    if(this.menu.fromNode) {
+                        this.editor.addConnection(this.menu.fromNode, id, this.menu.fromPort, 'input_1');
+                    }
+                    this.closeMenus();
+                    this.menu.fromNode = null;
+                },
+                
+                togglePlayMode() {
+                    this.isPlayMode = !this.isPlayMode;
+                    if(this.isPlayMode) this.resetSimulation();
+                },
+                resetSimulation() {
+                    const nodes = this.editor.export().drawflow.Home.data;
+                    const start = Object.values(nodes).find(n => n.name === 'start');
+                    if(start) {
+                        this.processNode(start.id);
+                    } else {
+                        alert("Ошибка: Не найден узел START!");
+                        this.isPlayMode = false;
+                    }
+                },
+                processNode(id) {
+                    const node = this.editor.getNodeFromId(id);
+                    const data = node.data;
+
+                    if(node.name === 'start') {
+                        this.sim.npc = "System";
+                        this.sim.content = "Начало...";
+                        this.sim.options = this.getConnections(id);
+                    } else if(node.name === 'dialogue') {
+                        this.sim.npc = data.npc || "???";
+                        this.sim.content = data.text || "(Пустой диалог)";
+                        this.sim.options = this.getConnections(id);
+                    } else if(node.name === 'action') {
+                        if(data.actions) {
+                            data.actions.forEach(act => {
+                                const f = this.worldState[act.var];
+                                if(f) {
+                                    let val = act.val;
+                                    if(f.type === 'number') val = Number(val);
+                                    if(act.op === '=') f.value = val;
+                                    else if(act.op === '+') f.value += val;
+                                    else if(act.op === '-') f.value -= val;
+                                }
+                            });
+                        }
+                        const next = this.getConnections(id)[0];
+                        if(next) this.processNode(next.toNode);
+                        else {
+                            this.sim.npc = "System";
+                            this.sim.content = "Конец ветки (Action)";
+                            this.sim.options = [];
+                        }
+                    } else if(node.name === 'condition') {
+                        const f = this.worldState[data.varName];
+                        let res = false;
+                        if(f) {
+                            let target = data.val;
+                            if(f.type === 'number') target = Number(target);
+                            if(data.op === '==') res = f.value == target;
+                            else if(data.op === '>') res = f.value > target;
+                            else if(data.op === '<') res = f.value < target;
+                        }
+                        const conns = this.getConnections(id);
+                        const next = res ? conns.find(c => c.port === 'output_1') : conns.find(c => c.port === 'output_2');
+                        if(next) this.processNode(next.toNode);
+                        else {
+                            this.sim.npc = "System";
+                            this.sim.content = `Условие: ${res}. Дальше пути нет.`;
+                            this.sim.options = [];
+                        }
+                    }
+                },
+                getConnections(id) {
+                    const node = this.editor.getNodeFromId(id);
+                    const options = [];
+                    Object.keys(node.outputs).forEach(port => {
+                        const conns = node.outputs[port].connections;
+                        if(conns.length > 0) {
+                            options.push({
+                                id: port,
+                                port: port,
+                                text: node.data.labels?.[port] || "Далее...",
+                                toNode: conns[0].node
+                            });
+                        }
+                    });
+                    return options;
+                },
+                makeChoice(toId) { this.processNode(toId); }
+            }
+        }
+    </script>
+</body>
+</html>

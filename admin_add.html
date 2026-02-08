@@ -2,209 +2,161 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Snippet Builder</title>
+    <title>CommonToolHub | Admin Panel</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { background: #222; color: #ddd; font-family: sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; }
-        input, textarea, select { width: 100%; background: #333; border: 1px solid #444; color: white; padding: 10px; margin-bottom: 15px; border-radius: 4px; display: block; box-sizing: border-box; }
-        textarea { height: 150px; font-family: monospace; }
-        label { font-size: 0.9em; color: #aaa; margin-bottom: 5px; display: block; }
-        
-        /* Оригинальный синий стиль */
-        button { background: #007acc; color: white; border: none; padding: 15px; width: 100%; cursor: pointer; font-weight: bold; border-radius: 4px; transition: 0.2s; }
+        :root { --primary: #4ec9b0; --bg: #1e1e1e; --panel: #252526; --border: #333; }
+        body { background: var(--bg); color: #ddd; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .container { background: var(--panel); padding: 30px; border-radius: 8px; border: 1px solid var(--border); width: 100%; max-width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h2 { color: var(--primary); margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 10px; font-size: 1.2em; }
+        label { display: block; margin: 15px 0 5px; font-size: 0.85em; color: #888; }
+        input, textarea, select { width: 100%; background: #333; border: 1px solid var(--border); color: white; padding: 10px; border-radius: 4px; box-sizing: border-box; }
+        textarea { height: 120px; font-family: monospace; font-size: 0.9em; }
+        button { background: #007acc; color: white; border: none; padding: 12px; width: 100%; cursor: pointer; font-weight: bold; border-radius: 4px; margin-top: 20px; transition: 0.2s; }
         button:hover { background: #005a9e; }
-
-        .result-box { margin-top: 20px; background: #111; padding: 15px; border: 1px dashed #555; display: none; }
-        .input-preview { margin-bottom: 15px; display: none; }
-        .badge { display: inline-block; background: #444; color: #4ec9b0; padding: 2px 8px; border-radius: 3px; font-size: 0.8em; margin-right: 5px; border: 1px solid #555; }
-
-        /* Локальная панель в общем стиле */
-        .local-panel { 
-            margin-top: 30px; 
-            padding: 20px; 
-            background: #1a1a1a; 
-            border: 1px solid #333; 
-            border-radius: 4px; 
-            display: none; 
-        }
-        .btn-db-connect { background: #444; margin-bottom: 10px; }
-        .btn-db-connect:hover { background: #555; }
-        .btn-db-connect.connected { border-left: 4px solid #4ec9b0; color: #4ec9b0; }
-        .btn-save-local { background: #007acc; display: none; margin-top: 10px; }
+        button.secondary { background: #444; margin-top: 10px; }
+        #authSection, #adminForm { display: none; }
+        .status { margin-top: 15px; padding: 10px; border-radius: 4px; font-size: 0.9em; display: none; }
+        .success { background: rgba(78, 201, 176, 0.1); color: var(--primary); border: 1px solid var(--primary); }
+        .error { background: rgba(209, 105, 105, 0.1); color: #d16969; border: 1px solid #d16969; }
+        .nav-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .logout-btn { background: none; color: #888; border: 1px solid #444; padding: 5px 10px; width: auto; margin: 0; font-size: 0.7em; }
     </style>
 </head>
 <body>
-    <h2>➕ Добавить новый сниппет</h2>
-    
-    <label>Название (Title):</label>
-    <input type="text" id="inTitle" placeholder="Например: Custom Rotator">
 
-    <label>Язык (Language):</label>
-    <select id="inLang" onchange="togglePreview()">
-        <option value="cpp">C++</option>
-        <option value="javascript">JavaScript</option>
-        <option value="python">Python</option>
-        <option value="html">HTML</option>
-        <option value="css">CSS</option>
-        <option value="hlsl">HLSL (Shader Code)</option> 
-        <option value="text">Plain Text</option>
-    </select>
-
-    <label>Описание:</label>
-    <input type="text" id="inDesc" placeholder="Что он делает...">
-
-    <label>Код:</label>
-    <textarea id="inCode" oninput="togglePreview()" placeholder="Вставьте код сюда..."></textarea>
-
-    <div id="inputPreview" class="input-preview">
-        <label style="color: #4ec9b0;">Авто-определенные входы (Inputs):</label>
-        <div id="badgeContainer"></div>
+<div class="container">
+    <div id="authSection">
+        <h2>🔐 Вход для автора</h2>
+        <label>Email</label>
+        <input type="email" id="email" placeholder="your@email.com">
+        <label>Пароль</label>
+        <input type="password" id="password">
+        <button onclick="login()">ВОЙТИ</button>
     </div>
 
-    <button onclick="generateJSON()">СГЕНЕРИРОВАТЬ ДЛЯ ВСТАВКИ</button>
+    <div id="adminForm">
+        <div class="nav-header">
+            <h2>🚀 Добавить инструмент</h2>
+            <button class="logout-btn" onclick="logout()">Выйти</button>
+        </div>
 
-    <div id="localAdmin" class="local-panel">
-        <label id="dbLabel" style="color: #4ec9b0;">🏠 ЛОКАЛЬНАЯ БАЗА ДАННЫХ</label>
-        <div style="font-size: 11px; color: #666; margin-bottom: 10px;">Подключите нужный .js файл из папки проекта</div>
-        <button id="btnConnectDB" class="btn-db-connect" onclick="connectDatabase()">ПРИВЯЗАТЬ ФАЙЛ БД (.js)</button>
-        <button id="btnSaveToFile" class="btn-save-local" onclick="saveToLocalFile()">ДОБАВИТЬ В ФАЙЛ БАЗЫ</button>
+        <label>Категория</label>
+        <select id="targetTable" onchange="adjustFields()">
+            <option value="snippets">Сниппет (Python/JS/C++)</option>
+            <option value="hlsl">HLSL Node</option>
+            <option value="shaders">Shader / Material</option>
+            <option value="blueprints">Blueprint</option>
+        </select>
+
+        <label>Заголовок</label>
+        <input type="text" id="inTitle" placeholder="Название...">
+
+        <label>Описание</label>
+        <input type="text" id="inDesc" placeholder="Краткое описание...">
+
+        <div id="extraFields">
+            </div>
+
+        <label>Исходный код</label>
+        <textarea id="inCode" placeholder="Вставьте код здесь..."></textarea>
+
+        <button id="btnSubmit" onclick="uploadData()">ОПУБЛИКОВАТЬ В БАЗУ</button>
+        <div id="statusMsg" class="status"></div>
     </div>
+</div>
 
-    <div class="result-box" id="resultArea">
-        <p id="pasteHint" style="color: #4ec9b0; margin-top: 0; font-size: 0.9em;">
-            Скопируйте и вставьте в <b>snippets_db.js</b>:
-        </p>
-        <textarea id="outJson" style="height: 120px; color: #ce9178; font-family: monospace;"></textarea>
-    </div>
+<script>
+    // --- НАСТРОЙКИ SUPABASE ---
+    const SUPABASE_URL = 'https://vmwwvwtsznxwoswzdzui.supabase.co'; 
+    const SUPABASE_KEY = 'sb_publishable_hfVfEOEyUxTAl9TCGQLQdA_2qpquHGk';
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    <script>
-        const hlslKeywords = new Set([
-            'float','float2','float3','float4','half','half2','half3','half4','int','int2','int3','int4','uint','bool','fixed','float4x4','float3x3','void','return','if','else','for','while','break','continue','discard','true','false','const','static','loop','unroll','abs','acos','any','asin','atan','atan2','ceil','clamp','cos','cross','ddx','ddy','distance','dot','exp','exp2','floor','fmod','frac','length','lerp','log','max','min','mul','normalize','pow','reflect','refract','round','rsqrt','saturate','sign','sin','smoothstep','sqrt','step','tan','tanh','tex2D','all','View','ResolvedView','Parameters','Sample','Texture2D'
-        ]);
+    const authSection = document.getElementById('authSection');
+    const adminForm = document.getElementById('adminForm');
+    const statusMsg = document.getElementById('statusMsg');
 
-        function extractHlslInputs(code) {
-            const cleanCode = code.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
-            const declared = new Set();
-            const declRegex = /\b(?:float[1-4]?|half[1-4]?|int[1-4]?|uint[1-4]?|bool|fixed|float4x4|float3x3|struct)\s+([a-zA-Z_][a-zA-Z0-9_]*)\b/g;
-            let m;
-            while ((m = declRegex.exec(cleanCode)) !== null) declared.add(m[1]);
+    // Проверка сессии при загрузке
+    async function checkUser() {
+        const { data: { session } } = await _supabase.auth.getSession();
+        if (session) {
+            authSection.style.display = 'none';
+            adminForm.style.display = 'block';
+            adjustFields();
+        } else {
+            authSection.style.display = 'block';
+            adminForm.style.display = 'none';
+        }
+    }
+    checkUser();
 
-            const inputs = new Set();
-            const wordRegex = /(\.)?(\b[a-zA-Z_][a-zA-Z0-9_]*\b)/g;
-            while ((m = wordRegex.exec(cleanCode)) !== null) {
-                const hasDot = m[1] === '.';
-                const word = m[2];
-                if (!hasDot && !hlslKeywords.has(word) && !declared.has(word) && !/^[xyzwrgba]{1,4}$/.test(word)) {
-                    inputs.add(word);
-                }
-            }
-            return Array.from(inputs);
+    async function login() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const { error } = await _supabase.auth.signInWithPassword({ email, password });
+        if (error) alert("Ошибка: " + error.message);
+        else checkUser();
+    }
+
+    async function logout() {
+        await _supabase.auth.signOut();
+        checkUser();
+    }
+
+    function adjustFields() {
+        const table = document.getElementById('targetTable').value;
+        const container = document.getElementById('extraFields');
+        container.innerHTML = '';
+
+        if (table === 'shaders' || table === 'blueprints') {
+            container.innerHTML = `
+                <label>ID с BlueprintUE</label>
+                <input type="text" id="inEmbedId" placeholder="xyz123abc">
+            `;
+        }
+    }
+
+    async function uploadData() {
+        const table = document.getElementById('targetTable').value;
+        const btn = document.getElementById('btnSubmit');
+        
+        const payload = {
+            title: document.getElementById('inTitle').value,
+            description: document.getElementById('inDesc').value,
+            code: document.getElementById('inCode').value
+        };
+
+        // Доп. поля в зависимости от таблицы
+        if (table === 'hlsl') {
+            payload.lang = 'hlsl';
+            // Простая авто-экстракция инпутов для HLSL
+            payload.inputs = (payload.code.match(/\b[a-zA-Z_][a-zA-Z0-9_]*\b/g) || [])
+                .filter((v, i, a) => a.indexOf(v) === i).slice(0, 10).join(', '); 
+        }
+        if (table === 'shaders' || table === 'blueprints') {
+            payload.embed_id = document.getElementById('inEmbedId').value;
         }
 
-        function togglePreview() {
-            const lang = document.getElementById('inLang').value;
-            const preview = document.getElementById('inputPreview');
-            const code = document.getElementById('inCode').value;
-            
-            if (lang === 'hlsl' && code.trim() !== "") {
-                const detected = extractHlslInputs(code);
-                if (detected.length > 0) {
-                    preview.style.display = 'block';
-                    document.getElementById('badgeContainer').innerHTML = detected.map(i => `<span class="badge">${i}</span>`).join('');
-                    return;
-                }
-            }
-            preview.style.display = 'none';
+        btn.disabled = true;
+        btn.innerText = "ЗАГРУЗКА...";
+
+        const { error } = await _supabase.from(table).insert([payload]);
+
+        btn.disabled = false;
+        btn.innerText = "ОПУБЛИКОВАТЬ В БАЗУ";
+
+        statusMsg.style.display = 'block';
+        if (error) {
+            statusMsg.className = 'status error';
+            statusMsg.innerText = "Ошибка: " + error.message;
+        } else {
+            statusMsg.className = 'status success';
+            statusMsg.innerText = "Успешно добавлено в " + table + "!";
+            // Очистка
+            document.getElementById('inTitle').value = '';
+            document.getElementById('inCode').value = '';
         }
-
-        // Модифицированная функция: теперь возвращает объект
-        function generateJSON() {
-            const title = document.getElementById('inTitle').value;
-            const lang = document.getElementById('inLang').value;
-            const desc = document.getElementById('inDesc').value;
-            const code = document.getElementById('inCode').value;
-            const hint = document.getElementById('pasteHint');
-
-            if(!title || !code) { alert("Заполни Title и Code!"); return null; }
-
-            const obj = {
-                id: (lang === 'hlsl' ? "hlsl_" : "id_") + Date.now(),
-                title: title,
-                desc: desc,
-                lang: lang,
-                code: code
-            };
-
-            if (lang === 'hlsl') {
-                const inputs = extractHlslInputs(code);
-                obj.inputs = inputs.join(', ');
-                hint.innerHTML = "Скопируйте и вставьте в <b>hlsl_db.js</b> (Инпуты определены автоматически):";
-            } else {
-                hint.innerHTML = "Скопируйте и вставьте в <b>snippets_db.js</b>:";
-            }
-
-            document.getElementById('outJson').value = "," + JSON.stringify(obj, null, 4);
-            document.getElementById('resultArea').style.display = 'block';
-            document.getElementById('outJson').select();
-
-            return obj;
-        }
-
-        // --- ЛОГИКА ЛОКАЛЬНОГО СОХРАНЕНИЯ ---
-        let fileHandle;
-        const localPanel = document.getElementById('localAdmin');
-        const btnConnect = document.getElementById('btnConnectDB');
-        const btnSave = document.getElementById('btnSaveToFile');
-
-        const isLocal = window.location.hostname === "localhost" || 
-                        window.location.hostname === "127.0.0.1" || 
-                        window.location.protocol === "file:";
-
-        if (isLocal) { localPanel.style.display = 'block'; }
-
-        async function connectDatabase() {
-            try {
-                [fileHandle] = await window.showOpenFilePicker({
-                    types: [{ description: 'JS Database', accept: {'text/javascript': ['.js']} }]
-                });
-                btnConnect.innerText = "✅ БД ПОДКЛЮЧЕНА (" + fileHandle.name + ")";
-                btnConnect.classList.add('connected');
-                btnSave.style.display = 'block';
-            } catch (err) { console.log("User cancelled"); }
-        }
-
-        async function saveToLocalFile() {
-            if (!fileHandle) return;
-            const dataObj = generateJSON();
-            if (!dataObj) return;
-
-            try {
-                const file = await fileHandle.getFile();
-                let content = await file.text();
-
-                // Ищем конец массива ];
-                const lastBracketIndex = content.lastIndexOf('];');
-                if (lastBracketIndex === -1) {
-                    alert("Ошибка: Не найдена структура ]; в файле " + file.name);
-                    return;
-                }
-
-                const entryToAppend = `    ${JSON.stringify(dataObj, null, 4)},\n`;
-                const newContent = content.slice(0, lastBracketIndex) + entryToAppend + content.slice(lastBracketIndex);
-
-                const writable = await fileHandle.createWritable();
-                await writable.write(newContent);
-                await writable.close();
-
-                alert("Сниппет успешно добавлен в " + file.name);
-                
-                // Очистка формы
-                document.getElementById('inTitle').value = "";
-                document.getElementById('inCode').value = "";
-                togglePreview();
-            } catch (err) {
-                alert("Ошибка доступа: " + err.message);
-            }
-        }
-    </script>
+    }
+</script>
 </body>
 </html>
