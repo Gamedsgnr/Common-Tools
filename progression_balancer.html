@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CTH: Math Architect Pro</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <style>
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #111827; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+        [x-cloak] { display: none !important; }
+
+        .resizer {
+            height: 6px;
+            background: #1f2937;
+            cursor: row-resize;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background 0.2s;
+            z-index: 50;
+            border-top: 1px solid #374151;
+            border-bottom: 1px solid #374151;
+        }
+        .resizer:hover, .resizer.active { background: #3b82f6; }
+        .resizer-handle {
+            width: 40px; height: 3px; background: #6b7280; border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-200 font-sans antialiased h-screen flex flex-col overflow-hidden select-none" 
+      x-data="app()" @mouseup="stopResize" @mousemove="onResize">
+
+    <header class="bg-gray-900 border-b border-gray-800 p-2 flex justify-between items-center shrink-0 h-12">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center font-bold text-white shadow-lg shadow-blue-900/50">V5</div>
+            <h1 class="text-sm font-bold text-gray-100 tracking-wide uppercase">Math Architect <span class="text-green-500 text-xs normal-case ml-2">Fixed</span></h1>
+        </div>
+        <div class="flex gap-2">
+            <button @click="exportCSV" class="px-3 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-xs rounded transition-colors text-gray-300">Export CSV</button>
+            <button @click="saveProject" class="px-3 py-1 bg-blue-700 hover:bg-blue-600 text-xs rounded font-semibold transition-colors shadow-lg shadow-blue-900/50 text-white">Save Project</button>
+            <label class="px-3 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-xs rounded cursor-pointer transition-colors text-gray-300">
+                Load
+                <input type="file" @change="loadProject" class="hidden" accept=".json">
+            </label>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        
+        <aside class="w-80 bg-gray-900 border-r border-gray-800 flex flex-col shrink-0 z-20 shadow-xl overflow-hidden">
+            
+            <div class="p-4 border-b border-gray-800 bg-gray-800/30">
+                <h3 class="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-3">X-Axis (Input Domain)</h3>
+                
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-[10px] text-gray-500 uppercase font-bold">Label</label>
+                        <input type="text" x-model="domain.label" @input="updateChartMeta" class="w-full bg-gray-950 border border-gray-700 rounded px-2 py-1 text-sm focus:border-blue-500 outline-none transition-colors">
+                    </div>
+                    
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="text-[10px] text-gray-500 uppercase font-bold">Start</label>
+                            <input type="number" x-model.number="domain.start" @input="fullRecalc" class="w-full bg-gray-950 border border-gray-700 rounded px-2 py-1 text-sm font-mono text-green-400 focus:border-green-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-500 uppercase font-bold">End</label>
+                            <input type="number" x-model.number="domain.end" @input="fullRecalc" class="w-full bg-gray-950 border border-gray-700 rounded px-2 py-1 text-sm font-mono text-red-400 focus:border-red-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-500 uppercase font-bold">Step</label>
+                            <input type="number" x-model.number="domain.step" @input="fullRecalc" class="w-full bg-gray-950 border border-gray-700 rounded px-2 py-1 text-sm font-mono focus:border-blue-500 outline-none">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-thin">
+                <div class="flex justify-between items-center px-2 py-2">
+                    <span class="text-[10px] font-bold text-gray-500 uppercase">Y-Axis Variables</span>
+                    <button @click="addAttr" class="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 px-2 py-1 rounded text-gray-300 transition-colors">+ Add</button>
+                </div>
+
+                <template x-for="attr in attributes" :key="attr.id">
+                    <div @click="selectAttr(attr.id)" 
+                         class="p-3 rounded border transition-all cursor-pointer relative group select-none flex justify-between items-center"
+                         :class="selectedId === attr.id ? 'bg-gray-800 border-l-4 border-l-blue-500 border-y-transparent border-r-transparent' : 'bg-transparent border-transparent hover:bg-gray-800/50'">
+                        
+                        <div>
+                            <div class="font-bold text-sm text-gray-200" x-text="attr.name"></div>
+                            <div class="text-[10px] text-gray-500 font-mono">
+                                <span x-text="attr.type"></span>
+                            </div>
+                        </div>
+
+                        <div class="w-3 h-3 rounded-full shadow-sm" :style="`background-color: ${attr.color}`"></div>
+                    </div>
+                </template>
+            </div>
+
+            <div class="p-4 bg-gray-850 border-t border-gray-800 h-1/2 overflow-y-auto" x-show="selectedAttr" x-transition>
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Property Editor</h3>
+                    <button @click="deleteAttr(selectedAttr.id)" class="text-red-500 hover:text-red-400 text-xs border border-red-900/50 bg-red-900/20 px-2 py-1 rounded">Delete</button>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] text-gray-500 uppercase font-bold">Name</label>
+                        <input type="text" x-model="selectedAttr.name" @input="renderChart" class="w-full bg-gray-950 border border-gray-700 rounded px-2 py-1 text-sm focus:border-blue-500 outline-none text-white">
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] text-gray-500 uppercase font-bold">Formula</label>
+                        <select x-model="selectedAttr.type" @change="fullRecalc" class="w-full bg-gray-950 border border-gray-700 rounded px-2 py-1 text-sm text-gray-300 outline-none focus:border-blue-500">
+                            <option value="linear">Linear (y = Base + x*Mult)</option>
+                            <option value="power">Power (y = Base * x^Exp)</option>
+                            <option value="exponential">Exponential (y = Base * Mult^x)</option>
+                            <option value="log">Logarithmic (y = Base + Mult * ln(x))</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[10px] text-gray-500 uppercase font-bold">Base</label>
+                            <input type="number" x-model.number="selectedAttr.base" @input="fullRecalc" class="w-full bg-gray-950 border border-gray-700 rounded px-2 py-1 text-white font-mono focus:border-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-500 uppercase font-bold">Multiplier</label>
+                            <input type="number" step="0.01" x-model.number="selectedAttr.mult" @input="fullRecalc" class="w-full bg-gray-950 border border-gray-700 rounded px-2 py-1 text-white font-mono focus:border-blue-500 outline-none">
+                        </div>
+                    </div>
+
+                    <div x-show="selectedAttr.type === 'power'">
+                        <label class="text-[10px] text-gray-500 uppercase font-bold">Exponent</label>
+                        <input type="number" step="0.1" x-model.number="selectedAttr.exp" @input="fullRecalc" class="w-full bg-gray-950 border border-gray-700 rounded px-2 py-1 text-white font-mono focus:border-blue-500 outline-none">
+                    </div>
+
+                    <div>
+                         <label class="text-[10px] text-gray-500 uppercase font-bold">Color</label>
+                         <div class="flex items-center gap-2 mt-1">
+                             <input type="color" x-model="selectedAttr.color" @input="renderChart" class="bg-transparent w-full h-6 cursor-pointer rounded overflow-hidden border border-gray-700">
+                         </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col min-w-0 bg-gray-950 relative" x-ref="container">
+            
+            <div class="relative w-full bg-gray-900" :style="`height: ${splitPercent}%`" x-ref="topPane">
+                
+                <div class="absolute top-2 right-2 z-10 flex gap-2">
+                    <button @click="resetZoom" class="px-2 py-1 bg-gray-800/80 hover:bg-gray-700 text-xs text-blue-400 border border-gray-700 rounded shadow backdrop-blur-sm flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 4l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                        Fit
+                    </button>
+                </div>
+
+                <div class="w-full h-full p-2">
+                     <canvas id="mainChart"></canvas>
+                </div>
+            </div>
+
+            <div class="resizer" @mousedown.prevent="startResize" :class="{'active': resizing}">
+                <div class="resizer-handle"></div>
+            </div>
+
+            <div class="flex-1 bg-gray-900 overflow-hidden flex flex-col min-h-0">
+                <div class="p-2 border-b border-gray-800 flex justify-between items-center bg-gray-800/50">
+                    <h3 class="text-xs font-bold text-gray-400 uppercase">Data Points</h3>
+                    <div class="text-[10px] text-gray-500 font-mono">
+                        <span class="text-yellow-500 font-bold">Yellow</span> = Manual Override
+                    </div>
+                </div>
+                
+                <div class="overflow-auto flex-1 pb-10">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-gray-800 sticky top-0 z-10 shadow-lg">
+                            <tr>
+                                <th class="p-2 text-center text-xs text-blue-400 border-b border-gray-700 w-24 sticky left-0 bg-gray-800 border-r border-gray-700" x-text="domain.label"></th>
+                                <template x-for="attr in attributes" :key="attr.id">
+                                    <th class="p-2 text-xs font-semibold border-b border-gray-700 min-w-[120px] text-center" :style="`color: ${attr.color}`">
+                                        <span x-text="attr.name"></span>
+                                    </th>
+                                </template>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800/50">
+                            <template x-for="(pt, idx) in points" :key="idx">
+                                <tr class="hover:bg-gray-800/80 group transition-colors">
+                                    <td class="p-1 text-xs text-center font-mono text-gray-500 border-r border-gray-800 sticky left-0 bg-gray-900 group-hover:bg-gray-800" x-text="pt.x"></td>
+                                    
+                                    <template x-for="attr in attributes" :key="attr.id">
+                                        <td class="p-1 border-r border-gray-800/30 text-center relative">
+                                            <input type="text" 
+                                                   :value="getVal(attr, pt.x)" 
+                                                   @input="setManual(attr, pt.x, $event.target.value)"
+                                                   class="bg-transparent w-full text-xs font-mono text-center outline-none focus:bg-gray-800 focus:text-white transition-colors py-1"
+                                                   :class="isManual(attr, pt.x) ? 'text-yellow-500 font-bold' : 'text-gray-400'">
+                                            
+                                            <div x-show="isManual(attr, pt.x)" 
+                                                 @click="setManual(attr, pt.x, '')"
+                                                 class="absolute top-0 right-0 w-2 h-2 cursor-pointer hover:bg-red-500 bg-yellow-500/50 rounded-bl transition-colors"
+                                                 title="Reset to formula"></div>
+                                        </td>
+                                    </template>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Formatter for chart axes (Visual only)
+        const numFmt = (val) => {
+            if (val === 0) return '0';
+            if (Math.abs(val) >= 1000000) return (val / 1000000).toFixed(1) + 'M';
+            if (Math.abs(val) >= 1000) return (val / 1000).toFixed(1) + 'k';
+            return parseFloat(val.toFixed(2));
+        };
+
+        function app() {
+            return {
+                // UI State
+                resizing: false,
+                splitPercent: 50,
+                startY: 0,
+                startH: 0,
+                containerH: 0,
+
+                // Data Model
+                domain: { label: "Level", start: 1, end: 20, step: 1 },
+                attributes: [],
+                selectedId: null,
+                points: [], 
+
+                // Tech
+                chart: null,
+                palette: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'],
+
+                init() {
+                    // Default Data
+                    this.addAttr("Hero HP", "power", 100, 1.2, 2, this.palette[1]);
+                    this.addAttr("Enemy Dmg", "exponential", 10, 1.1, 0, this.palette[3]);
+                    this.selectAttr(this.attributes[0].id);
+
+                    // Defer chart init
+                    this.$nextTick(() => {
+                        this.initChart();
+                        this.fullRecalc();
+                    });
+                },
+
+                // --- Splitting Logic ---
+                startResize(e) {
+                    this.resizing = true;
+                    this.startY = e.clientY;
+                    this.startH = this.$refs.topPane.offsetHeight;
+                    this.containerH = this.$refs.container.offsetHeight;
+                    document.body.style.cursor = 'row-resize';
+                },
+                stopResize() {
+                    this.resizing = false;
+                    document.body.style.cursor = '';
+                    if (this.chart) this.chart.resize();
+                },
+                onResize(e) {
+                    if (!this.resizing) return;
+                    const delta = e.clientY - this.startY;
+                    const newH = ((this.startH + delta) / this.containerH) * 100;
+                    this.splitPercent = Math.min(Math.max(newH, 20), 80);
+                    if (this.chart) this.chart.resize();
+                },
+
+                // --- Core Logic ---
+                get selectedAttr() { return this.attributes.find(a => a.id === this.selectedId); },
+
+                addAttr(name, type, base, mult, exp, color) {
+                    const id = Date.now() + Math.random();
+                    color = color || this.palette[this.attributes.length % this.palette.length];
+                    this.attributes.push({
+                        id, name, type, base, mult, exp, color,
+                        manual: {},
+                        computed: {}
+                    });
+                    this.selectAttr(id);
+                    this.fullRecalc();
+                },
+
+                deleteAttr(id) {
+                    if (confirm("Delete attribute?")) {
+                        this.attributes = this.attributes.filter(a => a.id !== id);
+                        if (this.selectedId === id) this.selectedId = this.attributes[0]?.id || null;
+                        this.fullRecalc();
+                    }
+                },
+
+                selectAttr(id) { this.selectedId = id; },
+
+                // The heavy lifter
+                fullRecalc() {
+                    // 1. Generate X Points
+                    this.points = [];
+                    let { start, end, step } = this.domain;
+                    
+                    start = parseFloat(start) || 0;
+                    end = parseFloat(end) || 10;
+                    step = parseFloat(step) || 1;
+                    if (step <= 0) step = 1;
+
+                    const range = Math.abs(end - start);
+                    if (range / step > 2000) step = range / 2000;
+
+                    for (let x = start; x <= end; x += step) {
+                        let safeX = Math.round(x * 1000) / 1000;
+                        this.points.push({ x: safeX });
+                    }
+
+                    // 2. Calculate Y for all attrs
+                    this.attributes.forEach(attr => {
+                        attr.computed = {}; 
+                        
+                        const base = parseFloat(attr.base) || 0;
+                        const mult = parseFloat(attr.mult) || 0;
+                        const exp = parseFloat(attr.exp) || 1;
+
+                        this.points.forEach(pt => {
+                            const x = pt.x;
+                            let y = 0;
+                            
+                            try {
+                                if (attr.type === 'linear') {
+                                    y = base + (x * mult);
+                                } else if (attr.type === 'power') {
+                                    y = base * Math.pow(Math.abs(x), exp);
+                                } else if (attr.type === 'exponential') {
+                                    y = base * Math.pow(mult, x);
+                                } else if (attr.type === 'log') {
+                                    y = base + (mult * 100) * Math.log(x > 0 ? x : 0.001);
+                                }
+                            } catch(e) { y = 0; }
+
+                            attr.computed[x] = parseFloat(y.toFixed(2));
+                        });
+                    });
+
+                    // 3. Update Chart Immediately
+                    this.renderChart();
+                },
+
+                // --- Values & Manual Override ---
+                getVal(attr, x) {
+                    if (attr.manual[x] !== undefined && attr.manual[x] !== "") return attr.manual[x];
+                    return attr.computed[x];
+                },
+
+                setManual(attr, x, val) {
+                    if (val === "" || val === null) {
+                        delete attr.manual[x];
+                    } else {
+                        const num = parseFloat(val);
+                        if (!isNaN(num)) attr.manual[x] = num;
+                    }
+                    this.renderChart();
+                },
+
+                isManual(attr, x) {
+                    return attr.manual[x] !== undefined && attr.manual[x] !== "";
+                },
+
+                // --- Chart.js ---
+                initChart() {
+                    const ctx = document.getElementById('mainChart');
+                    if (!ctx) return;
+
+                    Chart.defaults.color = '#6b7280';
+                    Chart.defaults.borderColor = '#374151';
+
+                    this.chart = new Chart(ctx, {
+                        type: 'line',
+                        data: { datasets: [] },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: false, // ZERO LATENCY
+                            parsing: false, // Performance boost for raw data
+                            normalized: true, // Performance boost
+                            interaction: {
+                                mode: 'nearest',
+                                axis: 'x',
+                                intersect: false
+                            },
+                            plugins: {
+                                zoom: {
+                                    pan: { enabled: true, mode: 'xy' },
+                                    zoom: {
+                                        wheel: { enabled: true },
+                                        pinch: { enabled: true },
+                                        mode: 'xy'
+                                    }
+                                },
+                                tooltip: {
+                                    backgroundColor: 'rgba(17, 24, 39, 0.95)',
+                                    titleColor: '#fff',
+                                    bodyFont: { family: 'monospace' },
+                                    callbacks: {
+                                        label: (ctx) => ` ${ctx.dataset.label}: ${numFmt(ctx.raw.y)}`
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    type: 'linear',
+                                    position: 'bottom',
+                                    title: { display: true, text: 'X Axis' },
+                                    ticks: { callback: numFmt }
+                                },
+                                y: {
+                                    type: 'linear',
+                                    ticks: { callback: numFmt }
+                                }
+                            }
+                        }
+                    });
+                },
+
+                renderChart() {
+                    if (!this.chart) return;
+
+                    // Update Title
+                    this.chart.options.scales.x.title.text = this.domain.label;
+
+                    // Construct Datasets
+                    const newDatasets = this.attributes.map(attr => {
+                        const data = new Array(this.points.length);
+                        for(let i=0; i<this.points.length; i++) {
+                            const x = this.points[i].x;
+                            data[i] = { x: x, y: this.getVal(attr, x) };
+                        }
+
+                        return {
+                            label: attr.name,
+                            data: data,
+                            borderColor: attr.color,
+                            backgroundColor: attr.color,
+                            borderWidth: 2,
+                            pointRadius: 2,
+                            pointHoverRadius: 6,
+                            tension: 0.1
+                        };
+                    });
+
+                    this.chart.data.datasets = newDatasets;
+                    this.chart.update('none');
+                },
+
+                updateChartMeta() {
+                    if (this.chart) {
+                        this.chart.options.scales.x.title.text = this.domain.label;
+                        this.chart.update('none');
+                    }
+                },
+
+                resetZoom() {
+                    if (this.chart) this.chart.resetZoom();
+                },
+
+                // --- File IO ---
+                exportCSV() {
+                    let csv = `${this.domain.label}`;
+                    this.attributes.forEach(a => csv += `,${a.name}`);
+                    csv += "\n";
+                    this.points.forEach(pt => {
+                        csv += `${pt.x}`;
+                        this.attributes.forEach(a => csv += `,${this.getVal(a, pt.x)}`);
+                        csv += "\n";
+                    });
+                    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+                    const link = document.createElement('a');
+                    link.href = url; link.download = 'balance_data.csv';
+                    link.click();
+                },
+
+                saveProject() {
+                    const data = { domain: this.domain, attributes: this.attributes };
+                    const url = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }));
+                    const link = document.createElement('a');
+                    link.href = url; link.download = 'project.json';
+                    link.click();
+                },
+
+                loadProject(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        try {
+                            const d = JSON.parse(ev.target.result);
+                            this.domain = d.domain;
+                            this.attributes = d.attributes;
+                            this.selectedId = this.attributes[0]?.id;
+                            this.fullRecalc();
+                            setTimeout(() => this.resetZoom(), 50);
+                        } catch (e) { alert("Error loading file"); }
+                    };
+                    reader.readAsText(file);
+                    e.target.value = '';
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CTH: Factory Architect v9 (Fixed)</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <style>
+        /* Base */
+        body { background-color: #0f1115; color: #e5e7eb; }
+        [x-cloak] { display: none !important; }
+        
+        /* Navigation */
+        .tab-btn.active { 
+            background: #1f2937; 
+            border-left: 3px solid #3b82f6; 
+            color: #60a5fa; 
+        }
+
+        /* --- DEPENDENCY MAP STYLES --- */
+        .blueprint-grid {
+            background-color: #13151a;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            overflow: hidden;
+        }
+        
+        #mermaidContainer { 
+            width: 100%; 
+            height: 100%; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #mermaidContainer svg { 
+            width: 100% !important; 
+            height: 100% !important; 
+            min-width: 100%;
+            min-height: 100%;
+        }
+
+        .node .label {
+            font-family: 'ui-sans-serif', system-ui, sans-serif !important;
+            font-weight: 600;
+            color: #e5e7eb;
+        }
+
+        /* Layout Utils */
+        .resizer { height: 6px; background: #111827; cursor: row-resize; display: flex; justify-content: center; align-items: center; z-index: 40; border-y: 1px solid #374151; }
+        .resizer-handle { width: 40px; height: 4px; background: #4b5563; border-radius: 2px; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden select-none" 
+      x-data="factoryApp()" @mouseup="stopResize" @mousemove="onResize">
+
+    <header class="bg-gray-900 border-b border-gray-800 px-4 flex justify-between items-center shrink-0 h-14 z-30">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center font-bold text-white shadow-lg">Fx</div>
+            <h1 class="text-sm font-bold text-gray-100 uppercase">Factory Architect <span class="text-green-500 normal-case ml-2">v9.1</span></h1>
+        </div>
+        <div class="flex gap-2">
+            <button @click="resetAll" class="px-3 py-1 text-xs text-red-400 hover:text-red-300">Reset</button>
+            <button @click="saveState" class="px-3 py-1 bg-blue-700 hover:bg-blue-600 text-xs rounded text-white font-semibold">Save Project</button>
+            <label class="px-3 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-xs rounded cursor-pointer text-gray-300">
+                Load <input type="file" @change="loadState" class="hidden" accept=".json">
+            </label>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        
+        <aside class="w-80 bg-gray-900 border-r border-gray-800 flex flex-col shrink-0 z-20 shadow-2xl">
+            <div class="flex flex-col shrink-0 py-2">
+                <button @click="switchTab('resources')" :class="{'active': tab==='resources'}" class="tab-btn px-4 py-3 text-left text-xs font-bold uppercase text-gray-500 hover:text-gray-300 border-l-4 border-transparent transition-all">1. Resources</button>
+                <button @click="switchTab('recipes')" :class="{'active': tab==='recipes'}" class="tab-btn px-4 py-3 text-left text-xs font-bold uppercase text-gray-500 hover:text-gray-300 border-l-4 border-transparent transition-all">2. Recipes</button>
+                <button @click="switchTab('line')" :class="{'active': tab==='line'}" class="tab-btn px-4 py-3 text-left text-xs font-bold uppercase text-gray-500 hover:text-gray-300 border-l-4 border-transparent transition-all">3. Build Line</button>
+                <button @click="switchTab('map')" :class="{'active': tab==='map'}" class="tab-btn px-4 py-3 text-left text-xs font-bold uppercase text-purple-500 hover:text-purple-300 border-l-4 border-transparent transition-all">4. Dependency Map</button>
+                <button @click="switchTab('sim')" :class="{'active': tab==='sim'}" class="tab-btn px-4 py-3 text-left text-xs font-bold uppercase text-amber-500 hover:text-amber-300 border-l-4 border-transparent transition-all">5. Simulation</button>
+            </div>
+            <div class="border-b border-gray-800 mb-2"></div>
+
+            <div class="flex-1 overflow-y-auto relative p-4">
+                <div x-show="tab === 'resources'" class="space-y-4">
+                    <div class="flex gap-2">
+                        <input type="text" x-model="newResName" @keyup.enter="addResource" placeholder="Resource Name" class="flex-1 bg-gray-950 border border-gray-700 rounded px-3 py-1.5 text-sm outline-none focus:border-blue-500 text-white">
+                        <button @click="addResource" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-sm font-bold">+</button>
+                    </div>
+                    <div class="space-y-2">
+                        <template x-for="res in resources" :key="res.id">
+                            <div class="flex justify-between items-center p-2 bg-gray-800/50 rounded border border-gray-800 group hover:border-gray-600">
+                                <input type="text" x-model="res.name" @input="recalc" class="bg-transparent border-none text-sm font-bold text-gray-300 focus:text-white outline-none w-full">
+                                <button @click="deleteResource(res.id)" class="text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 px-2 transition-opacity">×</button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div x-show="tab === 'recipes'" class="space-y-6">
+                    <div class="bg-gray-800 p-4 rounded border border-gray-700 space-y-3 shadow-inner">
+                        <h3 class="text-[10px] font-bold text-blue-400 uppercase">Create New Definition</h3>
+                        <div>
+                            <label class="text-[10px] text-gray-500">Name</label>
+                            <input type="text" x-model="newRecipe.name" placeholder="e.g. Smelter" class="w-full bg-gray-950 border border-gray-600 rounded px-2 py-1 text-sm outline-none text-white">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-500">Cycle (sec)</label>
+                            <input type="number" x-model.number="newRecipe.time" step="0.1" class="w-full bg-gray-950 border border-gray-600 rounded px-2 py-1 text-sm outline-none text-white">
+                        </div>
+                        <div class="bg-gray-900/50 p-2 rounded border border-gray-700/50">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-[10px] font-bold text-red-400">Inputs</span>
+                                <button @click="addIO(newRecipe, 'input')" class="text-xs bg-gray-700 px-2 rounded hover:bg-gray-600 text-white">+</button>
+                            </div>
+                            <template x-for="(io, idx) in newRecipe.inputs" :key="idx">
+                                <div class="flex gap-1 mb-1">
+                                    <select x-model="io.resId" class="flex-1 bg-gray-950 border border-gray-600 text-[10px] rounded text-gray-300"><template x-for="r in resources" :key="r.id"><option :value="r.id" x-text="r.name"></option></template></select>
+                                    <input type="number" x-model.number="io.amount" class="w-10 bg-gray-950 border border-gray-600 text-[10px] rounded text-center text-white">
+                                    <button @click="newRecipe.inputs.splice(idx, 1)" class="text-red-500 px-1">×</button>
+                                </div>
+                            </template>
+                        </div>
+                        <div class="bg-gray-900/50 p-2 rounded border border-gray-700/50">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-[10px] font-bold text-green-400">Outputs</span>
+                                <button @click="addIO(newRecipe, 'output')" class="text-xs bg-gray-700 px-2 rounded hover:bg-gray-600 text-white">+</button>
+                            </div>
+                            <template x-for="(io, idx) in newRecipe.outputs" :key="idx">
+                                <div class="flex gap-1 mb-1">
+                                    <select x-model="io.resId" class="flex-1 bg-gray-950 border border-gray-600 text-[10px] rounded text-gray-300"><template x-for="r in resources" :key="r.id"><option :value="r.id" x-text="r.name"></option></template></select>
+                                    <input type="number" x-model.number="io.amount" class="w-10 bg-gray-950 border border-gray-600 text-[10px] rounded text-center text-white">
+                                    <button @click="newRecipe.outputs.splice(idx, 1)" class="text-red-500 px-1">×</button>
+                                </div>
+                            </template>
+                        </div>
+                        <button @click="saveRecipe" class="w-full bg-blue-700 hover:bg-blue-600 text-white text-xs font-bold py-2 rounded">Add Definition</button>
+                    </div>
+                    <div class="space-y-3 pb-4">
+                        <template x-for="rec in recipes" :key="rec.id">
+                            <div class="p-3 bg-gray-800 border border-gray-700 rounded relative group hover:border-gray-500 transition-colors">
+                                <div class="flex justify-between items-start mb-2">
+                                    <span class="text-sm font-bold text-gray-200" x-text="rec.name"></span>
+                                    <div class="flex gap-2">
+                                        <button @click="openRecipeEdit(rec)" class="text-gray-500 hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-gray-900 rounded border border-gray-700">✏️</button>
+                                        <button @click="deleteRecipe(rec.id)" class="text-gray-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-gray-900 rounded border border-gray-700">🗑️</button>
+                                    </div>
+                                </div>
+                                <div class="text-[10px] text-gray-500 font-mono" x-text="`Cycle: ${rec.time}s`"></div>
+                                <div class="flex items-center gap-2 text-[10px] mt-2 bg-gray-900/50 p-2 rounded">
+                                    <div class="text-red-400 flex flex-col leading-tight"><template x-for="inp in rec.inputs"><span x-text="`${inp.amount} ${getResName(inp.resId)}`"></span></template></div>
+                                    <span class="text-gray-600 font-bold">➜</span>
+                                    <div class="text-green-400 flex flex-col leading-tight"><template x-for="out in rec.outputs"><span x-text="`${out.amount} ${getResName(out.resId)}`"></span></template></div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div x-show="tab === 'line'" class="space-y-4">
+                    <div class="bg-gray-800 p-3 rounded border border-gray-700 shadow-md">
+                        <label class="text-[10px] uppercase font-bold text-gray-500">Add Machine</label>
+                        <div class="flex gap-2 mt-2">
+                            <select x-model="selectedRecipeId" class="flex-1 bg-gray-950 border border-gray-600 text-xs rounded px-2 py-1 outline-none text-gray-300 cursor-pointer"><option value="">Select Recipe...</option><template x-for="rec in recipes" :key="rec.id"><option :value="rec.id" x-text="rec.name"></option></template></select>
+                            <button @click="addToLine" :disabled="!selectedRecipeId" class="bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white px-3 rounded text-sm font-bold">+</button>
+                        </div>
+                    </div>
+                    <div class="space-y-3 pb-4">
+                        <template x-for="(node, idx) in nodes" :key="node.id">
+                            <div class="p-3 bg-gray-800 border-l-4 rounded flex items-center justify-between group cursor-pointer hover:bg-gray-700/50 transition-colors" 
+                                     :class="node.enabled ? 'border-l-green-500 border-gray-700' : 'border-l-gray-600 border-gray-700 opacity-60'"
+                                     @click="openNodeEdit(node)">
+                                <div class="flex-1">
+                                    <div class="font-bold text-sm text-gray-200 flex items-center gap-2">
+                                        <span x-text="getRecipe(node.recipeId)?.name"></span>
+                                        <span class="text-[10px] text-blue-400 opacity-0 group-hover:opacity-100">Click to Edit</span>
+                                    </div>
+                                    <div class="mt-1"><span class="bg-gray-700 text-gray-300 px-1.5 rounded text-[10px] font-mono" x-text="`x${node.count}`"></span></div>
+                                </div>
+                                <button @click.stop="toggleNode(idx)" class="text-[10px] font-bold px-2 py-1 rounded border border-gray-600 w-16 text-center transition-colors"
+                                            :class="node.enabled ? 'bg-green-900/40 text-green-300 hover:bg-green-900/60' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'">
+                                    <span x-text="node.enabled ? 'ON' : 'OFF'"></span>
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div x-show="tab === 'sim'" class="space-y-4">
+                      <div>
+                        <label class="text-[10px] uppercase font-bold text-gray-500">Duration (Min)</label>
+                        <input type="number" x-model.number="simSettings.duration" @input="recalc" class="w-full bg-gray-950 border border-gray-700 rounded px-2 py-1 text-sm outline-none text-white">
+                    </div>
+                    <div>
+                        <label class="text-[10px] uppercase font-bold text-gray-500">Step (Min)</label>
+                        <input type="number" x-model.number="simSettings.step" @input="recalc" class="w-full bg-gray-950 border border-gray-700 rounded px-2 py-1 text-sm outline-none text-white" min="0.1" step="0.1">
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col min-w-0 bg-gray-950 relative" x-ref="container">
+            <div class="relative w-full bg-gray-900 overflow-hidden" :style="`height: ${splitPercent}%`" x-ref="topPane">
+                
+                <div class="w-full h-full p-4 flex flex-col" x-show="tab !== 'sim' && tab !== 'map'">
+                    <div class="flex justify-between items-center mb-2 shrink-0">
+                        <h2 class="text-xs font-bold text-gray-400 uppercase">Production Balance</h2>
+                        <div class="flex gap-2 text-[10px]">
+                            <span class="text-green-400">■ Production</span>
+                            <span class="text-red-400">■ Consumption</span>
+                        </div>
+                    </div>
+                    <div class="flex-1 relative min-h-0"><canvas id="balanceChart"></canvas></div>
+                </div>
+
+                <div class="w-full h-full p-4 flex flex-col" x-show="tab === 'sim'">
+                    <h2 class="text-xs font-bold text-amber-500 uppercase mb-2">Resource Simulation</h2>
+                    <div class="flex-1 relative min-h-0"><canvas id="simChart"></canvas></div>
+                </div>
+
+                <div class="blueprint-grid" x-show="tab === 'map'">
+                    <div class="absolute top-4 left-4 z-10">
+                         <button @click="resetMapZoom" class="bg-gray-800 hover:bg-gray-700 text-white text-xs font-bold px-3 py-2 rounded border border-gray-600 shadow-lg">Fit View</button>
+                    </div>
+                    <div id="mermaidContainer"></div>
+                </div>
+
+            </div>
+
+            <div class="resizer" @mousedown.prevent="startResize" :class="{'active': resizing}"><div class="resizer-handle"></div></div>
+
+            <div class="flex-1 bg-gray-900 overflow-hidden flex flex-col min-h-0">
+                <div class="p-2 border-b border-gray-800 bg-gray-800/50"><h3 class="text-xs font-bold text-gray-400 uppercase">Statistics</h3></div>
+                <div class="overflow-auto flex-1 pb-10">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-gray-800 sticky top-0 shadow-lg z-10">
+                            <tr>
+                                <th class="p-2 text-[10px] font-bold text-gray-500 uppercase border-b border-gray-700 pl-4">Resource</th>
+                                <th class="p-2 text-[10px] font-bold text-green-500 uppercase border-b border-gray-700 text-right">Prod/min</th>
+                                <th class="p-2 text-[10px] font-bold text-red-500 uppercase border-b border-gray-700 text-right">Cons/min</th>
+                                <th class="p-2 text-[10px] font-bold text-blue-400 uppercase border-b border-gray-700 text-right">Net Rate</th>
+                                <th class="p-2 text-[10px] font-bold text-gray-500 uppercase border-b border-gray-700 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800/50">
+                            <template x-for="stat in stats" :key="stat.id">
+                                <tr class="hover:bg-gray-800/80 transition-colors">
+                                    <td class="p-2 text-xs font-bold text-gray-300 pl-4" x-text="stat.name"></td>
+                                    <td class="p-2 text-xs font-mono text-green-400 text-right" x-text="formatNum(stat.produced)"></td>
+                                    <td class="p-2 text-xs font-mono text-red-400 text-right" x-text="formatNum(stat.consumed)"></td>
+                                    <td class="p-2 text-xs font-mono font-bold text-right" :class="stat.net > 0 ? 'text-green-400' : (stat.net < 0 ? 'text-red-400' : 'text-gray-500')" x-text="(stat.net > 0 ? '+' : '') + formatNum(stat.net)"></td>
+                                    <td class="p-2 text-[10px] text-center">
+                                        <span x-show="stat.net > 0.01" class="bg-green-900/30 text-green-300 px-1.5 py-0.5 rounded border border-green-900/50">Surplus</span>
+                                        <span x-show="stat.net < -0.01" class="bg-red-900/30 text-red-300 px-1.5 py-0.5 rounded border border-red-900/50">Deficit</span>
+                                        <span x-show="Math.abs(stat.net) <= 0.01" class="text-gray-600">-</span>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div x-show="editingRecipe" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" x-cloak>
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 w-96 max-h-[90vh] overflow-y-auto" @click.away="editingRecipe = null">
+            <template x-if="editingRecipe">
+                <div class="space-y-4">
+                    <h3 class="text-lg font-bold text-white mb-4">Edit Definition</h3>
+                    <div>
+                        <label class="text-xs uppercase font-bold text-gray-500">Name</label>
+                        <input type="text" x-model="editingRecipe.name" @input="recalc" class="w-full bg-gray-950 border border-gray-600 rounded px-3 py-2 text-white outline-none">
+                    </div>
+                    <div>
+                        <label class="text-xs uppercase font-bold text-gray-500">Cycle Time (sec)</label>
+                        <input type="number" x-model.number="editingRecipe.time" @input="recalc" class="w-full bg-gray-950 border border-gray-600 rounded px-3 py-2 text-white outline-none" step="0.1">
+                    </div>
+                    
+                    <div class="bg-gray-900/50 p-3 rounded border border-gray-700/50">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold text-red-400">Inputs</span>
+                            <button @click="addIO(editingRecipe, 'input')" class="text-xs bg-gray-700 px-2 py-0.5 rounded hover:bg-gray-600 text-white">+</button>
+                        </div>
+                        <template x-for="(io, idx) in editingRecipe.inputs" :key="idx">
+                            <div class="flex gap-2 mb-2">
+                                <select x-model="io.resId" @change="recalc" class="flex-1 bg-gray-950 border border-gray-600 text-xs rounded text-white py-1"><template x-for="res in resources" :key="res.id"><option :value="res.id" x-text="res.name"></option></template></select>
+                                <input type="number" x-model.number="io.amount" @input="recalc" class="w-12 bg-gray-950 border border-gray-600 text-xs rounded text-center text-white">
+                                <button @click="editingRecipe.inputs.splice(idx,1); recalc()" class="text-red-500 hover:text-red-400">×</button>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="bg-gray-900/50 p-3 rounded border border-gray-700/50">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold text-green-400">Outputs</span>
+                            <button @click="addIO(editingRecipe, 'output')" class="text-xs bg-gray-700 px-2 py-0.5 rounded hover:bg-gray-600 text-white">+</button>
+                        </div>
+                        <template x-for="(io, idx) in editingRecipe.outputs" :key="idx">
+                            <div class="flex gap-2 mb-2">
+                                <select x-model="io.resId" @change="recalc" class="flex-1 bg-gray-950 border border-gray-600 text-xs rounded text-white py-1"><template x-for="res in resources" :key="res.id"><option :value="res.id" x-text="res.name"></option></template></select>
+                                <input type="number" x-model.number="io.amount" @input="recalc" class="w-12 bg-gray-950 border border-gray-600 text-xs rounded text-center text-white">
+                                <button @click="editingRecipe.outputs.splice(idx,1); recalc()" class="text-red-500 hover:text-red-400">×</button>
+                            </div>
+                        </template>
+                    </div>
+                    
+                    <div class="flex justify-end pt-2">
+                        <button @click="editingRecipe = null" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold shadow">Done</button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <div x-show="editingNode" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" x-cloak>
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 w-80" @click.away="editingNode = null">
+            <template x-if="editingNode">
+                <div class="space-y-4">
+                    <h3 class="text-lg font-bold text-white mb-4">Edit Machine</h3>
+                    <div class="text-sm text-gray-400 font-mono bg-gray-900 p-2 rounded" x-text="getRecipe(editingNode.recipeId)?.name"></div>
+                    <div>
+                        <label class="text-xs uppercase font-bold text-gray-500">Count</label>
+                        <input type="number" x-model.number="editingNode.count" @input="recalc" class="w-full bg-gray-950 border border-gray-600 rounded px-3 py-2 text-lg font-mono text-white outline-none" min="0">
+                    </div>
+                    <div>
+                        <label class="text-xs uppercase font-bold text-gray-500">Status</label>
+                        <button @click="editingNode.enabled = !editingNode.enabled; recalc()" 
+                                class="w-full mt-1 px-3 py-2 rounded text-sm font-bold transition-colors shadow"
+                                :class="editingNode.enabled ? 'bg-green-600 text-white hover:bg-green-500' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'">
+                            <span x-text="editingNode.enabled ? 'RUNNING' : 'STOPPED'"></span>
+                        </button>
+                    </div>
+                    <div class="flex justify-between pt-4">
+                        <button @click="removeNode(nodes.indexOf(editingNode)); editingNode = null" class="text-red-500 text-sm hover:underline">Remove</button>
+                        <button @click="editingNode = null" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold shadow">Done</button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+    startOnLoad: false, 
+    theme: 'base',
+    themeVariables: {
+        // 1. Цвет самих линий (стрелок)
+        lineColor: '#707a87', 
+
+        // 2. Цвет цифр на стрелках
+        textColor: '#ffffff', 
+
+        // 3. Цвет подложки (фона) под цифрами
+        edgeLabelBackground: '#707a87', 
+
+        // Дополнительно: цвет начала/конца стрелок
+        arrowheadColor: '#ffffff',
+        
+        // Шрифт
+        fontFamily: 'ui-sans-serif, system-ui, sans-serif'
+    }
+});
+
+        function factoryApp() {
+            // FIX: Defined variables outside the return object
+            // This prevents Alpine from Proxy-ing these complex objects, which breaks Chart.js and PanZoom
+            let chartBalance = null;
+            let chartSim = null;
+            let panZoomInstance = null;
+
+            return {
+                tab: 'resources',
+                resizing: false,
+                splitPercent: 50,
+                startY: 0,
+                startH: 0,
+                containerH: 0,
+
+                resources: [],
+                recipes: [],
+                nodes: [],
+                
+                newResName: '',
+                newRecipe: { name: '', time: 1.0, inputs: [], outputs: [] },
+                selectedRecipeId: '',
+                
+                editingRecipe: null,
+                editingNode: null,
+
+                stats: [],
+                simSettings: { duration: 60, step: 5 },
+                
+                // chartBalance & chartSim removed from reactive properties
+                palette: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'],
+                
+                init() {
+                    this.addResourceInternal('Iron Ore');
+                    this.addResourceInternal('Coal');
+                    this.addResourceInternal('Iron Ingot');
+                    
+                    const ore = this.resources.find(r=>r.name==='Iron Ore').id;
+                    const coal = this.resources.find(r=>r.name==='Coal').id;
+                    const ingot = this.resources.find(r=>r.name==='Iron Ingot').id;
+
+                    this.recipes.push({ id: 'rec_miner', name: 'Miner Mk1', time: 1, inputs: [], outputs: [{resId: ore, amount: 1}] });
+                    this.recipes.push({ id: 'rec_smelter', name: 'Smelter', time: 2, inputs: [{resId: ore, amount: 1}, {resId: coal, amount: 1}], outputs: [{resId: ingot, amount: 1}] });
+
+                    this.nodes.push({ id: 'n1', recipeId: 'rec_miner', count: 2, enabled: true });
+                    this.nodes.push({ id: 'n2', recipeId: 'rec_smelter', count: 1, enabled: true });
+
+                    this.recalc();
+                    this.$nextTick(() => { this.initCharts(); });
+                },
+
+                switchTab(t) {
+                    this.tab = t;
+                    this.$nextTick(() => {
+                        // FIX: check closure variables instead of this.chartX
+                        if (t === 'sim' && chartSim) {
+                            chartSim.resize();
+                            this.runSimulation();
+                        } else if (t !== 'map' && chartBalance) {
+                            chartBalance.resize();
+                            this.updateBalanceChart();
+                        }
+
+                        if (t === 'map') {
+                            this.renderMap();
+                        }
+                    });
+                },
+
+                openRecipeEdit(rec) { this.editingRecipe = rec; },
+                openNodeEdit(node) { this.editingNode = node; },
+
+                addIO(target, type) {
+                    if(!this.resources.length) return alert("No resources available");
+                    const list = type === 'input' ? target.inputs : target.outputs;
+                    list.push({ resId: this.resources[0].id, amount: 1 });
+                    this.recalc();
+                },
+
+                addResource() {
+                    if(!this.newResName.trim()) return;
+                    this.addResourceInternal(this.newResName);
+                    this.newResName = '';
+                },
+                addResourceInternal(name) { this.resources.push({ id: 'res_' + Date.now() + Math.random(), name: name }); },
+                deleteResource(id) {
+                    if(confirm("Delete resource?")) {
+                        this.resources = this.resources.filter(r => r.id !== id);
+                        this.recipes.forEach(r => {
+                            r.inputs = r.inputs.filter(i=>i.resId!==id);
+                            r.outputs = r.outputs.filter(i=>i.resId!==id);
+                        });
+                        this.recalc();
+                    }
+                },
+                getResName(id) { return this.resources.find(r=>r.id===id)?.name || 'Unknown'; },
+
+                saveRecipe() {
+                    if(!this.newRecipe.name) return;
+                    this.recipes.push({
+                        id: 'rec_'+Date.now(),
+                        name: this.newRecipe.name,
+                        time: this.newRecipe.time,
+                        inputs: JSON.parse(JSON.stringify(this.newRecipe.inputs)),
+                        outputs: JSON.parse(JSON.stringify(this.newRecipe.outputs))
+                    });
+                    this.newRecipe = { name: '', time: 1.0, inputs: [], outputs: [] };
+                    this.switchTab('recipes');
+                },
+                deleteRecipe(id) {
+                    if(confirm("Delete recipe?")) {
+                        this.recipes = this.recipes.filter(r=>r.id!==id);
+                        this.nodes = this.nodes.filter(n=>n.recipeId!==id);
+                        this.recalc();
+                    }
+                },
+                getRecipe(id) { return this.recipes.find(r=>r.id===id); },
+
+                addToLine() {
+                    if(!this.selectedRecipeId) return;
+                    this.nodes.push({ id: 'node_'+Date.now(), recipeId: this.selectedRecipeId, count: 1, enabled: true });
+                    this.recalc();
+                },
+                removeNode(idx) { this.nodes.splice(idx, 1); this.recalc(); },
+                toggleNode(idx) { this.nodes[idx].enabled = !this.nodes[idx].enabled; this.recalc(); },
+
+                recalc() {
+                    const map = {};
+                    this.resources.forEach(r => map[r.id] = { name: r.name, prod: 0, cons: 0 });
+
+                    this.nodes.forEach(node => {
+                        if(!node.enabled || node.count <= 0) return;
+                        const rec = this.getRecipe(node.recipeId);
+                        if(!rec) return;
+                        const cyclesPerMin = (60 / rec.time) * node.count;
+                        rec.inputs.forEach(i => { if(map[i.resId]) map[i.resId].cons += i.amount * cyclesPerMin; });
+                        rec.outputs.forEach(o => { if(map[o.resId]) map[o.resId].prod += o.amount * cyclesPerMin; });
+                    });
+                    this.stats = Object.entries(map).map(([id, val]) => ({
+                        id, name: val.name, produced: val.prod, consumed: val.cons, net: val.prod - val.cons
+                    })).sort((a,b) => b.net - a.net);
+
+                    // ALWAYS update chart data, even if hidden, so they are ready when shown
+                    this.updateBalanceChart();
+                    this.runSimulation();
+                    
+                    if(this.tab === 'map') this.renderMap();
+                },
+
+                async renderMap() {
+                    const container = document.getElementById('mermaidContainer');
+                    if (!container) return;
+                    // FIX: Use closure variable
+                    if(panZoomInstance) { panZoomInstance.destroy(); panZoomInstance = null; }
+                    container.innerHTML = '';
+
+                    let graph = "graph LR\n";
+                    graph += "classDef mach fill:#374151,stroke-width:0px,color:#fff,rx:5,ry:5,font-size:14px,font-weight:bold;\n";
+                    graph += "classDef res fill:#1f2937,stroke:#3b82f6,stroke-width:2px,stroke-opacity:0.6,color:#fff,rx:5,ry:5,font-size:14px;\n";
+
+                    this.recipes.forEach(rec => {
+                        const safeRecId = rec.id.replace(/[^a-zA-Z0-9]/g, '_');
+                        graph += `${safeRecId}["${rec.name}<br/>⏱ ${rec.time}s"]:::mach\n`;
+                        rec.inputs.forEach(inp => {
+                            const safeResId = inp.resId.replace(/[^a-zA-Z0-9]/g, '_');
+                            const rName = this.getResName(inp.resId);
+                            graph += `${safeResId}["${rName}"]:::res -->|${inp.amount}| ${safeRecId}\n`;
+                        });
+                        rec.outputs.forEach(out => {
+                            const safeResId = out.resId.replace(/[^a-zA-Z0-9]/g, '_');
+                            const rName = this.getResName(out.resId);
+                            graph += `${safeRecId} -->|${out.amount}| ${safeResId}["${rName}"]:::res\n`;
+                        });
+                    });
+
+                    try {
+                        const { svg } = await mermaid.render('graphDiv', graph);
+                        container.innerHTML = svg;
+                        const svgElement = container.querySelector('svg');
+                        if(svgElement) {
+                            svgElement.style.width = '100%';
+                            svgElement.style.height = '100%';
+                            // FIX: Use closure variable
+                            panZoomInstance = svgPanZoom(svgElement, {
+                                zoomEnabled: true,
+                                controlIconsEnabled: false,
+                                fit: true,
+                                center: true,
+                                minZoom: 0.1,
+                                maxZoom: 10
+                            });
+                        }
+                    } catch(e) { console.error(e); }
+                },
+
+                resetMapZoom() {
+                    // FIX: Use closure variable
+                    if(panZoomInstance) {
+                        panZoomInstance.reset();
+                        panZoomInstance.fit();
+                        panZoomInstance.center();
+                    }
+                },
+
+                initCharts() {
+                    const commonOptions = {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } },
+                            y: { grid: { color: '#374151' }, ticks: { color: '#e5e7eb' } }
+                        }
+                    };
+
+                    const ctxB = document.getElementById('balanceChart');
+                    if(ctxB) {
+                        // FIX: Use closure variable and cleanup
+                        if(chartBalance) chartBalance.destroy();
+                        chartBalance = new Chart(ctxB, {
+                            type: 'bar',
+                            data: { labels: [], datasets: [] },
+                            options: { ...commonOptions, indexAxis: 'y' }
+                        });
+                    }
+
+                    const ctxS = document.getElementById('simChart');
+                    if(ctxS) {
+                        // FIX: Use closure variable and cleanup
+                        if(chartSim) chartSim.destroy();
+                        chartSim = new Chart(ctxS, {
+                            type: 'line',
+                            data: { labels: [], datasets: [] },
+                            options: { ...commonOptions, interaction: { mode: 'index', intersect: false } }
+                        });
+                    }
+                    this.recalc();
+                },
+
+                updateBalanceChart() {
+                    // FIX: Use closure variable
+                    if(!chartBalance) return;
+                    const active = this.stats.filter(s => s.produced > 0 || s.consumed > 0);
+                    chartBalance.data.labels = active.map(s => s.name);
+                    chartBalance.data.datasets = [{
+                        data: active.map(s => s.net),
+                        backgroundColor: active.map(s => s.net >= 0 ? '#10b981' : '#ef4444'),
+                        borderRadius: 4
+                    }];
+                    chartBalance.update('none');
+                },
+
+                runSimulation() {
+                    // FIX: Use closure variable
+                    if(!chartSim) return;
+                    const duration = this.simSettings.duration || 60;
+                    const step = this.simSettings.step || 5;
+                    const labels = [];
+                    for(let t=0; t<=duration; t+=step) labels.push(t);
+                    const activeStats = this.stats.filter(s => Math.abs(s.net) > 0.01);
+                    const datasets = activeStats.map((stat, idx) => {
+                        const data = labels.map(t => stat.net * t);
+                        return {
+                            label: stat.name,
+                            data: data,
+                            borderColor: this.palette[idx % this.palette.length],
+                            backgroundColor: this.palette[idx % this.palette.length],
+                            borderWidth: 2,
+                            tension: 0.1,
+                            pointRadius: 0
+                        };
+                    });
+                    chartSim.data.labels = labels;
+                    chartSim.data.datasets = datasets;
+                    chartSim.update('none');
+                },
+
+                formatNum(n) { return Number(n.toFixed(1)).toString(); },
+                startResize(e) { this.resizing = true; this.startY = e.clientY; this.startH = this.$refs.topPane.offsetHeight; this.containerH = this.$refs.container.offsetHeight; document.body.style.cursor = 'row-resize'; },
+                stopResize() { 
+                    this.resizing = false; 
+                    document.body.style.cursor = ''; 
+                    // FIX: Use closure variable
+                    if(chartBalance) chartBalance.resize(); 
+                    if(chartSim) chartSim.resize(); 
+                },
+                onResize(e) { if(!this.resizing) return; const delta = e.clientY - this.startY; const newH = ((this.startH + delta) / this.containerH) * 100; this.splitPercent = Math.min(Math.max(newH, 10), 90); },
+                saveState() { const d = { resources: this.resources, recipes: this.recipes, nodes: this.nodes }; const url = URL.createObjectURL(new Blob([JSON.stringify(d)], {type: 'application/json'})); const a = document.createElement('a'); a.href = url; a.download = 'factory.json'; a.click(); },
+                loadState(e) { const f = e.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = (ev) => { try { const d = JSON.parse(ev.target.result); this.resources = d.resources; this.recipes = d.recipes; this.nodes = d.nodes; this.recalc(); } catch(e) { alert("Error"); } }; r.readAsText(f); },
+                resetAll() { if(confirm("Clear all?")) { this.resources=[]; this.recipes=[]; this.nodes=[]; this.recalc(); } }
+            }
+        }
+    </script>
+</body>
+</html>
