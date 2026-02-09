@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Style Palette</title>
+    <style>
+        :root {
+            --primary-color: #4ec9b0; /* From admin_add.html - greenish-blue */
+            --accent-color: #007acc; /* From snippets_view.html and admin_add.html - blue */
+            --bg-color: #1e1e1e; /* From admin_add.html and snippets_view.html */
+            --panel-bg-color: #252526; /* From admin_add.html and snippets_view.html */
+            --border-color: #333; /* From admin_add.html and snippets_view.html */
+            --text-color: #d4d4d4; /* From snippets_view.html */
+            --text-light-color: #888; /* From admin_add.html and snippets_view.html */
+            --error-color: #f48771; /* From admin_add.html */
+            --success-color: #4ec9b0; /* Derived from primary */
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        h1, h2, h3 {
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        section {
+            background-color: var(--panel-bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Buttons */
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            margin-right: 10px;
+            transition: background-color 0.2s ease;
+        }
+
+        .default-btn {
+            background-color: var(--accent-color);
+            color: white;
+        }
+        .default-btn:hover {
+            background-color: #005a9e; /* Darker blue */
+        }
+
+        .primary-btn {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        .primary-btn:hover {
+            background-color: #3e9f8b; /* Darker greenish-blue */
+        }
+
+        .secondary-btn {
+            background-color: #6c757d;
+            color: white;
+        }
+        .secondary-btn:hover {
+            background-color: #5a6268;
+        }
+
+        /* Form Elements */
+        input[type="text"],
+        input[type="email"],
+        input[type="number"],
+        select,
+        textarea {
+            width: calc(100% - 22px); /* Adjust for padding and border */
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #333; /* Darker input background */
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 4px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        input:focus,
+        textarea:focus,
+        select:focus {
+            border-color: var(--primary-color);
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        select {
+            appearance: none; /* Remove default arrow */
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url('data:image/svg+xml;utf8,<svg fill="white" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            padding-right: 30px; /* Make space for the arrow */
+        }
+
+        /* Containers & Boxes */
+        .default-container {
+            border: 2px solid var(--accent-color);
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #2d2d30; /* Slightly lighter than panel-bg */
+        }
+
+        .hint-box {
+            background: #2d2d30;
+            padding: 10px;
+            border-left: 3px solid var(--primary-color);
+            margin-bottom: 15px;
+            font-size: 0.85em;
+            color: #ccc;
+        }
+        
+        .code-block {
+            background: #111;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            color: #dcdcaa;
+            overflow-x: auto;
+        }
+
+        /* Typography */
+        .text-muted {
+            color: var(--text-light-color);
+            font-size: 0.9em;
+        }
+        .default-link {
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+        .default-link:hover {
+            text-decoration: underline;
+        }
+        .status-message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .status-success {
+            background: rgba(78, 201, 176, 0.1);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+        .status-error {
+            background: rgba(209, 105, 105, 0.1);
+            color: var(--error-color);
+            border: 1px solid var(--error-color);
+        }
+    </style>
+</head>
+<body>
+    <h1>Style Palette</h1>
+    <p class="text-muted">A collection of common UI elements and their default styles based on project conventions.</p>
+
+    <section>
+        <h2>Buttons</h2>
+        <button class="default-btn">Default Button</button>
+        <button class="primary-btn">Primary Button</button>
+        <button class="secondary-btn">Secondary Button</button>
+    </section>
+
+    <section>
+        <h2>Forms</h2>
+        <label for="textInput">Text Input</label>
+        <input type="text" id="textInput" placeholder="Enter text here">
+
+        <label for="emailInput">Email Input</label>
+        <input type="email" id="emailInput" placeholder="Enter email here">
+
+        <label for="numberInput">Number Input</label>
+        <input type="number" id="numberInput" value="123">
+
+        <label for="selectOption">Select Option</label>
+        <select id="selectOption">
+            <option value="option1">Option 1</option>
+            <option value="option2">Option 2</option>
+            <option value="option3">Option 3</option>
+        </select>
+
+        <label for="textareaInput">Textarea</label>
+        <textarea id="textareaInput" placeholder="Enter multiline text..."></textarea>
+    </section>
+
+    <section>
+        <h2>Borders & Containers</h2>
+        <div class="default-container">
+            <h3>Default Container</h3>
+            <p>This is a default container with a border and background styling.</p>
+        </div>
+
+        <div class="hint-box" style="margin-top: 20px;">
+            This is a hint box, useful for providing inline tips or extra information.
+        </div>
+    </section>
+
+    <section>
+        <h2>Code Blocks</h2>
+        <div class="code-block">
+            <pre><code>function greet(name) {
+    console.log(`Hello, ${name}!`);
+}
+greet("World");</code></pre>
+        </div>
+    </section>
+
+    <section>
+        <h2>Typography</h2>
+        <h1>Heading 1 - The quick brown fox jumps over the lazy dog</h1>
+        <h2>Heading 2 - The quick brown fox jumps over the lazy dog</h2>
+        <h3>Heading 3 - The quick brown fox jumps over the lazy dog</h3>
+        <p>This is a default paragraph text. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. <a href="#" class="default-link">This is a default link</a>.</p>
+        <p class="text-muted">This is muted text, often used for secondary information.</p>
+    </section>
+
+    <section>
+        <h2>Status Messages</h2>
+        <div class="status-message status-success">
+            <p><strong>Success!</strong> Your operation was completed successfully.</p>
+        </div>
+        <div class="status-message status-error">
+            <p><strong>Error!</strong> Something went wrong during the process.</p>
+        </div>
+    </section>
+</body>
+</html>
