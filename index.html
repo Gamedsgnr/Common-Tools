@@ -6,8 +6,9 @@
     <title>Common Tools and Libs</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* ... (Стили остаются те же, что я давал раньше) ... */
+        /* Сброс стилей */
         * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
             font-family: 'Segoe UI', sans-serif;
             background-color: #1e1e1e;
@@ -16,42 +17,184 @@
             display: flex;
             overflow: hidden;
         }
-        .sidebar { width: 260px; background-color: #252526; border-right: 1px solid #333; display: flex; flex-direction: column; flex-shrink: 0; }
-        .sidebar-header { padding: 20px; background-color: #2d2d2d; border-bottom: 1px solid #333; color: #4ec9b0; font-weight: bold; font-size: 1.2em; display: flex; align-items: center; gap: 10px; }
-        .category-title { padding: 15px 20px 5px 20px; font-size: 0.8em; text-transform: uppercase; color: #6c6c6c; font-weight: bold; letter-spacing: 1px; }
-        .nav-links { list-style: none; padding: 0; overflow-y: auto; }
-        .nav-links a { display: block; padding: 12px 20px; color: #cccccc; text-decoration: none; transition: background 0.2s, color 0.2s; border-left: 3px solid transparent; font-size: 0.95em; }
-        .nav-links a:hover { background-color: #2a2d2e; color: white; }
-        .footer { margin-top: auto; padding: 15px; font-size: 0.8em; color: #555; text-align: center; border-top: 1px solid #333; cursor: pointer; }
-        .main-content { flex-grow: 1; background-color: #1e1e1e; position: relative; }
-        iframe { width: 100%; height: 100%; border: none; display: block; }
 
-        /* Элементы скрытия */
+        /* --- САЙДБАР --- */
+        .sidebar {
+            width: 260px;
+            background-color: #252526;
+            border-right: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background-color: #2d2d2d;
+            border-bottom: 1px solid #333;
+            color: #4ec9b0;
+            font-weight: bold;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .category-title {
+            padding: 15px 20px 5px 20px;
+            font-size: 0.8em;
+            text-transform: uppercase;
+            color: #6c6c6c;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .nav-links {
+            list-style: none;
+            padding: 0;
+            overflow-y: auto;
+        }
+
+        .nav-links a {
+            display: block;
+            padding: 12px 20px;
+            color: #cccccc;
+            text-decoration: none;
+            transition: background 0.2s, color 0.2s;
+            border-left: 3px solid transparent;
+            font-size: 0.95em;
+        }
+
+        .nav-links a:hover {
+            background-color: #2a2d2e;
+            color: white;
+        }
+
+        .footer {
+            margin-top: auto;
+            padding: 15px;
+            font-size: 0.9em;
+            color: #888;
+            text-align: center;
+            border-top: 1px solid #333;
+            cursor: pointer;
+            transition: color 0.3s;
+            user-select: none;
+        }
+        .footer:hover { color: #fff; }
+
+        /* --- ОСНОВНАЯ ЧАСТЬ --- */
+        .main-content {
+            flex-grow: 1;
+            background-color: #1e1e1e;
+            position: relative;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+
+        /* Элементы админки (скрыты по умолчанию) */
         .admin-group { display: none; }
-        
-        /* Модалка входа */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
-        .modal-box { background: #252526; padding: 25px; border: 1px solid #444; border-radius: 5px; width: 320px; text-align: center; }
-        .modal-box input { width: 100%; padding: 10px; margin: 10px 0; background: #333; border: 1px solid #555; color: white; border-radius: 3px; }
-        .modal-box button { width: 100%; padding: 10px; margin-top: 10px; background: #007acc; color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 3px; }
-        .modal-box button:hover { background: #005a9e; }
-        .error-msg { color: #f48771; font-size: 0.9em; margin-top: 10px; display: none; }
+
+        /* --- МОДАЛЬНОЕ ОКНО --- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(2px);
+        }
+
+        .modal-box {
+            background: #252526;
+            padding: 30px;
+            border: 1px solid #444;
+            border-radius: 8px;
+            width: 340px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .modal-box h3 { color: #4ec9b0; margin-bottom: 10px; }
+
+        .modal-box input {
+            padding: 12px;
+            background: #333;
+            border: 1px solid #555;
+            color: white;
+            border-radius: 4px;
+            outline: none;
+        }
+        .modal-box input:focus { border-color: #4ec9b0; }
+
+        .modal-box button.btn-primary {
+            padding: 12px;
+            background: #007acc;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .modal-box button.btn-primary:hover { background: #005a9e; }
+
+        .modal-box button.btn-close {
+            background: transparent;
+            color: #888;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+        }
+        .modal-box button.btn-close:hover { color: #ccc; }
+
+        .error-msg {
+            color: #f48771;
+            font-size: 0.9em;
+            display: none;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
 
     <aside class="sidebar">
-        <div class="sidebar-header"><span>🟦 Common Tools</span></div>
+        <div class="sidebar-header">
+            <span>🟦 Common Tools</span>
+        </div>
 
         <div class="category-title">Visual Library</div>
         <ul class="nav-links">
             <li><a href="blueprints_view.html" target="tool-frame">🧩 Blueprint Gallery</a></li>
             <li><a href="shaders_view.html" target="tool-frame">🔮 Shader Library</a></li>
         </ul>
+
         <div class="category-title">Data Tools</div>
         <ul class="nav-links">
             <li><a href="UE_EnumGen.html" target="tool-frame">💾 UE Enum Generator</a></li>
             <li><a href="UE_Converter_Pro.html" target="tool-frame">🔄 Data Converter</a></li>
+            <li><a href="CurveToCode_Pro.html" target="tool-frame">📉 Curve Editor</a></li>
+            <li><a href="progression_balancer.html" target="tool-frame">📊 Balance Progression Tool</a></li>
+            <li><a href="factory_architect.html" target="tool-frame">🏭 Factory Architect</a></li>
+        </ul>
+
+        <div class="category-title" style="color: #4ec9b0;">Generators</div>
+        <ul class="nav-links">
+            <li><a href="math_plotter.html" target="tool-frame">📈 Math Plotter</a></li>
+            <li><a href="shader_playground.html" target="tool-frame">🎮 HLSL Live Studio</a></li>
+            <li><a href="noise_gen.html" target="tool-frame">🏁 Texture Generator</a></li>
         </ul>
 
         <div class="category-title admin-group" style="color: #4ec9b0; border-top: 1px solid #333; padding-top: 15px;">Admin Zone</div>
@@ -59,11 +202,10 @@
             <li><a href="admin_add.html" target="tool-frame">📝 Snippet Builder</a></li>
             <li><a href="admin_bp_add.html" target="tool-frame">➕ BP Generator</a></li>
             <li><a href="admin_shader_add.html" target="tool-frame">🔮 Shader Generator</a></li>
-            <li><a href="#" onclick="logoutSupabase()" style="color: #f48771;">🚪 Logout</a></li>
         </ul>
 
-        <div class="footer" onclick="openLoginModal()">
-            <span id="statusIcon">🔒</span> Login via Supabase
+        <div class="footer" id="loginBtn" onclick="handleAuthClick()">
+            <span id="statusIcon">🔒</span> Login
         </div>
     </aside>
 
@@ -73,84 +215,165 @@
 
     <div class="modal-overlay" id="loginModal">
         <div class="modal-box">
-            <h3 style="color: #4ec9b0; margin-bottom: 15px;">Supabase Auth</h3>
+            <h3>Supabase Login</h3>
             <input type="email" id="email" placeholder="Email">
             <input type="password" id="password" placeholder="Password">
-            <button onclick="loginSupabase()">SIGN IN</button>
-            <button onclick="document.getElementById('loginModal').style.display='none'" style="background: transparent; color: #888;">Cancel</button>
+            <button class="btn-primary" onclick="loginSupabase()">SIGN IN</button>
+            <button class="btn-close" onclick="closeModal()">Cancel</button>
             <div id="loginError" class="error-msg">Error message here</div>
         </div>
     </div>
 
     <script>
-        // --- 1. НАСТРОЙКИ SUPABASE (ВСТАВЬ СВОИ ДАННЫЕ!) ---
-    const SUPABASE_URL = 'https://vmwwvwtsznxwoswzdzui.supabase.co'; 
-    const SUPABASE_KEY = 'sb_publishable_hfVfEOEyUxTAl9TCGQLQdA_2qpquHGk';
+        // --- 1. НАСТРОЙКИ SUPABASE ---
+        // Используем var, чтобы избежать ошибки "Identifier already declared", если скрипт выполняется повторно
+        var SUPABASE_URL = 'https://vmwwvwtsznxwoswzdzui.supabase.co'; 
+        var SUPABASE_KEY = 'sb_publishable_hfVfEOEyUxTAl9TCGQLQdA_2qpquHGk';
         
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // Переименовали переменную в _sbClient, чтобы избежать конфликтов с window.supabase или старым кодом
+        var _sbClient = null;
 
-        // --- 2. ПРОВЕРКА ПРИ ЗАГРУЗКЕ ---
+        // --- 2. ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ ---
         window.onload = async function() {
-            // Проверяем текущую сессию
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                unlockUI(session.user);
+            console.log("CommonToolHub: Script loaded");
+
+            try {
+                // Создаем клиент Supabase
+                if (window.supabase) {
+                    _sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                } else {
+                    console.error("Библиотека Supabase JS не загружена.");
+                    return;
+                }
+
+                // Проверяем текущую сессию
+                const { data: { session }, error } = await _sbClient.auth.getSession();
+                
+                if (session) {
+                    unlockUI(session.user);
+                }
+                
+                // Слушаем изменения статуса (Вход/Выход)
+                _sbClient.auth.onAuthStateChange((event, session) => {
+                    if (session) unlockUI(session.user);
+                    else lockUI();
+                });
+
+            } catch (err) {
+                console.error("Ошибка инициализации Supabase:", err);
             }
+        }
+
+        // --- 3. ОБРАБОТКА КЛИКА ПО LOGIN ---
+        function handleAuthClick() {
+            // Если клиент не создался
+            if (!_sbClient) {
+                alert("Ошибка: Supabase не инициализирован. Проверьте консоль.");
+                return;
+            }
+
+            const isAuth = sessionStorage.getItem('ct_supabase_auth') === 'true';
             
-            // Слушаем изменения (если разлогинился в другой вкладке)
-            supabase.auth.onAuthStateChange((event, session) => {
-                if (session) unlockUI(session.user);
-                else lockUI();
-            });
+            if (isAuth) {
+                // Если уже вошли - предлагаем выйти
+                if(confirm("Вы уже авторизованы. Выйти из аккаунта?")) {
+                    logoutSupabase();
+                }
+            } else {
+                // Если не вошли - открываем окно
+                const modal = document.getElementById('loginModal');
+                if (modal) {
+                    modal.style.display = 'flex';
+                    const emailInput = document.getElementById('email');
+                    if (emailInput) emailInput.focus();
+                }
+            }
         }
 
-        // --- 3. ФУНКЦИИ ВХОДА/ВЫХОДА ---
-        function openLoginModal() {
-            // Если уже вошли - ничего не делаем или предлагаем выйти
-            if(sessionStorage.getItem('ct_supabase_auth')) return;
-            document.getElementById('loginModal').style.display = 'flex';
+        function closeModal() {
+            const modal = document.getElementById('loginModal');
+            const errBox = document.getElementById('loginError');
+            if (modal) modal.style.display = 'none';
+            if (errBox) errBox.style.display = 'none';
         }
 
+        // --- 4. ВХОД / ВЫХОД ---
         async function loginSupabase() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const errBox = document.getElementById('loginError');
+            const btn = document.querySelector('.modal-box .btn-primary');
+
+            if (!email || !password) {
+                errBox.innerText = "Введите Email и пароль";
+                errBox.style.display = 'block';
+                return;
+            }
 
             errBox.style.display = 'none';
+            btn.innerText = "Checking...";
+            btn.disabled = true;
 
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email: email,
-                password: password,
-            });
+            try {
+                const { data, error } = await _sbClient.auth.signInWithPassword({
+                    email: email,
+                    password: password,
+                });
 
-            if (error) {
-                errBox.innerText = error.message;
+                if (error) {
+                    throw error;
+                } else {
+                    closeModal();
+                    // Интерфейс обновится автоматически через слушатель событий
+                }
+            } catch (error) {
+                console.error("Login error:", error);
+                errBox.innerText = error.message || "Ошибка входа";
                 errBox.style.display = 'block';
-            } else {
-                // Успех! UI обновится через onAuthStateChange
-                document.getElementById('loginModal').style.display = 'none';
+            } finally {
+                btn.innerText = "SIGN IN";
+                btn.disabled = false;
             }
         }
 
         async function logoutSupabase() {
-            await supabase.auth.signOut();
-            lockUI();
+            if (_sbClient) {
+                await _sbClient.auth.signOut();
+                lockUI();
+            }
         }
 
-        // --- 4. УПРАВЛЕНИЕ UI ---
+        // --- 5. ОБНОВЛЕНИЕ ИНТЕРФЕЙСА ---
         function unlockUI(user) {
-            console.log("Logged in as:", user.email);
-            // Ставим флаг в SessionStorage, который видят Iframe-ы (т.к. one origin)
+            console.log("User authorized:", user.email);
             sessionStorage.setItem('ct_supabase_auth', 'true'); 
             
             document.querySelectorAll('.admin-group').forEach(el => el.style.display = 'block');
-            document.getElementById('statusIcon').innerHTML = "🟢";
+            
+            const btn = document.getElementById('loginBtn');
+            if (btn) {
+                btn.innerHTML = `<span style="margin-right:8px">🟢</span> ${user.email}`;
+                btn.style.color = "#fff";
+            }
         }
 
         function lockUI() {
             sessionStorage.removeItem('ct_supabase_auth');
             document.querySelectorAll('.admin-group').forEach(el => el.style.display = 'none');
-            document.getElementById('statusIcon').innerHTML = "🔒";
+            
+            const btn = document.getElementById('loginBtn');
+            if (btn) {
+                btn.innerHTML = '<span id="statusIcon" style="margin-right:8px">🔒</span> Login';
+                btn.style.color = "#888";
+            }
+        }
+
+        // Закрытие по клику вне окна
+        window.onclick = function(event) {
+            const modal = document.getElementById('loginModal');
+            if (event.target == modal) {
+                closeModal();
+            }
         }
     </script>
 </body>
