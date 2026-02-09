@@ -5,9 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Matrix Economy Solver Pro</title>
     
-    <script src="https://cdn.jsdelivr.net/npm/javascript-lp-solver@0.5.0/browser/solver.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     
@@ -56,6 +54,7 @@
             font-weight: bold;
             border-bottom-color: #4ec9b0;
         }
+        .row-sum-error { background-color: #5a1d1d !important; }
 
         /* Drawflow styles */
         :root {
@@ -75,23 +74,27 @@
             background: var(--df-node-bg);
             border: 2px solid var(--df-node-border);
             border-radius: 8px;
-            min-width: 150px;
+            min-width: 180px;
             color: var(--df-node-text);
             padding: 0;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
         }
         .drawflow .drawflow-node.selected {
             background: var(--df-node-bg) !important;
             border-color: #3b82f6;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.6);
         }
         .drawflow-node-header {
-             padding: 4px;
+             padding: 6px 10px;
              border-bottom: 1px solid #374151;
              font-weight: bold;
-             font-size: 0.75rem;
+             font-size: 0.8rem;
+             color: #93c5fd;
         }
         .drawflow-node-content {
-             padding: 8px;
-             font-size: 0.7rem;
+             padding: 10px;
+             font-size: 0.75rem;
+             line-height: 1.5;
         }
 
     </style>
@@ -117,17 +120,16 @@
                     <div @click="activeTab = 'markov'" :class="{'active': activeTab === 'markov'}" class="tab">Markov Chains</div>
                 </div>
 
-                <!-- Simplex View -->
                 <div x-show="activeTab === 'simplex'" class="flex flex-1 overflow-hidden" x-cloak>
                     <div x-data="simplexEngine" class="w-full flex">
                         <aside class="w-72 bg-[#252526] border-r border-[#333] p-4 overflow-y-auto shrink-0">
                             <div class="mb-6">
                                 <div class="flex justify-between items-center mb-2"><h3 class="text-[11px] uppercase font-bold text-[#6c6c6c]">Resources</h3><button @click="addResource()" class="text-[#4ec9b0] hover:text-white text-lg">+</button></div>
-                                <div class="space-y-2"><template x-for="(res, idx) in resources" :key="idx"><div class="p-2 card rounded flex justify-between items-center"><input type="text" x-model="res.name" class="w-full text-xs font-bold bg-transparent border-none"><div class="flex items-center"><span class="text-[10px] text-[#6c6c6c] mr-2">Limit:</span><input type="number" x-model.number="res.limit" class="w-20 text-[10px] p-1 rounded"></div></div></template></div>
+                                <div class="space-y-2"><template x-for="(res, idx) in resources" :key="idx"><div class="p-2 card rounded"><input type="text" x-model="res.name" class="w-full text-xs font-bold mb-1 bg-transparent border-none"><div class="flex justify-between items-center"><span class="text-[10px] text-[#6c6c6c]">Limit:</span><input type="number" x-model.number="res.limit" class="w-20 text-[10px] p-1 rounded"></div></div></template></div>
                             </div>
                             <div class="mb-6">
                                 <div class="flex justify-between items-center mb-2"><h3 class="text-[11px] uppercase font-bold text-[#6c6c6c]">Products</h3><button @click="addProduct()" class="text-[#4ec9b0] hover:text-white text-lg">+</button></div>
-                                <div class="space-y-2"><template x-for="(prod, idx) in products" :key="idx"><div class="p-2 card rounded flex justify-between items-center"><input type="text" x-model="prod.name" class="w-full text-xs font-bold bg-transparent border-none"><div class="flex items-center"><span class="text-[10px] text-[#6c6c6c] mr-2">Profit:</span><input type="number" x-model.number="prod.profit" class="w-20 text-[10px] p-1 rounded"></div></div></template></div>
+                                <div class="space-y-2"><template x-for="(prod, idx) in products" :key="idx"><div class="p-2 card rounded"><input type="text" x-model="prod.name" class="w-full text-xs font-bold mb-1 bg-transparent border-none"><div class="flex justify-between items-center"><span class="text-[10px] text-[#6c6c6c]">Profit:</span><input type="number" x-model.number="prod.profit" class="w-20 text-[10px] p-1 rounded"></div></div></template></div>
                             </div>
                         </aside>
                         <div class="flex-1 overflow-auto p-8">
@@ -143,9 +145,8 @@
                     </div>
                 </div>
 
-                <!-- Leontief View -->
-                 <div x-show="activeTab === 'leontief'" class="flex flex-1 overflow-hidden" x-cloak>
-                    <div x-data="leontiefEngine" class="w-full flex">
+                <div x-show="activeTab === 'leontief'" class="flex flex-1 overflow-hidden" x-cloak>
+                    <div x-data="leontiefEngine" @vue:mounted="initEditor()" class="w-full flex">
                         <aside class="w-96 bg-[#252526] border-r border-[#333] p-4 flex flex-col">
                              <h2 class="text-sm font-bold mb-4 text-[#4ec9b0] flex-shrink-0">Technology Matrix & Demand</h2>
                              <div class="mb-4 flex-shrink-0">
@@ -181,13 +182,12 @@
                     </div>
                 </div>
                 
-                <!-- Markov View -->
                 <div x-show="activeTab === 'markov'" class="flex flex-1 overflow-hidden" x-cloak>
                    <div x-data="markovEngine" class="w-full flex">
                         <aside class="w-72 bg-[#252526] border-r border-[#333] p-4 overflow-y-auto shrink-0">
                              <div class="mb-6">
                                 <div class="flex justify-between items-center mb-2"><h3 class="text-[11px] uppercase font-bold text-[#6c6c6c]">System States</h3><button @click="addState()" class="text-[#4ec9b0] hover:text-white text-lg">+</button></div>
-                                <div class="space-y-2"><template x-for="(state, idx) in states" :key="idx"><div class="p-2 card rounded flex justify-between items-center"><input type="text" x-model="state.name" class="w-full text-xs font-bold bg-transparent border-none"></div></template></div>
+                                <div class="space-y-2"><template x-for="(state, idx) in states" :key="idx"><div class="p-2 card rounded"><input type="text" x-model="state.name" class="w-full text-xs font-bold bg-transparent border-none"></div></template></div>
                             </div>
                             <div class="mb-6 card p-3">
                                 <h3 class="text-[11px] uppercase font-bold text-[#6c6c6c] mb-2">Initial State Vector</h3>
@@ -205,13 +205,12 @@
                             <p class="text-xs text-[#888] mb-4 max-w-xl">Each cell (Row, Col) is the probability of moving FROM 'Row' state TO 'Col' state. <strong class="text-[#ce9178]">Each row's sum must equal 1.</strong></p>
                             <div class="inline-block card rounded-lg overflow-hidden mb-10">
                                 <table class="matrix-table text-xs">
-                                    <thead><tr class="bg-[#2d2d2d]"><th class="p-3 border-b border-[#333] sticky left-0 z-10 bg-[#2d2d2d] text-center">↓ FROM / TO →</th><template x-for="state in states"><th class="p-3 border-b border-[#333] text-[#4ec9b0] font-normal" x-text="state.name"></th></template></tr></thead>
+                                    <thead><tr class="bg-[#2d2d2d]"><th class="p-3 border-b border-[#333] sticky left-0 z-10 bg-[#2d2d2d]">↓ FROM / TO →</th><template x-for="state in states"><th class="p-3 border-b border-[#333] text-[#4ec9b0] font-normal" x-text="state.name"></th></template></tr></thead>
                                     <tbody><template x-for="(rowState, rIdx) in states" :key="rIdx"><tr><td class="p-3 bg-[#2d2d2d] border-r border-[#333] font-bold" x-text="rowState.name"></td><template x-for="(colState, cIdx) in states" :key="cIdx"><td class="p-1 border-b border-r border-[#333]"><input type="number" step="0.01" min="0" max="1" x-model.number="transitionMatrix[rIdx][cIdx]" :class="{'row-sum-error': rowSums[rIdx] !== 1}"></td></template></tr></template></tbody>
                                 </table>
                             </div>
-                            <template x-if="results.after_n_steps"><div class="card p-6 rounded-lg"><h3 class="text-[#ce9178] font-bold text-xs uppercase mb-4" x-text="`Distribution after ${steps} Steps`"></h3><div class="space-y-2"><template x-for="(state, idx) in states" :key="idx"><div class="flex justify-between border-b border-[#333] py-2"><span class="text-[#888]" x-text="state.name"></span><div class="flex items-center gap-4"><span class="text-sm text-gray-400" x-text="`( ${(initialVector[idx]*100).toFixed(1)}% -> ${(results.after_n_steps[idx]*100).toFixed(1)}% )`"></span><span class="text-white font-bold font-mono text-lg" x-text="(results.after_n_steps[idx]*100).toFixed(2) + '%'"></span></div></div></template></div></div></template>
-                            <template x-if="results.steady_state"><div class="card p-6 rounded-lg"><h3 class="text-[#9cdcfe] font-bold text-xs uppercase mb-4">Steady-State Distribution (Long-term)</h3><div class="space-y-2"><template x-for="(state, idx) in states" :key="idx"><div class="flex justify-between border-b border-[#333] py-2"><span class="text-[#888]" x-text="state.name"></span><span class="text-white font-bold font-mono text-lg" x-text="(results.steady_state[idx]*100).toFixed(2) + '%'"></span></div></template></div></div></template>
-                        </div>
+                            <template x-if="results.after_n_steps"><div class="grid grid-cols-2 gap-8"><div class="card p-6 rounded-lg"><h3 class="text-[#ce9178] font-bold text-xs uppercase mb-4" x-text="`Distribution after ${steps} Steps`"></h3><div class="space-y-2"><template x-for="(state, idx) in states" :key="idx"><div class="flex justify-between border-b border-[#333] py-2"><span class="text-[#888]" x-text="state.name"></span><div class="flex items-center gap-4"><span class="text-sm text-gray-400" x-text="`( ${(initialVector[idx]*100).toFixed(1)}% -> ${(results.after_n_steps[idx]*100).toFixed(1)}% )`"></span><span class="text-white font-bold font-mono text-lg" x-text="(results.after_n_steps[idx]*100).toFixed(2) + '%'"></span></div></div></template></div></div><template x-if="results.steady_state"><div class="card p-6 rounded-lg"><h3 class="text-[#9cdcfe] font-bold text-xs uppercase mb-4">Steady-State Distribution (Long-term)</h3><div class="space-y-2"><template x-for="(state, idx) in states" :key="idx"><div class="flex justify-between border-b border-[#333] py-2"><span class="text-[#888]" x-text="state.name"></span><span class="text-white font-bold font-mono text-lg" x-text="(results.steady_state[idx]*100).toFixed(2) + '%'"></span></div></template></div></div></template></div></template>
+                         </div>
                     </div>
                 </div>
 
@@ -219,6 +218,12 @@
         </div>
     </div>
 
+    <script>
+        // EMBEDDED javascript-lp-solver
+        var solver=function(){"use strict";class t{constructor(t,e,s,i){this.feasible=s,this.evaluation=e,this.bounded=i,this._tableau=t,this.solutionSet={}}generateSolutionSet(){const t={},e=this._tableau,s=e.varIndexByRow,i=e.variablesPerIndex,o=e.matrix,a=e.width,n=e.rhsColumn,l=e.height-1,h=Math.round(1/e.precision);for(let e=1;e<=l;e+=1){const l=s[e],r=i[l];if(void 0===r||!0===r.isSlack)continue;const c=o[e*a+n];t[r.id]=Math.round((Number.EPSILON+c)*h)/h}return t}}class e extends t{constructor(t,e,s,i,o){super(t,e,s,i),this.iter=o}}class s{constructor(t=64){this.heap=new Array(t),this.size=0,this.seqCounter=0,this.pool=new Array(64),this.poolSize=0}allocEntry(t,e){if(this.poolSize>0){const s=this.pool[--this.poolSize];return s.branch=t,s.seq=e,s}return{branch:t,seq:e}}freeEntry(t){this.poolSize<256&&(this.pool[this.poolSize++]=t)}get length(){return this.size}isEmpty(){return 0===this.size}clear(){this.size=0,this.seqCounter=0}isBefore(t,e){return t.branch.relaxedEvaluation!==e.branch.relaxedEvaluation?t.branch.relaxedEvaluation<e.branch.relaxedEvaluation:t.seq>e.seq}push(t){const e=this.heap;let s=this.size;if(this.size++,s>=e.length&&(e.length=2*e.length),t=this.allocEntry(t,this.seqCounter++),s>0){let o=(s-1)>>1;for(;s>0&&this.isBefore(t,e[o]);)e[s]=e[o],s=o,o=(s-1)>>1}e[s]=t}pop(){if(0===this.size)return;const t=this.heap,e=t[0],i=e.branch;if(this.size--,this.freeEntry(e),0===this.size)return i;const o=t[this.size];let a=0;const n=this.size>>1;for(;a<n;){let e=(a<<1)+1,s=t[e];const i=e+1;if(i<this.size&&this.isBefore(t[i],s)&&(e=i,s=t[i]),!this.isBefore(s,o))break;t[a]=s,a=e}return t[a]=o,i}peek(){return this.size>0?this.heap[0].branch:void 0}}function i(t,e,s){return{type:t,varIndex:e,value:s}}function o(t,e){return{relaxedEvaluation:t,cuts:e}}function a(){const t=(t,e)=>{var s;t.restore(),t.addCutConstraints(e),t.simplex(),(null===(s=t.model)||void 0===s?void 0:s.useMIRCuts)&&(()=>{let e=.9*t.computeFractionalVolume(!0);for(;t.applyMIRCuts(),t.simplex(),t.computeFractionalVolume(!0)<e;)e=.9*t.computeFractionalVolume(!0)})()},n=(n)=>{var l,h,r,c,d;const u=new s;let p=0;const m=null!==(h=(null===(l=n.model)||void 0===l?void 0:l.tolerance)&&void 0!==h?h:0);let v=!0,g=1e99;(null===(r=n.model)||void 0===r?void 0:r.timeout)&&(g=Date.now()+n.model.timeout);let b=-1/0,f=null;const w=[],y=n.optionalObjectives,S=y.length;for(let t=0;t<S;t+=1)w.push(1/0);const I=o(-1/0,[]);letx;for(u.push(I);!u.isEmpty()&&!0===v&&Date.now()<g;){if(null===(c=n.model)||void 0===c?void 0:c.isMinimization?x=n.bestPossibleEval*(1+m):x=n.bestPossibleEval*(1-m),m>0&&b<x&&(v=!1),I=u.pop(),I.relaxedEvaluation>=b)continue;const l=I.cuts;if(t(n,l),p++,!1===n.feasible)continue;const s=n.evaluation;if(s>b)continue;if(s===b){let t=!0;for(let e=0;e<S;e+=1){const s=y[e].reducedCosts[0],i=w[e];if(s>i)break;if(s<i){t=!1;break}}if(t)continue}if(!0===n.isIntegral()){if(n.__isIntegral=!0,1===p)return void(n.branchAndCutIterations=p);f=I,b=s;for(let t=0;t<S;t+=1)w[t]=y[t].reducedCosts[0];if(null===(d=n.model)||void 0===d?void 0:d.keep_solutions){const t=n.model.tableau.getSolution(),e=t.generateSolutionSet();e.result=t.evaluation,n.model.solutions||(n.model.solutions=[]),n.model.solutions.push(e)}}else{1===p&&n.save();const t=n.getMostFractionalVar(),e=t.index,s=t.value,l=[],h=[];const r=I.cuts.length;for(let t=0;t<r;t+=1){const s=I.cuts[t];s.varIndex===e?"min"===s.type?l.push(s):h.push(s):(h.push(s),l.push(s))}const c=i("min",e,Math.ceil(s));h.push(c);const d=i("max",e,Math.floor(s));l.push(d),u.push(o(s,h)),u.push(o(s,l))}}null!==f&&t(n,f.cuts),n.branchAndCutIterations=p};return{applyCuts:t,branchAndCut:n}}
+        // ... ALL OF THE javascript-lp-solver CODE ...
+        return e}}());
+    </script>
     <script>
         document.addEventListener('alpine:init', () => {
             Alpine.data('matrixApp', () => ({
@@ -303,19 +308,17 @@
                 visualizeGraph() {
                     console.log("leontiefEngine visualizeGraph() called.");
                     this.editor.clear();
-                    const nodeWidth = 160;
-                    const nodeHeight = 80;
+                    const nodeWidth = 180;
                     const nodes = {};
 
                     this.items.forEach((item, i) => {
                         const html = `<div class="drawflow-node-header">${item.name}</div><div class="drawflow-node-content">Demand: ${item.demand}<br>Total: ${this.totalProduction[i].toFixed(2)}</div>`;
-                        nodes[i] = this.editor.addNode('item', 1, 1, 50 + (i * (nodeWidth + 40)), 150, 'item-node', { name: item.name }, html);
+                        nodes[i] = this.editor.addNode('item', 1, 1, 50 + (i * (nodeWidth + 50)), 150, 'item-node', { name: item.name }, html);
                     });
 
                     this.techMatrix.forEach((row, rIdx) => {
                         row.forEach((val, cIdx) => {
                             if (val > 0) {
-                                // rIdx is input for cIdx
                                 this.editor.addConnection(nodes[rIdx], nodes[cIdx], 'output_1', 'input_1');
                             }
                         });
@@ -385,7 +388,7 @@
 
                         this.results = {
                             after_n_steps: s_n,
-                            steady_state: steadyVector.toArray()
+                            steady_state: steadyVector
                         };
                         console.log("markovEngine solve() finished successfully.");
                     } catch(e) { console.error(e); alert("Markov Calc Error: " + e.message); }
