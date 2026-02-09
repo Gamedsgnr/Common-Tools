@@ -23,6 +23,10 @@ For any frontend or UI-related tasks, the agent **MUST** prioritize consistency 
 *   **Extend existing styles:** When new UI components are required, first attempt to compose them using existing classes and patterns defined or implied by `style_palette.html` and other project files.
 *   **Dark Theme Consistency:** Maintain the established dark theme across all new or modified UI components.
 
+## 5. Language
+
+*   **Communication Language:** All responses and communications with the user **MUST** be in Russian (Русский).
+
 ## 4. General Principles
 
 *   **Proactiveness:** Fulfill user requests thoroughly, including adding tests where appropriate.
@@ -30,3 +34,13 @@ For any frontend or UI-related tasks, the agent **MUST** prioritize consistency 
 *   **No Reversion:** Do not revert changes unless explicitly instructed by the user or due to an identified error in an agent-made change.
 *   **Security:** Always apply security best practices. Never introduce code that exposes sensitive information.
 *   **Efficiency:** Prefer efficient solutions and minimize verbose output from tools.
+
+# Кодовые стандарты и правила редактирования
+
+1. **Нормализация строк**: Проект использует окончания строк `LF`. Всегда генерируй код с `LF`, а не `CRLF`.
+2. **Отступы**: В проекте используются 4 пробела для отступов в HTML/JS. Никогда не используй табы.
+3. **Правило поиска и замены (Search-and-Replace)**:
+   - Перед каждым изменением файла ОБЯЗАТЕЛЬНО используй `read_file`, чтобы увидеть текущие отступы и невидимые символы.
+   - Для `old_string` выбирай минимально необходимый, но уникальный фрагмент кода. Не бери огромные блоки, если можно заменить одну строку.
+   - Игнорируй лишние пустые строки в конце файлов.
+4. **Точность контекста**: Если ты не уверен в количестве пробелов перед строкой, прочитай файл заново. Ошибка "0 occurrences found" недопустима.
