@@ -4,199 +4,154 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Common Tools and Libs</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* Сброс стилей */
+        /* ... (Стили остаются те же, что я давал раньше) ... */
         * { box-sizing: border-box; margin: 0; padding: 0; }
-
         body {
             font-family: 'Segoe UI', sans-serif;
             background-color: #1e1e1e;
             color: #d4d4d4;
             height: 100vh;
-            display: flex; /* Делаем гибкий контейнер */
-            overflow: hidden; /* Убираем скролл у самого хаба */
-        }
-
-        /* --- САЙДБАР (ЛЕВАЯ ЧАСТЬ) --- */
-        .sidebar {
-            width: 260px;
-            background-color: #252526;
-            border-right: 1px solid #333;
             display: flex;
-            flex-direction: column;
-            flex-shrink: 0;
+            overflow: hidden;
         }
+        .sidebar { width: 260px; background-color: #252526; border-right: 1px solid #333; display: flex; flex-direction: column; flex-shrink: 0; }
+        .sidebar-header { padding: 20px; background-color: #2d2d2d; border-bottom: 1px solid #333; color: #4ec9b0; font-weight: bold; font-size: 1.2em; display: flex; align-items: center; gap: 10px; }
+        .category-title { padding: 15px 20px 5px 20px; font-size: 0.8em; text-transform: uppercase; color: #6c6c6c; font-weight: bold; letter-spacing: 1px; }
+        .nav-links { list-style: none; padding: 0; overflow-y: auto; }
+        .nav-links a { display: block; padding: 12px 20px; color: #cccccc; text-decoration: none; transition: background 0.2s, color 0.2s; border-left: 3px solid transparent; font-size: 0.95em; }
+        .nav-links a:hover { background-color: #2a2d2e; color: white; }
+        .footer { margin-top: auto; padding: 15px; font-size: 0.8em; color: #555; text-align: center; border-top: 1px solid #333; cursor: pointer; }
+        .main-content { flex-grow: 1; background-color: #1e1e1e; position: relative; }
+        iframe { width: 100%; height: 100%; border: none; display: block; }
 
-        .sidebar-header {
-            padding: 20px;
-            background-color: #2d2d2d;
-            border-bottom: 1px solid #333;
-            color: #4ec9b0;
-            font-weight: bold;
-            font-size: 1.2em;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .category-title {
-            padding: 15px 20px 5px 20px;
-            font-size: 0.8em;
-            text-transform: uppercase;
-            color: #6c6c6c;
-            font-weight: bold;
-            letter-spacing: 1px;
-        }
-
-        .nav-links {
-            list-style: none;
-            padding: 0;
-            overflow-y: auto;
-        }
-
-        .nav-links a {
-            display: block;
-            padding: 12px 20px;
-            color: #cccccc;
-            text-decoration: none;
-            transition: background 0.2s, color 0.2s;
-            border-left: 3px solid transparent;
-            font-size: 0.95em;
-        }
-
-        .nav-links a:hover {
-            background-color: #2a2d2e;
-            color: white;
-        }
-
-        /* Активная ссылка (будет подсвечиваться JS-ом, но пока оставим ховер) */
-        .nav-links a:focus {
-            background-color: #37373d;
-            border-left-color: #007acc;
-            color: white;
-            outline: none;
-        }
-
-        .footer {
-            margin-top: auto;
-            padding: 15px;
-            font-size: 0.8em;
-            color: #555;
-            text-align: center;
-            border-top: 1px solid #333;
-        }
-
-        /* --- ОСНОВНАЯ ЧАСТЬ (ПРАВАЯ) --- */
-        .main-content {
-            flex-grow: 1;
-            background-color: #1e1e1e;
-            position: relative;
-        }
-
-        /* Iframe занимает все место */
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            display: block;
-        }
+        /* Элементы скрытия */
+        .admin-group { display: none; }
+        
+        /* Модалка входа */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-box { background: #252526; padding: 25px; border: 1px solid #444; border-radius: 5px; width: 320px; text-align: center; }
+        .modal-box input { width: 100%; padding: 10px; margin: 10px 0; background: #333; border: 1px solid #555; color: white; border-radius: 3px; }
+        .modal-box button { width: 100%; padding: 10px; margin-top: 10px; background: #007acc; color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 3px; }
+        .modal-box button:hover { background: #005a9e; }
+        .error-msg { color: #f48771; font-size: 0.9em; margin-top: 10px; display: none; }
     </style>
 </head>
 <body>
 
     <aside class="sidebar">
-        <div class="sidebar-header">
-            <span>🟦 Common Tools and Libs</span>
-        </div>
+        <div class="sidebar-header"><span>🟦 Common Tools</span></div>
 
-<div class="category-title">Visual Library</div>
-<ul class="nav-links">
-    <li><a href="blueprints_view.html" target="tool-frame">🧩 Blueprint Gallery</a></li>
-    
-    <li><a href="shaders_view.html" target="tool-frame">🔮 Shader Library</a></li>
-</ul>
-
-<div class="category-title">Data Tools</div>
+        <div class="category-title">Visual Library</div>
+        <ul class="nav-links">
+            <li><a href="blueprints_view.html" target="tool-frame">🧩 Blueprint Gallery</a></li>
+            <li><a href="shaders_view.html" target="tool-frame">🔮 Shader Library</a></li>
+        </ul>
+        <div class="category-title">Data Tools</div>
         <ul class="nav-links">
             <li><a href="UE_EnumGen.html" target="tool-frame">💾 UE Enum Generator</a></li>
-            <li><a href="UE_Converter_Pro.html" target="tool-frame">🔄 Data Converter </a></li><li><a href="CurveToCode_Pro.html" target="tool-frame">📉 Curve Editor </a></li>
-        <li><a href="progression_balancer.html" target="tool-frame">📊 Balance Progression Tool </a></li>
-        <li><a href="factory_architect.html" target="tool-frame">📉 Factory Architect </a></li>
+            <li><a href="UE_Converter_Pro.html" target="tool-frame">🔄 Data Converter</a></li>
         </ul>
 
-        <div class="category-title" style="color: #4ec9b0;">Generators</div>
-        <ul class="nav-links">
-            <li>
-                <a href="math_plotter.html" target="tool-frame">
-                    📈 Math Plotter
-                </a>
-            </li>
-            <li>
-                <a href="shader_playground.html" target="tool-frame">
-                    🎮 HLSL Live Studio
-                </a>
-            </li>
-                        <li>
-                <a href="noise_gen.html" target="tool-frame">
-                    🏁 Texture Generator
-                </a>
-            </li>
+        <div class="category-title admin-group" style="color: #4ec9b0; border-top: 1px solid #333; padding-top: 15px;">Admin Zone</div>
+        <ul class="nav-links admin-group">
+            <li><a href="admin_add.html" target="tool-frame">📝 Snippet Builder</a></li>
+            <li><a href="admin_bp_add.html" target="tool-frame">➕ BP Generator</a></li>
+            <li><a href="admin_shader_add.html" target="tool-frame">🔮 Shader Generator</a></li>
+            <li><a href="#" onclick="logoutSupabase()" style="color: #f48771;">🚪 Logout</a></li>
         </ul>
 
-        <div class="category-title">Code Libraries</div>
-        <ul class="nav-links">
-            <li><a href="snippets_view.html" target="tool-frame">📜 Scripts Library</a></li>
-            <li><a href="hlsl_view.html" target="tool-frame">✨ HLSL Library</a></li>
-        </ul>
-
-        <div class="category-title">Snippets</div>
-        <ul class="nav-links">
-
-        </ul>
-
-        <div class="footer">
-            v1.0 Local Build
+        <div class="footer" onclick="openLoginModal()">
+            <span id="statusIcon">🔒</span> Login via Supabase
         </div>
-    <div style="height: 20px;"></div>
-        
-        <div class="category-title" style="color: #666; border-top: 1px solid #333; padding-top: 15px;">
-            Generators (Admin)
-        </div>
-        
-        <ul class="nav-links" style="opacity: 0.7;">
-            <li>
-                <a href="admin_add.html" target="tool-frame">
-                    📝 Snippet Builder
-                </a>
-            </li>
-            
-            <li>
-                <a href="admin_bp_add.html" target="tool-frame">
-                    ➕ BP Generator
-                </a>
-            </li>
-            
-            <li>
-                <a href="admin_shader_add.html" target="tool-frame">
-                    🔮 Shader Generator
-                </a>
-            </li>
-        </ul>
-
     </aside>
-        
-    
 
     <main class="main-content">
         <iframe src="welcome.html" name="tool-frame"></iframe>
     </main>
 
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal-box">
+            <h3 style="color: #4ec9b0; margin-bottom: 15px;">Supabase Auth</h3>
+            <input type="email" id="email" placeholder="Email">
+            <input type="password" id="password" placeholder="Password">
+            <button onclick="loginSupabase()">SIGN IN</button>
+            <button onclick="document.getElementById('loginModal').style.display='none'" style="background: transparent; color: #888;">Cancel</button>
+            <div id="loginError" class="error-msg">Error message here</div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. НАСТРОЙКИ SUPABASE (ВСТАВЬ СВОИ ДАННЫЕ!) ---
+    const SUPABASE_URL = 'https://vmwwvwtsznxwoswzdzui.supabase.co'; 
+    const SUPABASE_KEY = 'sb_publishable_hfVfEOEyUxTAl9TCGQLQdA_2qpquHGk';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // --- 2. ПРОВЕРКА ПРИ ЗАГРУЗКЕ ---
+        window.onload = async function() {
+            // Проверяем текущую сессию
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                unlockUI(session.user);
+            }
+            
+            // Слушаем изменения (если разлогинился в другой вкладке)
+            supabase.auth.onAuthStateChange((event, session) => {
+                if (session) unlockUI(session.user);
+                else lockUI();
+            });
+        }
+
+        // --- 3. ФУНКЦИИ ВХОДА/ВЫХОДА ---
+        function openLoginModal() {
+            // Если уже вошли - ничего не делаем или предлагаем выйти
+            if(sessionStorage.getItem('ct_supabase_auth')) return;
+            document.getElementById('loginModal').style.display = 'flex';
+        }
+
+        async function loginSupabase() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errBox = document.getElementById('loginError');
+
+            errBox.style.display = 'none';
+
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: email,
+                password: password,
+            });
+
+            if (error) {
+                errBox.innerText = error.message;
+                errBox.style.display = 'block';
+            } else {
+                // Успех! UI обновится через onAuthStateChange
+                document.getElementById('loginModal').style.display = 'none';
+            }
+        }
+
+        async function logoutSupabase() {
+            await supabase.auth.signOut();
+            lockUI();
+        }
+
+        // --- 4. УПРАВЛЕНИЕ UI ---
+        function unlockUI(user) {
+            console.log("Logged in as:", user.email);
+            // Ставим флаг в SessionStorage, который видят Iframe-ы (т.к. one origin)
+            sessionStorage.setItem('ct_supabase_auth', 'true'); 
+            
+            document.querySelectorAll('.admin-group').forEach(el => el.style.display = 'block');
+            document.getElementById('statusIcon').innerHTML = "🟢";
+        }
+
+        function lockUI() {
+            sessionStorage.removeItem('ct_supabase_auth');
+            document.querySelectorAll('.admin-group').forEach(el => el.style.display = 'none');
+            document.getElementById('statusIcon').innerHTML = "🔒";
+        }
+    </script>
 </body>
-
 </html>
-
-
-
-
-
-

@@ -3,22 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <title>Shader Library</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #1e1e1e; color: #d4d4d4; padding: 20px; display: flex; height: 95vh; gap: 20px; box-sizing: border-box; margin: 0; }
         
+        /* ЛЕВАЯ КОЛОНКА */
         .list-panel { width: 300px; display: flex; flex-direction: column; border-right: 1px solid #333; padding-right: 20px; flex-shrink: 0; }
         .search-box { background: #252526; border: 1px solid #333; color: white; padding: 10px; width: 100%; margin-bottom: 15px; border-radius: 4px; box-sizing: border-box; }
         .sh-list { overflow-y: auto; flex: 1; }
         
+        .loading-text { text-align: center; color: #888; margin-top: 20px; font-style: italic; }
+
         .sh-item { padding: 12px; margin-bottom: 5px; cursor: pointer; border-radius: 4px; transition: 0.2s; border-left: 3px solid transparent; background: #252526; }
         .sh-item:hover { background-color: #2a2d2e; }
-        .sh-item.active { background-color: #37373d; border-left-color: #d16969; color: white; }
-        .s-title { font-weight: bold; display: block; color: #ce9178; }
+        .sh-item.active { background-color: #37373d; border-left-color: #d16969; color: white; } /* Красный акцент для шейдеров */
+        
+        .s-title { font-weight: bold; display: block; color: #d16969; }
         .s-desc { font-size: 0.8em; color: #888; margin-top: 4px; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
+        /* ПРАВАЯ КОЛОНКА */
         .detail-panel { flex: 1; display: flex; flex-direction: column; background: #111; border-radius: 6px; border: 1px solid #333; overflow: hidden; position: relative; }
         
-        /* ОБНОВЛЕННЫЙ ТУЛБАР */
+        /* ТУЛБАР */
         .toolbar {
             min-height: 60px;
             background: #252526; border-bottom: 1px solid #333;
@@ -34,6 +40,7 @@
         .btn-copy {
             background-color: #d16969; color: white; border: none; padding: 8px 16px; 
             border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+            display: none;
         }
         .btn-copy:hover { background-color: #b04c4c; }
         .btn-copy:active { transform: translateY(1px); }
@@ -47,53 +54,86 @@
 <body>
 
     <div class="list-panel">
-        <input type="text" class="search-box" placeholder="Поиск шейдера..." onkeyup="filterList(this.value)">
-        <div class="sh-list" id="listContainer"></div>
+        <input type="text" class="search-box" placeholder="Поиск шейдера..." onkeyup="renderList(this.value)">
+        <div class="sh-list" id="listContainer">
+            <div class="loading-text">Загрузка базы...</div>
+        </div>
     </div>
 
     <div class="detail-panel">
         <div class="toolbar">
-             <div class="header-info">
-                <span id="headerTitle" class="main-title">Выберите материал</span>
+            <div class="header-info">
+                <span id="headerTitle" class="main-title">Выберите шейдер</span>
                 <span id="headerDesc" class="sub-desc"></span>
             </div>
 
-            <button class="btn-copy" onclick="copyRawCode()" id="copyBtn" style="display:none;">
-                🎨 COPY NODES
+            <button class="btn-copy" onclick="copyRawCode()" id="copyBtn">
+                📄 COPY NODES
             </button>
         </div>
         <div class="frame-container">
-            <div class="placeholder" id="placeholder">Select a Material/Shader</div>
-            <iframe id="bpFrame" scrolling="no" allowfullscreen></iframe>
+            <div class="placeholder" id="placeholder">Select a Shader</div>
+            <iframe id="shFrame" scrolling="no" allowfullscreen></iframe>
         </div>
     </div>
 
-    <script src="shaders_db.js"></script>
-    
     <script>
+        // --- 1. НАСТРОЙКИ SUPABASE ---
+    const SUPABASE_URL = 'https://vmwwvwtsznxwoswzdzui.supabase.co'; 
+    const SUPABASE_KEY = 'sb_publishable_hfVfEOEyUxTAl9TCGQLQdA_2qpquHGk';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let shadersData = [];
+
         const listContainer = document.getElementById('listContainer');
-        const bpFrame = document.getElementById('bpFrame');
+        const shFrame = document.getElementById('shFrame');
         const placeholder = document.getElementById('placeholder');
         
-        // Новые элементы
         const headerTitle = document.getElementById('headerTitle');
         const headerDesc = document.getElementById('headerDesc');
-        
         const copyBtn = document.getElementById('copyBtn');
+        
         let currentRawCode = "";
 
-        function renderList(filter = "") {
-            listContainer.innerHTML = "";
-            if(typeof shadersData === 'undefined') {
-                listContainer.innerHTML = "<div style='padding:10px; color:red'>Ошибка: shaders_db.js не найден</div>";
+        // --- 2. ЗАГРУЗКА ---
+        async function fetchShaders() {
+            const { data, error } = await _supabase
+                .from('shaders')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                listContainer.innerHTML = `<div class="loading-text" style="color:#d16969">Ошибка: ${error.message}</div>`;
                 return;
             }
 
+            shadersData = data;
+            renderList();
+        }
+
+        // --- 3. ОТРИСОВКА ---
+        function renderList(filter = "") {
+            listContainer.innerHTML = "";
+            
+            if (shadersData.length === 0) {
+                listContainer.innerHTML = `<div class="loading-text">Список пуст</div>`;
+                return;
+            }
+
+            const searchParts = filter.toLowerCase().split(' ').filter(p => p.trim() !== "");
+
             shadersData.forEach((item, index) => {
-                if (filter && !item.title.toLowerCase().includes(filter.toLowerCase())) return;
+                const descText = item.description || item.desc || "";
+
+                if (searchParts.length > 0) {
+                    const searchTarget = (item.title + " " + descText).toLowerCase();
+                    const isMatch = searchParts.every(part => searchTarget.includes(part));
+                    if (!isMatch) return;
+                }
+
                 const div = document.createElement('div');
                 div.className = 'sh-item';
-                div.innerHTML = `<span class="s-title">🔮 ${item.title}</span><span class="s-desc">${item.desc}</span>`;
+                div.innerHTML = `<span class="s-title">🔮 ${item.title}</span><span class="s-desc">${descText}</span>`;
                 div.onclick = () => loadShader(index, div);
                 listContainer.appendChild(div);
             });
@@ -104,28 +144,44 @@
             document.querySelectorAll('.sh-item').forEach(el => el.classList.remove('active'));
             element.classList.add('active');
 
-            placeholder.style.display = 'none';
-            bpFrame.style.display = 'block';
-            copyBtn.style.display = 'flex';
-            
-            // ОБНОВЛЕНИЕ ТЕКСТОВ
-            headerTitle.innerText = item.title;
-            headerDesc.innerText = item.desc; // <-- Вставка описания
+            const descText = item.description || item.desc || "";
 
-            bpFrame.src = `https://blueprintue.com/render/${item.embedId}/`;
-            currentRawCode = item.rawCode || "";
+            placeholder.style.display = 'none';
+            shFrame.style.display = 'block';
+            
+            // Кнопка копирования
+            if (item.code) {
+                copyBtn.style.display = 'flex';
+                currentRawCode = item.code;
+            } else {
+                copyBtn.style.display = 'none';
+            }
+            
+            headerTitle.innerText = item.title;
+            headerDesc.innerText = descText;
+
+            // Загрузка iframe
+            if (item.embed_id) {
+                shFrame.src = `https://blueprintue.com/render/${item.embed_id}/`;
+            } else if (item.embedId) { 
+                shFrame.src = `https://blueprintue.com/render/${item.embedId}/`;
+            } else {
+                shFrame.style.display = 'none';
+                placeholder.style.display = 'block';
+                placeholder.innerText = "No Embed ID found";
+            }
         }
 
         function copyRawCode() {
             if (!currentRawCode) { alert("Нет кода"); return; }
             navigator.clipboard.writeText(currentRawCode).then(() => {
-                const originalText = copyBtn.innerHTML;
-                copyBtn.innerHTML = "✅ COPIED!";
-                setTimeout(() => copyBtn.innerHTML = originalText, 1500);
+                const originalText = copyBtn.innerText;
+                copyBtn.innerText = "✅ COPIED!";
+                setTimeout(() => copyBtn.innerText = originalText, 1500);
             });
         }
-        function filterList(val) { renderList(val); }
-        renderList();
+
+        document.addEventListener('DOMContentLoaded', fetchShaders);
     </script>
 </body>
 </html>
