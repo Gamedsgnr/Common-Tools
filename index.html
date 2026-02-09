@@ -179,6 +179,8 @@
         <ul class="nav-links">
             <li><a href="blueprints_view.html" target="tool-frame">🧩 Blueprint Gallery</a></li>
             <li><a href="shaders_view.html" target="tool-frame">🔮 Shader Library</a></li>
+            <li><a href="hlsl_view.html" target="tool-frame">💻 HLSL Library</a></li>
+            <li><a href="snippets_view.html" target="tool-frame">📜 Snippets Library</a></li>
         </ul>
 
         <div class="category-title">Data Tools</div>
@@ -227,11 +229,9 @@
 
     <script>
         // --- 1. НАСТРОЙКИ SUPABASE ---
-        // Используем var, чтобы избежать ошибки "Identifier already declared", если скрипт выполняется повторно
         var SUPABASE_URL = 'https://vmwwvwtsznxwoswzdzui.supabase.co'; 
         var SUPABASE_KEY = 'sb_publishable_hfVfEOEyUxTAl9TCGQLQdA_2qpquHGk';
         
-        // Переименовали переменную в _sbClient, чтобы избежать конфликтов с window.supabase или старым кодом
         var _sbClient = null;
 
         // --- 2. ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ ---
@@ -239,7 +239,6 @@
             console.log("CommonToolHub: Script loaded");
 
             try {
-                // Создаем клиент Supabase
                 if (window.supabase) {
                     _sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
                 } else {
@@ -254,7 +253,6 @@
                     unlockUI(session.user);
                 }
                 
-                // Слушаем изменения статуса (Вход/Выход)
                 _sbClient.auth.onAuthStateChange((event, session) => {
                     if (session) unlockUI(session.user);
                     else lockUI();
@@ -267,7 +265,6 @@
 
         // --- 3. ОБРАБОТКА КЛИКА ПО LOGIN ---
         function handleAuthClick() {
-            // Если клиент не создался
             if (!_sbClient) {
                 alert("Ошибка: Supabase не инициализирован. Проверьте консоль.");
                 return;
@@ -276,12 +273,10 @@
             const isAuth = sessionStorage.getItem('ct_supabase_auth') === 'true';
             
             if (isAuth) {
-                // Если уже вошли - предлагаем выйти
                 if(confirm("Вы уже авторизованы. Выйти из аккаунта?")) {
                     logoutSupabase();
                 }
             } else {
-                // Если не вошли - открываем окно
                 const modal = document.getElementById('loginModal');
                 if (modal) {
                     modal.style.display = 'flex';
@@ -325,7 +320,6 @@
                     throw error;
                 } else {
                     closeModal();
-                    // Интерфейс обновится автоматически через слушатель событий
                 }
             } catch (error) {
                 console.error("Login error:", error);
@@ -369,7 +363,6 @@
             }
         }
 
-        // Закрытие по клику вне окна
         window.onclick = function(event) {
             const modal = document.getElementById('loginModal');
             if (event.target == modal) {
