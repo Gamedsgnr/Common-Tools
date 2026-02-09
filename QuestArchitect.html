@@ -380,28 +380,42 @@
                     this.cloud.loading = false;
                 },
 
-                async saveToCloud() {
-                    if(!this.supabase) return;
+async saveToCloud() {
+    if(!this.supabase) return;
+    
+    const exportData = {
+        drawflow: this.editor.export(),
+        worldState: this.worldState,
+        npcList: this.npcList
+    };
 
-                    const exportData = {
-                        drawflow: this.editor.export(),
-                        worldState: this.worldState,
-                        npcList: this.npcList
-                    };
+    // Формируем объект для отправки
+    const row = { 
+        title: this.cloud.saveName, 
+        content: exportData 
+    };
 
-                    const { data, error } = await this.supabase
-                        .from('quests')
-                        .insert([
-                            { title: this.cloud.saveName, content: exportData }
-                        ]);
+    // Если мы загрузили квест из БД, добавляем его ID для перезаписи
+    if (this.cloud.currentId) {
+        row.id = this.cloud.currentId;
+    }
 
-                    if(error) {
-                        alert("Ошибка сохранения: " + error.message);
-                    } else {
-                        alert("Квест успешно сохранен!");
-                        this.fetchQuests();
-                    }
-                },
+    const { data, error } = await this.supabase
+        .from('quests')
+        .upsert(row) // Используем upsert вместо insert
+        .select();   // Получаем данные обратно, чтобы узнать ID нового квеста
+
+    if(error) {
+        alert("Ошибка сохранения: " + error.message);
+    } else {
+        // Если это было первое сохранение нового квеста, запоминаем полученный ID
+        if (data && data[0]) {
+            this.cloud.currentId = data[0].id;
+        }
+        alert("Квест успешно сохранен!");
+        this.fetchQuests();
+    }
+},
 
 async loadFromCloud(questMeta) {
     if(!confirm(`Загрузить квест "${questMeta.title}"? Текущие данные будут потеряны.`)) return;
