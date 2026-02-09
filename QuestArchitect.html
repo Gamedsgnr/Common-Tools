@@ -302,6 +302,7 @@
                     list: [],
                     loading: false,
                     saveName: 'Новый квест'
+                    currentId: null
                 },
 
                 init() {
@@ -402,28 +403,32 @@
                     }
                 },
 
-                async loadFromCloud(questMeta) {
-                    if(!confirm(`Загрузить квест "${questMeta.title}"? Текущие данные будут потеряны.`)) return;
-                    
-                    this.cloud.loading = true;
-                    const { data, error } = await this.supabase
-                        .from('quests')
-                        .select('content')
-                        .eq('id', questMeta.id)
-                        .single();
+async loadFromCloud(questMeta) {
+    if(!confirm(`Загрузить квест "${questMeta.title}"? Текущие данные будут потеряны.`)) return;
+    this.cloud.loading = true;
+    const { data, error } = await this.supabase
+        .from('quests')
+        .select('content')
+        .eq('id', questMeta.id)
+        .single();
 
-                    if(error) {
-                        alert("Ошибка загрузки данных: " + error.message);
-                    } else {
-                        const json = data.content;
-                        this.editor.import(json.drawflow || json);
-                        if (json.worldState) this.worldState = json.worldState;
-                        if (json.npcList) this.npcList = json.npcList;
-                        this.restoreDataBindings();
-                        this.cloud.show = false;
-                    }
-                    this.cloud.loading = false;
-                },
+    if(error) {
+        alert("Ошибка загрузки данных: " + error.message);
+    } else {
+        const json = data.content;
+        this.editor.import(json.drawflow || json);
+        if (json.worldState) this.worldState = json.worldState;
+        if (json.npcList) this.npcList = json.npcList;
+        
+        // СОХРАНЯЕМ ID И НАЗВАНИЕ
+        this.cloud.currentId = questMeta.id;
+        this.cloud.saveName = questMeta.title;
+
+        this.restoreDataBindings();
+        this.cloud.show = false;
+    }
+    this.cloud.loading = false;
+},
 
                 // --- LOCAL FILE LOGIC ---
 
