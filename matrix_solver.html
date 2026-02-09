@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CTH: Economy Architect Pro (Matrix Engine)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/javascript-lp-solver/browser/solver.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        .matrix-input:focus { background: #0f172a; border-color: #3b82f6; outline: none; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-[#020617] text-slate-300 font-mono text-[11px] h-screen overflow-hidden">
+
+    <div x-data="matrixEngine()" class="flex flex-col h-full">
+        
+        <header class="h-14 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md flex items-center justify-between px-6 shrink-0">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20 font-bold text-white text-lg">M</div>
+                <div>
+                    <h1 class="font-black uppercase tracking-tighter text-white leading-none">Matrix Economy Architect</h1>
+                    <span class="text-[9px] text-blue-500 font-bold">PROFESSIONAL SOLVER V1.1</span>
+                </div>
+            </div>
+            
+            <div class="flex gap-3">
+                <button @click="saveData" class="px-3 py-1.5 border border-slate-700 hover:bg-slate-800 rounded transition-all">Save Matrix</button>
+                <button @click="solveAll" class="bg-blue-600 hover:bg-blue-500 px-6 py-1.5 rounded text-white font-bold shadow-lg shadow-blue-600/30 transition-all uppercase">Run Optimization</button>
+            </div>
+        </header>
+
+        <div class="flex flex-1 overflow-hidden">
+            
+            <aside class="w-72 border-r border-slate-800 bg-slate-900/20 p-6 flex flex-col gap-6 overflow-y-auto">
+                
+                <div>
+                    <h2 class="text-blue-400 font-black mb-4 uppercase flex justify-between items-center">
+                        Resources / Constraints
+                        <button @click="addResource" class="text-[14px] hover:text-white">+</button>
+                    </h2>
+                    <div class="space-y-2">
+                        <template x-for="(res, idx) in resources" :key="idx">
+                            <div class="bg-slate-900/50 p-2 rounded border border-slate-800 group">
+                                <input type="text" x-model="resources[idx].name" class="bg-transparent font-bold text-white w-full outline-none mb-1">
+                                <div class="flex items-center justify-between text-[9px] text-slate-500 uppercase">
+                                    <span>Max Avail:</span>
+                                    <input type="number" x-model.number="resources[idx].limit" class="bg-slate-800 w-16 px-1 text-green-400 text-right rounded">
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-800 pt-6">
+                    <h2 class="text-purple-400 font-black mb-4 uppercase flex justify-between items-center">
+                        Products / Profits
+                        <button @click="addProduct" class="text-[14px] hover:text-white">+</button>
+                    </h2>
+                    <div class="space-y-2">
+                        <template x-for="(prod, idx) in products" :key="idx">
+                            <div class="bg-slate-900/50 p-2 rounded border border-slate-800">
+                                <input type="text" x-model="products[idx].name" class="bg-transparent font-bold text-white w-full outline-none mb-1">
+                                <div class="flex items-center justify-between text-[9px] text-slate-500 uppercase">
+                                    <span>Unit Profit:</span>
+                                    <input type="number" x-model.number="products[idx].profit" class="bg-slate-800 w-16 px-1 text-purple-400 text-right rounded">
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="flex-1 overflow-auto bg-[#020617] p-8">
+                
+                <div class="mb-12">
+                    <h2 class="text-lg font-bold mb-6 flex items-center gap-3">
+                        <span class="text-slate-600">01.</span> Input-Output Coefficient Matrix
+                        <span class="text-[9px] px-2 py-0.5 bg-slate-800 text-slate-400 rounded uppercase tracking-widest font-normal">Matrix A</span>
+                    </h2>
+                    
+                    <div class="inline-block bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+                        <table class="border-collapse">
+                            <thead>
+                                <tr class="bg-slate-900">
+                                    <th class="p-4 border-r border-slate-800"></th>
+                                    <template x-for="prod in products">
+                                        <th class="p-4 border-r border-slate-800 text-[10px] text-slate-500 uppercase min-w-[100px]" x-text="prod.name"></th>
+                                    </template>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="(res, rIdx) in resources" :key="rIdx">
+                                    <tr class="border-t border-slate-800/50">
+                                        <td class="p-4 border-r border-slate-800 font-bold bg-slate-900/30 text-slate-400" x-text="res.name"></td>
+                                        <template x-for="(prod, pIdx) in products" :key="pIdx">
+                                            <td class="p-0 border-r border-slate-800/50 relative group">
+                                                <input type="number" 
+                                                       x-model.number="matrixA[rIdx][pIdx]"
+                                                       class="w-full h-full bg-transparent p-4 text-right matrix-input text-blue-400 font-mono transition-all hover:bg-blue-500/5"
+                                                       step="0.01">
+                                            </td>
+                                        </template>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+<template x-if="results">
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 animate-in fade-in duration-500">
+        
+        <div class="bg-slate-900/40 border border-slate-800 rounded-xl p-6">
+            <h3 class="text-green-400 font-black uppercase text-sm mb-4">Optimal Production</h3>
+            <div class="space-y-2">
+                <template x-for="(val, key) in results.solution" :key="key">
+                    <div x-show="typeof val === 'number' && key !== 'result'" class="flex justify-between border-b border-slate-800/50 py-2">
+                        <span class="text-slate-400" x-text="key"></span>
+                        <span class="font-mono text-white font-bold" x-text="val.toFixed(2)"></span>
+                    </div>
+                </template>
+            </div>
+            <div class="mt-4 pt-4 border-t border-slate-700 flex justify-between items-center">
+                <span class="text-slate-500 text-[10px] uppercase">Total Profit:</span>
+                <span class="text-2xl font-black text-white" x-text="Number(results.totalProfit).toFixed(0)"></span>
+            </div>
+        </div>
+
+        <div class="bg-slate-900/40 border border-slate-800 rounded-xl p-6">
+            <h3 class="text-blue-400 font-black uppercase text-sm mb-4">Resource Usage</h3>
+            <div class="space-y-4">
+                <template x-for="(data, name) in results.resourceUsage" :key="name">
+                    <div>
+                        <div class="flex justify-between text-[10px] mb-1 uppercase">
+                            <span x-text="name"></span>
+                            <span x-text="data.used.toFixed(1) + ' / ' + data.limit"></span>
+                        </div>
+                        <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div class="h-full bg-blue-500 transition-all duration-500" 
+                                 :style="`width: ${Math.min(data.percent, 100)}%`"
+                                 :class="data.percent >= 90 ? 'bg-red-500' : 'bg-blue-500'"></div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+    </div>
+</template>
+                        </div>
+                    </div>
+                </div>
+
+
+
+            </main>
+        </div>
+    </div>
+
+    <script>
+
+
+        function matrixEngine() {
+            return {
+                resources: [
+                    { name: 'Iron Ore', limit: 500 },
+                    { name: 'Coal', limit: 200 },
+                    { name: 'Worker Hours', limit: 160 }
+                ],
+                products: [
+                    { name: 'Iron Sword', profit: 45 },
+                    { name: 'Plate Armor', profit: 120 }
+                ],
+                matrixA: [
+                    [2, 10], // Iron Ore per unit
+                    [1, 5],  // Coal per unit
+                    [1, 4]   // Hours per unit
+                ],
+                results: null,
+
+                addResource() {
+                    this.resources.push({ name: 'New Resource', limit: 100 });
+                    this.matrixA.push(new Array(this.products.length).fill(0));
+                },
+
+                addProduct() {
+                    this.products.push({ name: 'New Product', profit: 10 });
+                    this.matrixA.forEach(row => row.push(0));
+                },
+
+solveAll() {
+    // 1. Проверка: загружена ли библиотека solver.js
+    const solverLib = window.solver || (typeof solver !== 'undefined' ? solver : null);
+    
+    if (!solverLib) {
+        alert("Ошибка: Математическое ядро (solver.js) не загружено. Проверьте подключение к интернету или обновите страницу.");
+        return;
+    }
+
+    try {
+        console.log("Engaging Professional Solver...");
+        
+        // Сброс старых результатов перед расчетом
+        this.results = null;
+
+        // 2. Подготовка структуры модели
+        const model = {
+            optimize: "profit",
+            opType: "max",
+            constraints: {},
+            variables: {}
+        };
+
+        // 3. Добавление ресурсов (Constraints)
+        this.resources.forEach(res => {
+            // Названия ресурсов должны быть строками без спецсимволов (+, -, *)
+            const limitVal = parseFloat(res.limit);
+            model.constraints[res.name] = { max: isNaN(limitVal) ? 0 : limitVal };
+        });
+
+        // 4. Добавление продуктов/рецептов (Variables)
+        this.products.forEach((prod, pIdx) => {
+            const recipe = {};
+            
+            // Настраиваем профит (целевая функция)
+            const profitVal = parseFloat(prod.profit);
+            recipe.profit = isNaN(profitVal) ? 0 : profitVal;
+
+            // Настраиваем расходы ресурсов из Matrix A
+            this.resources.forEach((res, rIdx) => {
+                let cellValue = this.matrixA[rIdx][pIdx];
+                let numericValue = parseFloat(cellValue);
+                
+                // Если в ячейке пусто или не число, подставляем 0
+                recipe[res.name] = isNaN(numericValue) ? 0 : numericValue;
+            });
+
+            model.variables[prod.name] = recipe;
+        });
+
+        console.log("Model successfully built:", model);
+
+        // 5. Вызов математического решения
+        const solution = solverLib.Solve(model);
+        
+        // Проверка на возможность решения (Infeasible)
+        if (!solution.feasible) {
+            alert("Баланс нарушен: С текущими лимитами ресурсов невозможно произвести ни одного продукта с прибылью выше нуля.");
+            return;
+        }
+
+        // 6. Расчет использования ресурсов для визуализации (Progress Bars)
+        const usage = {};
+        this.resources.forEach((res, rIdx) => {
+            let totalUsed = 0;
+            this.products.forEach((prod, pIdx) => {
+                const amountProduced = solution[prod.name] || 0;
+                const costPerUnit = parseFloat(this.matrixA[rIdx][pIdx]) || 0;
+                totalUsed += amountProduced * costPerUnit;
+            });
+            
+            const limit = parseFloat(res.limit) || 1; 
+            usage[res.name] = {
+                used: totalUsed,
+                limit: limit,
+                percent: (totalUsed / limit) * 100
+            };
+        });
+
+        // 7. Запись результата в реактивную переменную Alpine
+        this.results = {
+            solution: solution,
+            totalProfit: solution.result || 0,
+            resourceUsage: usage
+        };
+
+        console.log("Solver result:", this.results);
+
+    } catch (err) {
+        console.error("Solver Internal Error:", err);
+        alert("Критическая ошибка математического ядра: " + err.message);
+    }
+},
+
+         calculateFullCosts() {
+    // В геймдизайне это нужно для понимания инфляции.
+    // Если Matrix A - это затраты, то (I - A)^-1 - это полные затраты.
+    try {
+        const A = math.matrix(this.matrixA);
+        const resourcePrices = this.resources.map(r => 1); // Условно считаем вес каждого ресурса как 1
+        
+        // Умножаем веса ресурсов на коэффициенты затрат
+        const directCosts = math.multiply(math.transpose(A), resourcePrices);
+        
+        this.fullCosts = directCosts.toArray();
+    } catch (e) {
+        console.warn("Матрица не квадратная или вырожденная, пропускаем расчет Леонтьева");
+    }
+},
+
+                saveData() {
+                    const data = JSON.stringify({
+                        res: this.resources,
+                        prod: this.products,
+                        matrix: this.matrixA
+                    });
+                    console.log("Matrix Exported:", data);
+                    alert("Matrix configuration saved to console!");
+                }
+            }
+        }
+    </script>
+</body>
+</html>
