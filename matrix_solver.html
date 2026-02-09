@@ -119,7 +119,28 @@
 
                 <!-- Simplex View -->
                 <div x-show="activeTab === 'simplex'" class="flex flex-1 overflow-hidden" x-cloak>
-                    <!-- ... Simplex content remains the same ... -->
+                    <div x-data="simplexEngine" class="w-full flex">
+                        <aside class="w-72 bg-[#252526] border-r border-[#333] p-4 overflow-y-auto shrink-0">
+                            <div class="mb-6">
+                                <div class="flex justify-between items-center mb-2"><h3 class="text-[11px] uppercase font-bold text-[#6c6c6c]">Resources</h3><button @click="addResource()" class="text-[#4ec9b0] hover:text-white text-lg">+</button></div>
+                                <div class="space-y-2"><template x-for="(res, idx) in resources" :key="idx"><div class="p-2 card rounded flex justify-between items-center"><input type="text" x-model="res.name" class="w-full text-xs font-bold bg-transparent border-none"><div class="flex items-center"><span class="text-[10px] text-[#6c6c6c] mr-2">Limit:</span><input type="number" x-model.number="res.limit" class="w-20 text-[10px] p-1 rounded"></div></div></template></div>
+                            </div>
+                            <div class="mb-6">
+                                <div class="flex justify-between items-center mb-2"><h3 class="text-[11px] uppercase font-bold text-[#6c6c6c]">Products</h3><button @click="addProduct()" class="text-[#4ec9b0] hover:text-white text-lg">+</button></div>
+                                <div class="space-y-2"><template x-for="(prod, idx) in products" :key="idx"><div class="p-2 card rounded flex justify-between items-center"><input type="text" x-model="prod.name" class="w-full text-xs font-bold bg-transparent border-none"><div class="flex items-center"><span class="text-[10px] text-[#6c6c6c] mr-2">Profit:</span><input type="number" x-model.number="prod.profit" class="w-20 text-[10px] p-1 rounded"></div></div></template></div>
+                            </div>
+                        </aside>
+                        <div class="flex-1 overflow-auto p-8">
+                             <h2 class="text-sm font-bold mb-6 text-[#4ec9b0]">Production Coefficients (Resource per Product)</h2>
+                            <div class="inline-block card rounded-lg overflow-hidden mb-10">
+                                <table class="matrix-table text-xs">
+                                    <thead><tr class="bg-[#2d2d2d]"><th class="p-3 border-b border-[#333]"></th><template x-for="p in products"><th class="p-3 border-b border-[#333] text-[#4ec9b0] font-normal" x-text="p.name"></th></template></tr></thead>
+                                    <tbody><template x-for="(res, rIdx) in resources" :key="rIdx"><tr><td class="p-3 bg-[#2d2d2d] border-r border-[#333] font-bold" x-text="res.name"></td><template x-for="(prod, pIdx) in products" :key="pIdx"><td class="p-1 border-b border-r border-[#333]"><input type="number" step="0.1" x-model.number="matrixA[rIdx][pIdx]"></td></template></tr></template></tbody>
+                                </table>
+                            </div>
+                            <template x-if="results"><div class="grid grid-cols-2 gap-8"><div class="card p-6 rounded-lg"><h3 class="text-[#4ec9b0] font-bold text-xs uppercase mb-4">Optimal Plan</h3><div class="space-y-2"><template x-for="(val, key) in results.solution" :key="key"><div x-show="typeof val === 'number' && key !== 'result'" class="flex justify-between border-b border-[#333] py-2"><span class="text-[#888]" x-text="key"></span><span class="text-white font-bold font-mono" x-text="val.toFixed(2)"></span></div></template></div><div class="mt-6 flex justify-between items-center"><span class="text-[10px] text-[#6c6c6c] uppercase">Expected Profit:</span><span class="text-2xl font-black text-white" x-text="results.totalProfit.toFixed(0)"></span></div></div><div class="card p-6 rounded-lg"><h3 class="text-[#ce9178] font-bold text-xs uppercase mb-4">Resource Utilization</h3><div class="space-y-4"><template x-for="(data, name) in results.usage" :key="name"><div><div class="flex justify-between text-[10px] mb-1"><span x-text="name"></span><span x-text="data.used.toFixed(1) + '/' + data.limit"></span></div><div class="w-full h-1.5 bg-[#1e1e1e] rounded-full overflow-hidden"><div class="h-full" :style="`width: ${Math.min(data.percent, 100)}%`" :class="data.percent > 90 ? 'bg-orange-600' : 'bg-[#007acc]'"></div></div></div></template></div></div></div></template>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Leontief View -->
@@ -162,7 +183,36 @@
                 
                 <!-- Markov View -->
                 <div x-show="activeTab === 'markov'" class="flex flex-1 overflow-hidden" x-cloak>
-                   <!-- ... Markov content remains the same ... -->
+                   <div x-data="markovEngine" class="w-full flex">
+                        <aside class="w-72 bg-[#252526] border-r border-[#333] p-4 overflow-y-auto shrink-0">
+                             <div class="mb-6">
+                                <div class="flex justify-between items-center mb-2"><h3 class="text-[11px] uppercase font-bold text-[#6c6c6c]">System States</h3><button @click="addState()" class="text-[#4ec9b0] hover:text-white text-lg">+</button></div>
+                                <div class="space-y-2"><template x-for="(state, idx) in states" :key="idx"><div class="p-2 card rounded flex justify-between items-center"><input type="text" x-model="state.name" class="w-full text-xs font-bold bg-transparent border-none"></div></template></div>
+                            </div>
+                            <div class="mb-6 card p-3">
+                                <h3 class="text-[11px] uppercase font-bold text-[#6c6c6c] mb-2">Initial State Vector</h3>
+                                <template x-for="(state, idx) in states" :key="idx">
+                                    <div class="flex justify-between items-center mb-1"><span class="text-xs text-[#888]" x-text="state.name"></span><input type="number" step="0.01" min="0" max="1" x-model.number="initialVector[idx]" class="w-20 text-[10px] p-1 rounded"></div>
+                                </template>
+                            </div>
+                             <div class="mb-6 card p-3">
+                                <h3 class="text-[11px] uppercase font-bold text-[#6c6c6c] mb-2">Simulation Steps</h3>
+                                <input type="number" min="1" x-model.number="steps" class="w-full text-sm p-1 rounded">
+                            </div>
+                        </aside>
+                         <div class="flex-1 overflow-auto p-8">
+                            <h2 class="text-sm font-bold mb-6 text-[#4ec9b0]">Transition Probability Matrix (P)</h2>
+                            <p class="text-xs text-[#888] mb-4 max-w-xl">Each cell (Row, Col) is the probability of moving FROM 'Row' state TO 'Col' state. <strong class="text-[#ce9178]">Each row's sum must equal 1.</strong></p>
+                            <div class="inline-block card rounded-lg overflow-hidden mb-10">
+                                <table class="matrix-table text-xs">
+                                    <thead><tr class="bg-[#2d2d2d]"><th class="p-3 border-b border-[#333] sticky left-0 z-10 bg-[#2d2d2d] text-center">↓ FROM / TO →</th><template x-for="state in states"><th class="p-3 border-b border-[#333] text-[#4ec9b0] font-normal" x-text="state.name"></th></template></tr></thead>
+                                    <tbody><template x-for="(rowState, rIdx) in states" :key="rIdx"><tr><td class="p-3 bg-[#2d2d2d] border-r border-[#333] font-bold" x-text="rowState.name"></td><template x-for="(colState, cIdx) in states" :key="cIdx"><td class="p-1 border-b border-r border-[#333]"><input type="number" step="0.01" min="0" max="1" x-model.number="transitionMatrix[rIdx][cIdx]" :class="{'row-sum-error': rowSums[rIdx] !== 1}"></td></template></tr></template></tbody>
+                                </table>
+                            </div>
+                            <template x-if="results.after_n_steps"><div class="card p-6 rounded-lg"><h3 class="text-[#ce9178] font-bold text-xs uppercase mb-4" x-text="`Distribution after ${steps} Steps`"></h3><div class="space-y-2"><template x-for="(state, idx) in states" :key="idx"><div class="flex justify-between border-b border-[#333] py-2"><span class="text-[#888]" x-text="state.name"></span><div class="flex items-center gap-4"><span class="text-sm text-gray-400" x-text="`( ${(initialVector[idx]*100).toFixed(1)}% -> ${(results.after_n_steps[idx]*100).toFixed(1)}% )`"></span><span class="text-white font-bold font-mono text-lg" x-text="(results.after_n_steps[idx]*100).toFixed(2) + '%'"></span></div></div></template></div></div></template>
+                            <template x-if="results.steady_state"><div class="card p-6 rounded-lg"><h3 class="text-[#9cdcfe] font-bold text-xs uppercase mb-4">Steady-State Distribution (Long-term)</h3><div class="space-y-2"><template x-for="(state, idx) in states" :key="idx"><div class="flex justify-between border-b border-[#333] py-2"><span class="text-[#888]" x-text="state.name"></span><span class="text-white font-bold font-mono text-lg" x-text="(results.steady_state[idx]*100).toFixed(2) + '%'"></span></div></template></div></div></template>
+                        </div>
+                    </div>
                 </div>
 
             </main>
@@ -191,7 +241,47 @@
                 }
             }));
             
-             Alpine.data('simplexEngine', () => ({/* ... same as before ... */}));
+             Alpine.data('simplexEngine', () => ({
+                resources: [{name: 'Iron', limit: 500}, {name: 'Wood', limit: 300}],
+                products: [{name: 'Sword', profit: 50}, {name: 'Shield', profit: 40}],
+                matrixA: [[2, 1], [1, 3]],
+                results: null,
+                init() { 
+                    console.log("simplexEngine init() called.");
+                    document.addEventListener('solve-simplex', () => {
+                        console.log("simplexEngine: 'solve-simplex' event received.");
+                        this.solve();
+                    }); 
+                },
+                addResource() { this.resources.push({name: 'New Resource', limit: 100}); this.matrixA.push(new Array(this.products.length).fill(0)); },
+                addProduct() { this.products.push({name: 'New Product', profit: 10}); this.matrixA.forEach(row => row.push(0)); },
+                solve() {
+                    console.log("simplexEngine solve() called.");
+                    if (!window.solver) return alert("solver.js not loaded.");
+                    try {
+                        const model = { optimize: "profit", opType: "max", constraints: {}, variables: {} };
+                        this.resources.forEach(res => { model.constraints[res.name] = { max: res.limit || 0 }; });
+                        this.products.forEach((prod, pIdx) => {
+                            const v = { profit: prod.profit || 0 };
+                            this.resources.forEach((res, rIdx) => { v[res.name] = this.matrixA[rIdx][pIdx] || 0; });
+                            model.variables[prod.name] = v;
+                        });
+                        const solution = solver.Solve(model);
+                        if (!solution.feasible) {
+                            console.log("simplexEngine solve() finished with infeasible solution.");
+                            return alert("Infeasible solution.");
+                        }
+                        const usage = {};
+                        this.resources.forEach((res, rIdx) => {
+                            let total = 0;
+                            this.products.forEach((p, pIdx) => { total += (solution[p.name] || 0) * (this.matrixA[rIdx][pIdx] || 0); });
+                            usage[res.name] = { used: total, limit: res.limit, percent: (total / res.limit) * 100 };
+                        });
+                        this.results = { solution, totalProfit: solution.result || 0, usage };
+                        console.log("simplexEngine solve() finished successfully.");
+                    } catch (e) { console.error(e); alert("Math Error: " + e.message); }
+                }
+            }));
 
             Alpine.data('leontiefEngine', () => ({
                 items: [{name: 'Iron Ore', demand: 0}, {name: 'Wood', demand: 0}, {name: 'Iron Sword', demand: 10}],
