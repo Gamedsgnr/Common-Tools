@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matrix Economy Solver Pro</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/javascript-lp-solver@0.5.0/browser/solver.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            margin: 0;
+            height: 100vh;
+        }
+        /* Кастомные скроллбары в стиле VS Code */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: #1e1e1e; }
+        ::-webkit-scrollbar-thumb { background: #333; border: 2px solid #1e1e1e; }
+        ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+        input, select {
+            background-color: #252526 !important;
+            border: 1px solid #333 !important;
+            color: #ccc !important;
+            outline: none;
+        }
+        input:focus { border-color: #007acc !important; }
+        [x-cloak] { display: none !important; }
+
+        .matrix-table input {
+            width: 80px;
+            padding: 4px 8px;
+            font-family: 'Consolas', monospace;
+            text-align: right;
+        }
+        .btn-blue { background-color: #007acc; color: white; transition: 0.2s; }
+        .btn-blue:hover { background-color: #005a9e; }
+        .card { background-color: #252526; border: 1px solid #333; }
+    </style>
+</head>
+<body x-data="matrixEngine()" x-init="init()">
+
+    <div class="h-screen flex flex-col overflow-hidden">
+        <header class="h-12 border-b border-[#333] bg-[#2d2d2d] flex justify-between items-center px-6 shrink-0">
+            <div class="flex items-center gap-3">
+                <span style="color: #4ec9b0; font-weight: bold;">🧮 Matrix Optimizer</span>
+                <span class="text-[10px] bg-[#3e3e42] px-2 py-0.5 rounded text-[#888]">PRO VERSION</span>
+            </div>
+            <div class="flex gap-2">
+                <button @click="solve()" class="btn-blue px-6 py-1 rounded text-sm font-bold shadow-lg">RUN CALCULATIONS</button>
+            </div>
+        </header>
+
+        <div class="flex flex-1 overflow-hidden">
+            <aside class="w-72 bg-[#252526] border-r border-[#333] p-4 overflow-y-auto shrink-0">
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-[11px] uppercase font-bold text-[#6c6c6c]">Resources</h3>
+                        <button @click="addResource()" class="text-[#4ec9b0] hover:text-white text-lg">+</button>
+                    </div>
+                    <div class="space-y-2">
+                        <template x-for="(res, idx) in resources" :key="idx">
+                            <div class="p-2 card rounded">
+                                <input type="text" x-model="res.name" class="w-full text-xs font-bold mb-1 bg-transparent border-none">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-[10px] text-[#6c6c6c]">Limit:</span>
+                                    <input type="number" x-model.number="res.limit" class="w-20 text-[10px] p-1 rounded">
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-[11px] uppercase font-bold text-[#6c6c6c]">Products</h3>
+                        <button @click="addProduct()" class="text-[#4ec9b0] hover:text-white text-lg">+</button>
+                    </div>
+                    <div class="space-y-2">
+                        <template x-for="(prod, idx) in products" :key="idx">
+                            <div class="p-2 card rounded">
+                                <input type="text" x-model="prod.name" class="w-full text-xs font-bold mb-1 bg-transparent border-none">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-[10px] text-[#6c6c6c]">Profit:</span>
+                                    <input type="number" x-model.number="prod.profit" class="w-20 text-[10px] p-1 rounded">
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="flex-1 overflow-auto p-8 bg-[#1e1e1e]">
+                <h2 class="text-sm font-bold mb-6 text-[#4ec9b0]">Production Coefficients (Matrix A)</h2>
+                
+                <div class="inline-block card rounded-lg overflow-hidden mb-10">
+                    <table class="matrix-table text-xs">
+                        <thead>
+                            <tr class="bg-[#2d2d2d]">
+                                <th class="p-3 border-b border-[#333]"></th>
+                                <template x-for="p in products">
+                                    <th class="p-3 border-b border-[#333] text-[#4ec9b0] font-normal" x-text="p.name"></th>
+                                </template>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="(res, rIdx) in resources" :key="rIdx">
+                                <tr>
+                                    <td class="p-3 bg-[#2d2d2d] border-r border-[#333] font-bold" x-text="res.name"></td>
+                                    <template x-for="(prod, pIdx) in products" :key="pIdx">
+                                        <td class="p-1 border-b border-r border-[#333]">
+                                            <input type="number" step="0.1" x-model.number="matrixA[rIdx][pIdx]">
+                                        </td>
+                                    </template>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+
+                <template x-if="results">
+                    <div class="grid grid-cols-2 gap-8 animate-in fade-in duration-300">
+                        <div class="card p-6 rounded-lg">
+                            <h3 class="text-[#4ec9b0] font-bold text-xs uppercase mb-4">Optimal Plan</h3>
+                            <div class="space-y-2">
+                                <template x-for="(val, key) in results.solution" :key="key">
+                                    <div x-show="typeof val === 'number' && key !== 'result'" class="flex justify-between border-b border-[#333] py-2">
+                                        <span class="text-[#888]" x-text="key"></span>
+                                        <span class="text-white font-bold font-mono" x-text="val.toFixed(2)"></span>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="mt-6 flex justify-between items-center">
+                                <span class="text-[10px] text-[#6c6c6c] uppercase">Expected Profit:</span>
+                                <span class="text-2xl font-black text-white" x-text="results.totalProfit.toFixed(0)"></span>
+                            </div>
+                        </div>
+
+                        <div class="card p-6 rounded-lg">
+                            <h3 class="text-[#ce9178] font-bold text-xs uppercase mb-4">Resource Utilization</h3>
+                            <div class="space-y-4">
+                                <template x-for="(data, name) in results.usage" :key="name">
+                                    <div>
+                                        <div class="flex justify-between text-[10px] mb-1">
+                                            <span x-text="name"></span>
+                                            <span x-text="data.used.toFixed(1) + '/' + data.limit"></span>
+                                        </div>
+                                        <div class="w-full h-1.5 bg-[#1e1e1e] rounded-full overflow-hidden">
+                                            <div class="h-full bg-[#007acc]" :style="`width: ${Math.min(data.percent, 100)}%`"
+                                                 :class="data.percent > 90 ? 'bg-orange-600' : 'bg-[#007acc]'"></div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        function matrixEngine() {
+            // Изолируем инстанс солвера
+            let lpSolver = null;
+
+            return {
+                resources: [{name: 'Iron', limit: 500}, {name: 'Wood', limit: 300}],
+                products: [{name: 'Sword', profit: 50}, {name: 'Shield', profit: 40}],
+                matrixA: [[2, 1], [1, 3]],
+                results: null,
+
+                init() {
+                    lpSolver = window.solver || null;
+                    console.log("Matrix Engine Initialized. Solver status:", lpSolver ? "OK" : "FAILED");
+                },
+
+                addResource() {
+                    this.resources.push({name: 'New Resource', limit: 100});
+                    this.matrixA.push(new Array(this.products.length).fill(0));
+                },
+
+                addProduct() {
+                    this.products.push({name: 'New Product', profit: 10});
+                    this.matrixA.forEach(row => row.push(0));
+                },
+
+                solve() {
+                    if (!lpSolver) {
+                        alert("Error: solver.js is not loaded.");
+                        return;
+                    }
+
+                    try {
+                        const model = {
+                            optimize: "profit",
+                            opType: "max",
+                            constraints: {},
+                            variables: {}
+                        };
+
+                        // 1. Настройка ограничений
+                        this.resources.forEach(res => {
+                            model.constraints[res.name] = { max: parseFloat(res.limit) || 0 };
+                        });
+
+                        // 2. Настройка переменных
+                        this.products.forEach((prod, pIdx) => {
+                            const v = { profit: parseFloat(prod.profit) || 0 };
+                            this.resources.forEach((res, rIdx) => {
+                                v[res.name] = parseFloat(this.matrixA[rIdx][pIdx]) || 0;
+                            });
+                            model.variables[prod.name] = v;
+                        });
+
+                        // 3. Расчет
+                        const solution = lpSolver.Solve(model);
+                        
+                        if (!solution.feasible) {
+                            alert("Optimization failed: Infeasible solution.");
+                            return;
+                        }
+
+                        // 4. Расчет утилизации
+                        const usage = {};
+                        this.resources.forEach((res, rIdx) => {
+                            let total = 0;
+                            this.products.forEach((p, pIdx) => {
+                                total += (solution[p.name] || 0) * (parseFloat(this.matrixA[rIdx][pIdx]) || 0);
+                            });
+                            usage[res.name] = {
+                                used: total,
+                                limit: res.limit,
+                                percent: (total / res.limit) * 100
+                            };
+                        });
+
+                        this.results = {
+                            solution: solution,
+                            totalProfit: solution.result || 0,
+                            usage: usage
+                        };
+
+                    } catch (e) {
+                        console.error(e);
+                        alert("Math Error: " + e.message);
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
