@@ -4,11 +4,17 @@
     <meta charset="UTF-8">
     <title>HLSL Library</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #1e1e1e; color: #d4d4d4; padding: 20px; display: flex; height: 95vh; gap: 20px; margin: 0; box-sizing: border-box; }
         .list-panel { width: 300px; display: flex; flex-direction: column; border-right: 1px solid #333; padding-right: 20px; flex-shrink: 0; }
         .search-box { background: #252526; border: 1px solid #333; color: white; padding: 10px; width: 100%; margin-bottom: 15px; border-radius: 4px; box-sizing: border-box; }
         .item-list { overflow-y: auto; flex: 1; }
+        
+        /* Состояние загрузки */
+        .loading-text { text-align: center; color: #888; margin-top: 20px; font-style: italic; }
+
         .list-item { padding: 12px; margin-bottom: 5px; cursor: pointer; border-radius: 4px; transition: 0.2s; border-left: 3px solid transparent; background: #252526; }
         .list-item:hover { background-color: #2a2d2e; }
         .list-item.active { background-color: #37373d; border-left-color: #569cd6; color: white; }
@@ -28,29 +34,12 @@
             align-items: center; 
         }
 
-        /* ИЗМЕНЕНО: Увеличил ширину блока с текстом и разрешил перенос */
-        .header-info { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 4px; 
-            max-width: 65%; /* Даем больше места тексту */
-        }
-
+        .header-info { display: flex; flex-direction: column; gap: 4px; max-width: 65%; }
         .t-title { font-size: 1.1em; font-weight: bold; color: #4ec9b0; }
-
-        /* ИЗМЕНЕНО: Разрешен перенос строк */
-        .t-desc { 
-            font-size: 0.9em; 
-            color: #888; 
-            white-space: normal; /* Разрешаем перенос */
-            overflow: visible;   /* Показываем всё */
-            line-height: 1.4;    /* Чуть больше воздуха между строками */
-            word-wrap: break-word; /* Ломаем длинные слова если надо */
-        }
+        .t-desc { font-size: 0.9em; color: #888; white-space: normal; overflow: visible; line-height: 1.4; word-wrap: break-word; }
         
         .btn-copy { background: #007acc; color: white; border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 12px; }
         .btn-copy:hover { background: #005a9e; }
-        
         .btn-gray { background: #444; color: #ddd; border: 1px solid #555; }
         .btn-gray:hover { background: #555; color: #fff; }
         
@@ -63,31 +52,11 @@
             box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
         }
 
-        .input-label { 
-            color: #ce9178; 
-            font-size: 0.8em; 
-            font-weight: bold; 
-            letter-spacing: 1.5px; 
-            margin-bottom: 10px; 
-            display: block;
-            text-transform: uppercase;
-        }
-
-        #inputDisplay { 
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
+        .input-label { color: #ce9178; font-size: 0.8em; font-weight: bold; letter-spacing: 1.5px; margin-bottom: 10px; display: block; text-transform: uppercase; }
+        #inputDisplay { display: flex; flex-wrap: wrap; gap: 8px; }
 
         .input-brick {
-            background: #1e1e1e;
-            color: #9cdcfe;
-            padding: 6px 12px;
-            border-radius: 4px;
-            border: 1px solid #333;
-            font-family: 'Consolas', monospace;
-            font-size: 0.95em;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            background: #1e1e1e; color: #9cdcfe; padding: 6px 12px; border-radius: 4px; border: 1px solid #333; font-family: 'Consolas', monospace; font-size: 0.95em; box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
         }
 
         .code-area { flex: 1; padding: 20px; overflow: auto; margin: 0; background: #1e1e1e; }
@@ -98,7 +67,9 @@
 
     <div class="list-panel">
         <input type="text" class="search-box" placeholder="Поиск кода..." onkeyup="renderList(this.value)">
-        <div class="item-list" id="listContainer"></div>
+        <div class="item-list" id="listContainer">
+            <div class="loading-text">Загрузка базы...</div>
+        </div>
     </div>
 
     <div class="detail-panel">
@@ -110,7 +81,6 @@
             
             <div style="display: flex; gap: 8px; flex-shrink: 0; align-self: flex-start; margin-top: 5px;">
                 <button id="btnCopyInputs" class="btn-copy btn-gray" style="display: none;" onclick="copyInputs()">Copy Inputs</button>
-                <button id="btnCopyStudio" class="btn-copy btn-gray" style="display: none;" onclick="copyForStudio()">Copy for Studio</button>
                 <button id="btnCopyCode" class="btn-copy" onclick="copyCode()">Copy Code</button>
             </div>
         </div>
@@ -128,10 +98,17 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
-    
-    <script src="hlsl_db.js"></script>
 
     <script>
+        // --- 1. НАСТРОЙКИ SUPABASE (ВСТАВЬ СВОИ!) ---
+    const SUPABASE_URL = 'https://vmwwvwtsznxwoswzdzui.supabase.co'; 
+    const SUPABASE_KEY = 'sb_publishable_hfVfEOEyUxTAl9TCGQLQdA_2qpquHGk';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // --- Глобальная переменная для данных ---
+        let hlslData = [];
+
+        // Элементы UI
         const listContainer = document.getElementById('listContainer');
         const detailTitle = document.getElementById('detailTitle');
         const detailDesc = document.getElementById('detailDesc');
@@ -140,20 +117,49 @@
         const inputDisplay = document.getElementById('inputDisplay');
         const btnCopyInputs = document.getElementById('btnCopyInputs');
         const btnCopyCode = document.getElementById('btnCopyCode');
-        const btnCopyStudio = document.getElementById('btnCopyStudio');
 
         let currentFormattedInputs = ""; 
-        let currentRawInputs = []; 
 
+        // --- 2. ФУНКЦИЯ ЗАГРУЗКИ ДАННЫХ ИЗ БАЗЫ ---
+        async function fetchHlslData() {
+            // Запрашиваем данные из таблицы 'hlsl'
+            // Сортируем по новизне (новые сверху)
+            const { data, error } = await _supabase
+                .from('hlsl')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                listContainer.innerHTML = `<div class="loading-text" style="color:#d16969">Ошибка: ${error.message}</div>`;
+                return;
+            }
+
+            // Сохраняем в глобальную переменную
+            hlslData = data;
+            
+            // Отрисовываем список
+            renderList();
+        }
+
+        // --- 3. ОТРИСОВКА СПИСКА ---
         function renderList(filter = "") {
             listContainer.innerHTML = "";
-            if(typeof hlslData === 'undefined') return;
             
+            if (hlslData.length === 0) {
+                listContainer.innerHTML = `<div class="loading-text">Список пуст</div>`;
+                return;
+            }
+
             const searchParts = filter.toLowerCase().split(' ').filter(p => p.trim() !== "");
 
             hlslData.forEach((item, index) => {
+                // В базе у нас поле 'description', а старый код мог использовать 'desc'
+                // Делаем универсально
+                const descText = item.description || item.desc || "";
+                
+                // Фильтрация
                 if (searchParts.length > 0) {
-                    const searchTarget = (item.title + " " + (item.desc || "")).toLowerCase();
+                    const searchTarget = (item.title + " " + descText).toLowerCase();
                     const isMatch = searchParts.every(part => searchTarget.includes(part));
                     if (!isMatch) return;
                 }
@@ -161,9 +167,9 @@
                 const div = document.createElement('div');
                 div.className = 'list-item';
                 div.innerHTML = `
-                    <span class="i-lang">${item.lang}</span>
+                    <span class="i-lang">${item.lang || 'hlsl'}</span>
                     <span class="i-title">${item.title}</span>
-                    <span class="i-desc">${item.desc}</span>
+                    <span class="i-desc">${descText}</span>
                 `;
                 div.onclick = () => loadItem(index, div);
                 listContainer.appendChild(div);
@@ -175,82 +181,41 @@
             el.classList.add('active');
 
             const item = hlslData[index];
+            const descText = item.description || item.desc || "";
+
             detailTitle.innerText = item.title;
-            detailDesc.innerText = item.desc; 
+            detailDesc.innerText = descText; 
             
             inputDisplay.innerHTML = ""; 
+            
+            // Логика отображения Inputs
             if (item.inputs && item.inputs.trim() !== "") {
-                currentRawInputs = item.inputs.split(',').map(i => i.trim());
+                const rawInputs = item.inputs.split(',').map(i => i.trim());
                 
-                currentRawInputs.forEach(inputName => {
+                rawInputs.forEach(inputName => {
                     const brick = document.createElement('div');
                     brick.className = 'input-brick';
                     brick.innerText = inputName;
                     inputDisplay.appendChild(brick);
                 });
 
-                currentFormattedInputs = "(" + currentRawInputs
+                // Форматируем для Unreal: (InputName="UV"),(InputName="Color")
+                currentFormattedInputs = "(" + rawInputs
                     .map(i => `(InputName="${i}")`)
                     .join(',') + ")";
 
                 inputBox.style.display = 'block';
                 btnCopyInputs.style.display = 'inline-block';
-                btnCopyStudio.style.display = 'inline-block';
             } else {
-                currentRawInputs = [];
                 currentFormattedInputs = "";
                 inputBox.style.display = 'none';
                 btnCopyInputs.style.display = 'none';
-                btnCopyStudio.style.display = 'none';
             }
 
-            codeBlock.className = `language-${item.lang === 'hlsl' ? 'cpp' : item.lang}`;
+            // Подсветка кода
+            codeBlock.className = `language-${(item.lang === 'hlsl' || !item.lang) ? 'cpp' : item.lang}`;
             codeBlock.textContent = item.code;
             Prism.highlightElement(codeBlock);
-        }
-
-        function copyForStudio() {
-            let header = "// --- AUTO-GENERATED INPUTS ---\n";
-            const codeBody = codeBlock.textContent;
-
-            currentRawInputs.forEach(name => {
-                let type = "float";
-                const n = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); 
-                
-                if (new RegExp(`\\b${n}\\.Sample\\b`).test(codeBody) ||
-                    new RegExp(`ProcessTexture\\s*\\(\\s*${n}\\b`).test(codeBody) ||
-                    /Tex$|Texture$|Map$/i.test(name)) {
-                    type = "Texture2D";
-                }
-                else if (new RegExp(`\\b${n}\\.[xyzrgb]{3}\\b`).test(codeBody) ||
-                         /Color$|Tint$|Vector$|Pos$|Dir$|Normal$/i.test(name) ||
-                         new RegExp(`float3\\s+\\w+\\s*=\\s*.*\\b${n}\\b`).test(codeBody)) {
-                     type = "float3";
-                }
-                else if (new RegExp(`\\b${n}\\.[xyuv]{2}\\b`).test(codeBody) ||
-                         /UV$|Coords$/i.test(name) ||
-                         new RegExp(`float2\\s+\\w+\\s*=\\s*.*\\b${n}\\b`).test(codeBody)) {
-                     type = "float2";
-                }
-
-                if (type === "Texture2D") {
-                    header += `Texture2D ${name};\n`;
-                } else if (type === "float3") {
-                    header += `float3 ${name} = float3(1.0, 1.0, 1.0);\n`;
-                } else if (type === "float2") {
-                    header += `float2 ${name} = float2(0.5, 0.5);\n`;
-                } else {
-                    header += `float ${name} = 1.0;\n`;
-                }
-            });
-
-            const fullCode = header + "\n" + codeBody;
-
-            navigator.clipboard.writeText(fullCode).then(() => {
-                const oldText = btnCopyStudio.innerText;
-                btnCopyStudio.innerText = "Copied!";
-                setTimeout(() => btnCopyStudio.innerText = oldText, 1500);
-            });
         }
 
         function copyCode() {
@@ -270,7 +235,8 @@
             });
         }
 
-        renderList();
+        // Запуск при загрузке страницы
+        document.addEventListener('DOMContentLoaded', fetchHlslData);
     </script>
 </body>
 </html>
