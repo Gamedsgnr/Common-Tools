@@ -5,15 +5,20 @@
     <title>CommonToolHub | Admin Panel</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #4ec9b0; --bg: #1e1e1e; --panel: #252526; --border: #333; }
+        :root { --primary: #4ec9b0; --bg: #1e1e1e; --panel: #252526; --border: #333; --error: #f48771; }
         body { background: var(--bg); color: #ddd; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .container { background: var(--panel); padding: 30px; border-radius: 8px; border: 1px solid var(--border); width: 100%; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .container { background: var(--panel); padding: 30px; border-radius: 8px; border: 1px solid var(--border); width: 100%; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; }
+        
         h2 { color: var(--primary); margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 10px; font-size: 1.2em; }
         label { display: block; margin: 15px 0 5px; font-size: 0.85em; color: #888; }
-        input, textarea, select { width: 100%; background: #333; border: 1px solid var(--border); color: white; padding: 10px; border-radius: 4px; box-sizing: border-box; }
+        input, textarea, select { width: 100%; background: #333; border: 1px solid var(--border); color: white; padding: 10px; border-radius: 4px; box-sizing: border-box; outline: none; }
+        input:focus, textarea:focus, select:focus { border-color: var(--primary); }
+        
         textarea { height: 200px; font-family: monospace; font-size: 0.9em; line-height: 1.4; color: #ce9178; }
+        
         button { background: #007acc; color: white; border: none; padding: 12px; width: 100%; cursor: pointer; font-weight: bold; border-radius: 4px; margin-top: 20px; transition: 0.2s; }
         button:hover { background: #005a9e; }
+        button:disabled { background: #444; cursor: not-allowed; }
         
         /* Стили для подсказок */
         .hint-box { background: #2d2d30; padding: 10px; border-left: 3px solid #4ec9b0; margin-bottom: 15px; font-size: 0.85em; color: #ccc; display: none; }
@@ -23,28 +28,28 @@
         .status { margin-top: 15px; padding: 10px; border-radius: 4px; font-size: 0.9em; display: none; }
         .success { background: rgba(78, 201, 176, 0.1); color: var(--primary); border: 1px solid var(--primary); }
         .error { background: rgba(209, 105, 105, 0.1); color: #d16969; border: 1px solid #d16969; }
-        
-        .nav-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .logout-btn { background: none; color: #888; border: 1px solid #444; padding: 5px 10px; width: auto; margin: 0; font-size: 0.7em; }
+
+        /* Экран блокировки */
+        #accessDenied { text-align: center; display: none; color: var(--error); }
+        #accessDenied h1 { font-size: 3em; margin: 0; }
+        #accessDenied p { color: #888; margin-top: 10px; }
+
+        /* Форма (скрыта по умолчанию до проверки) */
+        #adminForm { display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div id="authSection">
-        <h2>🔐 Вход для автора</h2>
-        <label>Email</label>
-        <input type="email" id="email">
-        <label>Пароль</label>
-        <input type="password" id="password">
-        <button onclick="login()">ВОЙТИ</button>
+    
+    <div id="accessDenied">
+        <h1>🔒</h1>
+        <h3>Доступ запрещен</h3>
+        <p>Пожалуйста, авторизуйтесь через боковое меню.</p>
     </div>
 
-    <div id="adminForm" style="display:none;">
-        <div class="nav-header">
-            <h2>🚀 Добавить инструмент</h2>
-            <button class="logout-btn" onclick="logout()">Выйти</button>
-        </div>
+    <div id="adminForm">
+        <h2>🚀 Добавить инструмент</h2>
 
         <label>Категория</label>
         <select id="targetTable" onchange="adjustFields()">
@@ -76,42 +81,56 @@
 </div>
 
 <script>
-    // --- НАСТРОЙКИ SUPABASE (Вставь свои!) ---
+    // --- 1. НАСТРОЙКИ SUPABASE ---
     const SUPABASE_URL = 'https://vmwwvwtsznxwoswzdzui.supabase.co'; 
     const SUPABASE_KEY = 'sb_publishable_hfVfEOEyUxTAl9TCGQLQdA_2qpquHGk';
     
-    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // Создаем клиент
+    const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    const authSection = document.getElementById('authSection');
+    // Элементы UI
     const adminForm = document.getElementById('adminForm');
+    const accessDenied = document.getElementById('accessDenied');
     const statusMsg = document.getElementById('statusMsg');
 
-    // Проверка сессии при загрузке
-    async function checkUser() {
-        const { data: { session } } = await _supabase.auth.getSession();
-        if (session) {
-            authSection.style.display = 'none';
-            adminForm.style.display = 'block';
-            adjustFields();
-        } else {
-            authSection.style.display = 'block';
+    // --- 2. ПРОВЕРКА СЕССИИ ПРИ ЗАГРУЗКЕ ---
+    async function checkAuth() {
+        try {
+            const { data: { session }, error } = await _supabase.auth.getSession();
+            
+            if (session) {
+                // Если есть сессия — показываем форму
+                accessDenied.style.display = 'none';
+                adminForm.style.display = 'block';
+                adjustFields(); // Инициализация полей
+            } else {
+                // Если нет сессии — блокируем
+                adminForm.style.display = 'none';
+                accessDenied.style.display = 'block';
+            }
+        } catch (err) {
+            console.error("Auth check failed:", err);
             adminForm.style.display = 'none';
+            accessDenied.innerHTML = "<p>Ошибка соединения с базой данных</p>";
+            accessDenied.style.display = 'block';
         }
     }
-    checkUser();
 
-    async function login() {
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        const { error } = await _supabase.auth.signInWithPassword({ email, password });
-        if (error) alert("Ошибка: " + error.message);
-        else checkUser();
-    }
+    // Запускаем проверку
+    checkAuth();
 
-    async function logout() {
-        await _supabase.auth.signOut();
-        checkUser();
-    }
+    // Слушаем изменения авторизации (если вдруг разлогинились в соседней вкладке/фрейме)
+    _supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_OUT') {
+            adminForm.style.display = 'none';
+            accessDenied.style.display = 'block';
+        } else if (event === 'SIGNED_IN' && session) {
+            accessDenied.style.display = 'none';
+            adminForm.style.display = 'block';
+        }
+    });
+
+    // --- 3. ЛОГИКА ФОРМЫ ---
 
     function adjustFields() {
         const table = document.getElementById('targetTable').value;
@@ -127,7 +146,7 @@
         else if (table === 'shaders' || table === 'blueprints') {
             container.innerHTML = `
                 <label>ID с BlueprintUE</label>
-                <input type="text" id="inEmbedId" placeholder="xyz123abc">
+                <input type="text" id="inEmbedId" placeholder="Например: xyz123abc">
             `;
         }
     }
@@ -136,66 +155,73 @@
         const table = document.getElementById('targetTable').value;
         const btn = document.getElementById('btnSubmit');
         const codeVal = document.getElementById('inCode').value;
+        const titleVal = document.getElementById('inTitle').value;
         
+        if (!titleVal || !codeVal) {
+            showStatus("Заполните заголовок и код!", "error");
+            return;
+        }
+
         const payload = {
-            title: document.getElementById('inTitle').value,
+            title: titleVal,
             description: document.getElementById('inDesc').value,
             code: codeVal
         };
 
-        // --- ЛОГИКА ДЛЯ РАЗНЫХ ТИПОВ ---
+        // --- Обработка специфичных полей ---
         
-        // 1. HLSL: Парсим строку "// Inputs: ..."
+        // 1. HLSL: Парсинг инпутов
         if (table === 'hlsl') {
             payload.lang = 'hlsl';
-            
-            // Ищем строку, начинающуюся с "// Inputs:" (регистронезависимо)
-            // Флаг 'm' (multiline) позволяет искать по строкам ^...$
             const inputMatch = codeVal.match(/^\s*\/\/\s*Inputs:\s*(.*)$/im);
-            
             if (inputMatch && inputMatch[1]) {
                 payload.inputs = inputMatch[1].trim();
-                console.log("Найдены инпуты:", payload.inputs);
             } else {
-                // Если не нашли — отправляем пустую строку или предупреждаем
                 payload.inputs = "";
-                console.warn("Строка '// Inputs:' не найдена в коде!");
             }
         }
 
-        // 2. BlueprintUE (Shaders / Blueprints)
+        // 2. BlueprintUE
         if (table === 'shaders' || table === 'blueprints') {
-            payload.embed_id = document.getElementById('inEmbedId').value;
+            const embedInput = document.getElementById('inEmbedId');
+            if(embedInput) payload.embed_id = embedInput.value;
         }
 
-        // 3. Snippets (просто определяем язык, если не задан явно)
+        // 3. Snippets
         if (table === 'snippets') {
-            // Можно добавить авто-определение по расширению, пока ставим 'text' или берем из UI если добавить select
             payload.lang = 'text'; 
         }
 
         // ОТПРАВКА
         btn.disabled = true;
         btn.innerText = "ЗАГРУЗКА...";
+        statusMsg.style.display = 'none';
 
-        const { error } = await _supabase.from(table).insert([payload]);
+        try {
+            const { error } = await _supabase.from(table).insert([payload]);
 
-        btn.disabled = false;
-        btn.innerText = "ОПУБЛИКОВАТЬ В БАЗУ";
+            if (error) throw error;
 
-        statusMsg.style.display = 'block';
-        if (error) {
-            statusMsg.className = 'status error';
-            statusMsg.innerText = "Ошибка: " + error.message;
-        } else {
-            statusMsg.className = 'status success';
-            statusMsg.innerText = "Успешно добавлено в " + table + "!";
+            showStatus("Успешно добавлено в " + table + "!", "success");
             
-            // Очистка полей
+            // Очистка
             document.getElementById('inTitle').value = '';
             document.getElementById('inCode').value = '';
+            document.getElementById('inDesc').value = '';
             if(document.getElementById('inEmbedId')) document.getElementById('inEmbedId').value = '';
+
+        } catch (error) {
+            showStatus("Ошибка: " + error.message, "error");
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "ОПУБЛИКОВАТЬ В БАЗУ";
         }
+    }
+
+    function showStatus(msg, type) {
+        statusMsg.innerText = msg;
+        statusMsg.className = 'status ' + type;
+        statusMsg.style.display = 'block';
     }
 </script>
 </body>
