@@ -7,18 +7,23 @@
     <style>
         :root { --primary: #4ec9b0; --bg: #1e1e1e; --panel: #252526; --border: #333; }
         body { background: var(--bg); color: #ddd; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .container { background: var(--panel); padding: 30px; border-radius: 8px; border: 1px solid var(--border); width: 100%; max-width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .container { background: var(--panel); padding: 30px; border-radius: 8px; border: 1px solid var(--border); width: 100%; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         h2 { color: var(--primary); margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 10px; font-size: 1.2em; }
         label { display: block; margin: 15px 0 5px; font-size: 0.85em; color: #888; }
         input, textarea, select { width: 100%; background: #333; border: 1px solid var(--border); color: white; padding: 10px; border-radius: 4px; box-sizing: border-box; }
-        textarea { height: 120px; font-family: monospace; font-size: 0.9em; }
+        textarea { height: 200px; font-family: monospace; font-size: 0.9em; line-height: 1.4; color: #ce9178; }
         button { background: #007acc; color: white; border: none; padding: 12px; width: 100%; cursor: pointer; font-weight: bold; border-radius: 4px; margin-top: 20px; transition: 0.2s; }
         button:hover { background: #005a9e; }
-        button.secondary { background: #444; margin-top: 10px; }
-        #authSection, #adminForm { display: none; }
+        
+        /* Стили для подсказок */
+        .hint-box { background: #2d2d30; padding: 10px; border-left: 3px solid #4ec9b0; margin-bottom: 15px; font-size: 0.85em; color: #ccc; display: none; }
+        code { background: #111; padding: 2px 5px; border-radius: 3px; font-family: monospace; color: #dcdcaa; }
+
+        /* Статусы */
         .status { margin-top: 15px; padding: 10px; border-radius: 4px; font-size: 0.9em; display: none; }
         .success { background: rgba(78, 201, 176, 0.1); color: var(--primary); border: 1px solid var(--primary); }
         .error { background: rgba(209, 105, 105, 0.1); color: #d16969; border: 1px solid #d16969; }
+        
         .nav-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .logout-btn { background: none; color: #888; border: 1px solid #444; padding: 5px 10px; width: auto; margin: 0; font-size: 0.7em; }
     </style>
@@ -29,13 +34,13 @@
     <div id="authSection">
         <h2>🔐 Вход для автора</h2>
         <label>Email</label>
-        <input type="email" id="email" placeholder="your@email.com">
+        <input type="email" id="email">
         <label>Пароль</label>
         <input type="password" id="password">
         <button onclick="login()">ВОЙТИ</button>
     </div>
 
-    <div id="adminForm">
+    <div id="adminForm" style="display:none;">
         <div class="nav-header">
             <h2>🚀 Добавить инструмент</h2>
             <button class="logout-btn" onclick="logout()">Выйти</button>
@@ -44,9 +49,9 @@
         <label>Категория</label>
         <select id="targetTable" onchange="adjustFields()">
             <option value="snippets">Сниппет (Python/JS/C++)</option>
-            <option value="hlsl">HLSL Node</option>
-            <option value="shaders">Shader / Material</option>
-            <option value="blueprints">Blueprint</option>
+            <option value="hlsl">HLSL Node (Custom Expression)</option>
+            <option value="shaders">Shader / Material (BlueprintUE)</option>
+            <option value="blueprints">Blueprint (BlueprintUE)</option>
         </select>
 
         <label>Заголовок</label>
@@ -55,8 +60,12 @@
         <label>Описание</label>
         <input type="text" id="inDesc" placeholder="Краткое описание...">
 
-        <div id="extraFields">
-            </div>
+        <div id="extraFields"></div>
+
+        <div id="hlslHint" class="hint-box">
+            Для авто-определения входов добавь в начало кода строку вида:<br>
+            <code>// Inputs: UV, Color, Power, Mask</code>
+        </div>
 
         <label>Исходный код</label>
         <textarea id="inCode" placeholder="Вставьте код здесь..."></textarea>
@@ -67,9 +76,10 @@
 </div>
 
 <script>
-    // --- НАСТРОЙКИ SUPABASE ---
+    // --- НАСТРОЙКИ SUPABASE (Вставь свои!) ---
     const SUPABASE_URL = 'https://vmwwvwtsznxwoswzdzui.supabase.co'; 
     const SUPABASE_KEY = 'sb_publishable_hfVfEOEyUxTAl9TCGQLQdA_2qpquHGk';
+    
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const authSection = document.getElementById('authSection');
@@ -106,9 +116,15 @@
     function adjustFields() {
         const table = document.getElementById('targetTable').value;
         const container = document.getElementById('extraFields');
+        const hlslHint = document.getElementById('hlslHint');
+        
         container.innerHTML = '';
+        hlslHint.style.display = 'none';
 
-        if (table === 'shaders' || table === 'blueprints') {
+        if (table === 'hlsl') {
+            hlslHint.style.display = 'block';
+        }
+        else if (table === 'shaders' || table === 'blueprints') {
             container.innerHTML = `
                 <label>ID с BlueprintUE</label>
                 <input type="text" id="inEmbedId" placeholder="xyz123abc">
@@ -119,24 +135,46 @@
     async function uploadData() {
         const table = document.getElementById('targetTable').value;
         const btn = document.getElementById('btnSubmit');
+        const codeVal = document.getElementById('inCode').value;
         
         const payload = {
             title: document.getElementById('inTitle').value,
             description: document.getElementById('inDesc').value,
-            code: document.getElementById('inCode').value
+            code: codeVal
         };
 
-        // Доп. поля в зависимости от таблицы
+        // --- ЛОГИКА ДЛЯ РАЗНЫХ ТИПОВ ---
+        
+        // 1. HLSL: Парсим строку "// Inputs: ..."
         if (table === 'hlsl') {
             payload.lang = 'hlsl';
-            // Простая авто-экстракция инпутов для HLSL
-            payload.inputs = (payload.code.match(/\b[a-zA-Z_][a-zA-Z0-9_]*\b/g) || [])
-                .filter((v, i, a) => a.indexOf(v) === i).slice(0, 10).join(', '); 
+            
+            // Ищем строку, начинающуюся с "// Inputs:" (регистронезависимо)
+            // Флаг 'm' (multiline) позволяет искать по строкам ^...$
+            const inputMatch = codeVal.match(/^\s*\/\/\s*Inputs:\s*(.*)$/im);
+            
+            if (inputMatch && inputMatch[1]) {
+                payload.inputs = inputMatch[1].trim();
+                console.log("Найдены инпуты:", payload.inputs);
+            } else {
+                // Если не нашли — отправляем пустую строку или предупреждаем
+                payload.inputs = "";
+                console.warn("Строка '// Inputs:' не найдена в коде!");
+            }
         }
+
+        // 2. BlueprintUE (Shaders / Blueprints)
         if (table === 'shaders' || table === 'blueprints') {
             payload.embed_id = document.getElementById('inEmbedId').value;
         }
 
+        // 3. Snippets (просто определяем язык, если не задан явно)
+        if (table === 'snippets') {
+            // Можно добавить авто-определение по расширению, пока ставим 'text' или берем из UI если добавить select
+            payload.lang = 'text'; 
+        }
+
+        // ОТПРАВКА
         btn.disabled = true;
         btn.innerText = "ЗАГРУЗКА...";
 
@@ -152,9 +190,11 @@
         } else {
             statusMsg.className = 'status success';
             statusMsg.innerText = "Успешно добавлено в " + table + "!";
-            // Очистка
+            
+            // Очистка полей
             document.getElementById('inTitle').value = '';
             document.getElementById('inCode').value = '';
+            if(document.getElementById('inEmbedId')) document.getElementById('inEmbedId').value = '';
         }
     }
 </script>
