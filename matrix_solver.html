@@ -7,6 +7,7 @@
     
     <script src="https://cdn.jsdelivr.net/npm/javascript-lp-solver@0.5.0/browser/solver.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
@@ -18,7 +19,6 @@
             margin: 0;
             height: 100vh;
         }
-        /* Кастомные скроллбары в стиле VS Code */
         ::-webkit-scrollbar { width: 10px; height: 10px; }
         ::-webkit-scrollbar-track { background: #1e1e1e; }
         ::-webkit-scrollbar-thumb { background: #333; border: 2px solid #1e1e1e; }
@@ -42,9 +42,24 @@
         .btn-blue { background-color: #007acc; color: white; transition: 0.2s; }
         .btn-blue:hover { background-color: #005a9e; }
         .card { background-color: #252526; border: 1px solid #333; }
+        .tab {
+            padding: 8px 16px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            color: #888;
+        }
+        .tab.active {
+            color: #4ec9b0;
+            font-weight: bold;
+            border-bottom-color: #4ec9b0;
+        }
+        #leontiefGraph svg {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #252526;
+        }
     </style>
 </head>
-<body x-data="matrixEngine()" x-init="init()">
+<body x-data="matrixApp" x-init="init()">
 
     <div class="h-screen flex flex-col overflow-hidden">
         <header class="h-12 border-b border-[#333] bg-[#2d2d2d] flex justify-between items-center px-6 shrink-0">
@@ -58,202 +73,378 @@
         </header>
 
         <div class="flex flex-1 overflow-hidden">
-            <aside class="w-72 bg-[#252526] border-r border-[#333] p-4 overflow-y-auto shrink-0">
-                <div class="mb-6">
-                    <div class="flex justify-between items-center mb-2">
-                        <h3 class="text-[11px] uppercase font-bold text-[#6c6c6c]">Resources</h3>
-                        <button @click="addResource()" class="text-[#4ec9b0] hover:text-white text-lg">+</button>
-                    </div>
-                    <div class="space-y-2">
-                        <template x-for="(res, idx) in resources" :key="idx">
-                            <div class="p-2 card rounded">
-                                <input type="text" x-model="res.name" class="w-full text-xs font-bold mb-1 bg-transparent border-none">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-[10px] text-[#6c6c6c]">Limit:</span>
-                                    <input type="number" x-model.number="res.limit" class="w-20 text-[10px] p-1 rounded">
-                                </div>
-                            </div>
-                        </template>
-                    </div>
+            <!-- Main Content -->
+            <main class="flex-1 flex flex-col overflow-auto bg-[#1e1e1e]">
+                <!-- Tab Headers -->
+                <div class="flex border-b border-[#333] shrink-0">
+                    <div @click="activeTab = 'simplex'" :class="{'active': activeTab === 'simplex'}" class="tab">Simplex Optimizer</div>
+                    <div @click="activeTab = 'leontief'" :class="{'active': activeTab === 'leontief'}" class="tab">Leontief I-O Analysis</div>
+                    <div @click="activeTab = 'markov'" :class="{'active': activeTab === 'markov'}" class="tab">Markov Chains</div>
                 </div>
 
-                <div class="mb-6">
-                    <div class="flex justify-between items-center mb-2">
-                        <h3 class="text-[11px] uppercase font-bold text-[#6c6c6c]">Products</h3>
-                        <button @click="addProduct()" class="text-[#4ec9b0] hover:text-white text-lg">+</button>
-                    </div>
-                    <div class="space-y-2">
-                        <template x-for="(prod, idx) in products" :key="idx">
-                            <div class="p-2 card rounded">
-                                <input type="text" x-model="prod.name" class="w-full text-xs font-bold mb-1 bg-transparent border-none">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-[10px] text-[#6c6c6c]">Profit:</span>
-                                    <input type="number" x-model.number="prod.profit" class="w-20 text-[10px] p-1 rounded">
+                <!-- Simplex Optimizer View -->
+                <div x-show="activeTab === 'simplex'" class="flex flex-1 overflow-hidden">
+                    <div x-data="simplexEngine" class="w-full flex">
+                        <aside class="w-72 bg-[#252526] border-r border-[#333] p-4 overflow-y-auto shrink-0">
+                            <!-- Simplex Controls -->
+                             <div class="mb-6">
+                                <div class="flex justify-between items-center mb-2">
+                                    <h3 class="text-[11px] uppercase font-bold text-[#6c6c6c]">Resources</h3>
+                                    <button @click="addResource()" class="text-[#4ec9b0] hover:text-white text-lg">+</button>
                                 </div>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-            </aside>
-
-            <main class="flex-1 overflow-auto p-8 bg-[#1e1e1e]">
-                <h2 class="text-sm font-bold mb-6 text-[#4ec9b0]">Production Coefficients (Matrix A)</h2>
-                
-                <div class="inline-block card rounded-lg overflow-hidden mb-10">
-                    <table class="matrix-table text-xs">
-                        <thead>
-                            <tr class="bg-[#2d2d2d]">
-                                <th class="p-3 border-b border-[#333]"></th>
-                                <template x-for="p in products">
-                                    <th class="p-3 border-b border-[#333] text-[#4ec9b0] font-normal" x-text="p.name"></th>
-                                </template>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <template x-for="(res, rIdx) in resources" :key="rIdx">
-                                <tr>
-                                    <td class="p-3 bg-[#2d2d2d] border-r border-[#333] font-bold" x-text="res.name"></td>
-                                    <template x-for="(prod, pIdx) in products" :key="pIdx">
-                                        <td class="p-1 border-b border-r border-[#333]">
-                                            <input type="number" step="0.1" x-model.number="matrixA[rIdx][pIdx]">
-                                        </td>
+                                <div class="space-y-2">
+                                    <template x-for="(res, idx) in resources" :key="idx">
+                                        <div class="p-2 card rounded">
+                                            <input type="text" x-model="res.name" class="w-full text-xs font-bold mb-1 bg-transparent border-none">
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-[10px] text-[#6c6c6c]">Limit:</span>
+                                                <input type="number" x-model.number="res.limit" class="w-20 text-[10px] p-1 rounded">
+                                            </div>
+                                        </div>
                                     </template>
-                                </tr>
+                                </div>
+                            </div>
+
+                            <div class="mb-6">
+                                <div class="flex justify-between items-center mb-2">
+                                    <h3 class="text-[11px] uppercase font-bold text-[#6c6c6c]">Products</h3>
+                                    <button @click="addProduct()" class="text-[#4ec9b0] hover:text-white text-lg">+</button>
+                                </div>
+                                <div class="space-y-2">
+                                    <template x-for="(prod, idx) in products" :key="idx">
+                                        <div class="p-2 card rounded">
+                                            <input type="text" x-model="prod.name" class="w-full text-xs font-bold mb-1 bg-transparent border-none">
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-[10px] text-[#6c6c6c]">Profit:</span>
+                                                <input type="number" x-model.number="prod.profit" class="w-20 text-[10px] p-1 rounded">
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </aside>
+                        <div class="flex-1 overflow-auto p-8">
+                             <h2 class="text-sm font-bold mb-6 text-[#4ec9b0]">Production Coefficients (Resource per Product)</h2>
+                            <div class="inline-block card rounded-lg overflow-hidden mb-10">
+                                <table class="matrix-table text-xs">
+                                    <thead>
+                                        <tr class="bg-[#2d2d2d]">
+                                            <th class="p-3 border-b border-[#333]"></th>
+                                            <template x-for="p in products">
+                                                <th class="p-3 border-b border-[#333] text-[#4ec9b0] font-normal" x-text="p.name"></th>
+                                            </template>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template x-for="(res, rIdx) in resources" :key="rIdx">
+                                            <tr>
+                                                <td class="p-3 bg-[#2d2d2d] border-r border-[#333] font-bold" x-text="res.name"></td>
+                                                <template x-for="(prod, pIdx) in products" :key="pIdx">
+                                                    <td class="p-1 border-b border-r border-[#333]">
+                                                        <input type="number" step="0.1" x-model.number="matrixA[rIdx][pIdx]">
+                                                    </td>
+                                                </template>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <!-- Simplex Results -->
+                            <template x-if="results">
+                                <div class="grid grid-cols-2 gap-8">
+                                    <div class="card p-6 rounded-lg">
+                                        <h3 class="text-[#4ec9b0] font-bold text-xs uppercase mb-4">Optimal Plan</h3>
+                                        <div class="space-y-2">
+                                            <template x-for="(val, key) in results.solution" :key="key">
+                                                <div x-show="typeof val === 'number' && key !== 'result'" class="flex justify-between border-b border-[#333] py-2">
+                                                    <span class="text-[#888]" x-text="key"></span>
+                                                    <span class="text-white font-bold font-mono" x-text="val.toFixed(2)"></span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                        <div class="mt-6 flex justify-between items-center">
+                                            <span class="text-[10px] text-[#6c6c6c] uppercase">Expected Profit:</span>
+                                            <span class="text-2xl font-black text-white" x-text="results.totalProfit.toFixed(0)"></span>
+                                        </div>
+                                    </div>
+
+                                    <div class="card p-6 rounded-lg">
+                                        <h3 class="text-[#ce9178] font-bold text-xs uppercase mb-4">Resource Utilization</h3>
+                                        <div class="space-y-4">
+                                            <template x-for="(data, name) in results.usage" :key="name">
+                                                <div>
+                                                    <div class="flex justify-between text-[10px] mb-1">
+                                                        <span x-text="name"></span>
+                                                        <span x-text="data.used.toFixed(1) + '/' + data.limit"></span>
+                                                    </div>
+                                                    <div class="w-full h-1.5 bg-[#1e1e1e] rounded-full overflow-hidden">
+                                                        <div class="h-full" :style="`width: ${Math.min(data.percent, 100)}%`"
+                                                             :class="data.percent > 90 ? 'bg-orange-600' : 'bg-[#007acc]'"></div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
                             </template>
-                        </tbody>
-                    </table>
-                </div>
-
-                <template x-if="results">
-                    <div class="grid grid-cols-2 gap-8 animate-in fade-in duration-300">
-                        <div class="card p-6 rounded-lg">
-                            <h3 class="text-[#4ec9b0] font-bold text-xs uppercase mb-4">Optimal Plan</h3>
-                            <div class="space-y-2">
-                                <template x-for="(val, key) in results.solution" :key="key">
-                                    <div x-show="typeof val === 'number' && key !== 'result'" class="flex justify-between border-b border-[#333] py-2">
-                                        <span class="text-[#888]" x-text="key"></span>
-                                        <span class="text-white font-bold font-mono" x-text="val.toFixed(2)"></span>
-                                    </div>
-                                </template>
-                            </div>
-                            <div class="mt-6 flex justify-between items-center">
-                                <span class="text-[10px] text-[#6c6c6c] uppercase">Expected Profit:</span>
-                                <span class="text-2xl font-black text-white" x-text="results.totalProfit.toFixed(0)"></span>
-                            </div>
-                        </div>
-
-                        <div class="card p-6 rounded-lg">
-                            <h3 class="text-[#ce9178] font-bold text-xs uppercase mb-4">Resource Utilization</h3>
-                            <div class="space-y-4">
-                                <template x-for="(data, name) in results.usage" :key="name">
-                                    <div>
-                                        <div class="flex justify-between text-[10px] mb-1">
-                                            <span x-text="name"></span>
-                                            <span x-text="data.used.toFixed(1) + '/' + data.limit"></span>
-                                        </div>
-                                        <div class="w-full h-1.5 bg-[#1e1e1e] rounded-full overflow-hidden">
-                                            <div class="h-full bg-[#007acc]" :style="`width: ${Math.min(data.percent, 100)}%`"
-                                                 :class="data.percent > 90 ? 'bg-orange-600' : 'bg-[#007acc]'"></div>
-                                        </div>
-                                    </div>
-                                </template>
-                            </div>
                         </div>
                     </div>
-                </template>
+                </div>
+
+                <!-- Leontief I-O Analysis View -->
+                 <div x-show="activeTab === 'leontief'" class="flex flex-1 overflow-hidden">
+                    <div x-data="leontiefEngine" class="w-full flex">
+                        <aside class="w-72 bg-[#252526] border-r border-[#333] p-4 overflow-y-auto shrink-0">
+                            <!-- Leontief Controls -->
+                             <div class="mb-6">
+                                <div class="flex justify-between items-center mb-2">
+                                    <h3 class="text-[11px] uppercase font-bold text-[#6c6c6c]">Economy Items</h3>
+                                    <button @click="addItem()" class="text-[#4ec9b0] hover:text-white text-lg">+</button>
+                                </div>
+                                <div class="space-y-2">
+                                    <template x-for="(item, idx) in items" :key="idx">
+                                        <div class="p-2 card rounded">
+                                            <input type="text" x-model="item.name" class="w-full text-xs font-bold mb-1 bg-transparent border-none">
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-[10px] text-[#6c6c6c]">Final Demand:</span>
+                                                <input type="number" x-model.number="item.demand" class="w-20 text-[10px] p-1 rounded">
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </aside>
+                         <div class="flex-1 overflow-auto p-8">
+                            <h2 class="text-sm font-bold mb-6 text-[#4ec9b0]">Technology Matrix (A) - Inputs per Unit Output</h2>
+                             <p class="text-xs text-[#888] mb-4 max-w-xl">Each cell (Row, Col) should contain how many units of the 'Row' item are needed to produce 1 unit of the 'Col' item.</p>
+                            <div class="inline-block card rounded-lg overflow-hidden mb-10">
+                                <table class="matrix-table text-xs">
+                                    <thead>
+                                        <tr class="bg-[#2d2d2d]">
+                                            <th class="p-3 border-b border-[#333] sticky left-0 z-10 bg-[#2d2d2d]">↓ Input / Output →</th>
+                                            <template x-for="item in items">
+                                                <th class="p-3 border-b border-[#333] text-[#4ec9b0] font-normal" x-text="item.name"></th>
+                                            </template>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template x-for="(rowItem, rIdx) in items" :key="rIdx">
+                                            <tr>
+                                                <td class="p-3 bg-[#2d2d2d] border-r border-[#333] font-bold sticky left-0 z-10" x-text="rowItem.name"></td>
+                                                <template x-for="(colItem, cIdx) in items" :key="cIdx">
+                                                    <td class="p-1 border-b border-r border-[#333]">
+                                                        <input type="number" step="0.1" x-model.number="techMatrix[rIdx][cIdx]">
+                                                    </td>
+                                                </template>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <!-- Leontief Results -->
+                            <div class="grid grid-cols-2 gap-8">
+                                <template x-if="totalProduction">
+                                    <div class="card p-6 rounded-lg">
+                                        <h3 class="text-[#ce9178] font-bold text-xs uppercase mb-4">Total Production Required (Vector X)</h3>
+                                        <div class="space-y-2">
+                                            <template x-for="(item, idx) in items" :key="idx">
+                                                <div class="flex justify-between border-b border-[#333] py-2">
+                                                    <span class="text-[#888]" x-text="item.name"></span>
+                                                    <span class="text-white font-bold font-mono" x-text="totalProduction[idx] ? totalProduction[idx].toFixed(2) : '0.00'"></span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                                 <!-- Mermaid Graph -->
+                                <div class="card p-4 rounded-lg">
+                                    <h3 class="text-[#6A9955] font-bold text-xs uppercase mb-4">Dependency Graph</h3>
+                                    <div id="leontiefGraph" class="min-h-[200px]" x-ref="leontiefGraph">
+                                        <!-- Mermaid will render here -->
+                                    </div>
+                                </div>
+                            </div>
+                         </div>
+                    </div>
+                </div>
+
+                <!-- Markov Chains View -->
+                <div x-show="activeTab === 'markov'" class="flex flex-1 overflow-hidden" x-cloak>
+                    <div x-data="markovEngine" class="w-full flex">
+                        <aside class="w-72 bg-[#252526] border-r border-[#333] p-4 overflow-y-auto shrink-0">
+                             <div class="mb-6">
+                                <div class="flex justify-between items-center mb-2"><h3 class="text-[11px] uppercase font-bold text-[#6c6c6c]">System States</h3><button @click="addState()" class="text-[#4ec9b0] hover:text-white text-lg">+</button></div>
+                                <div class="space-y-2"><template x-for="(state, idx) in states" :key="idx"><div class="p-2 card rounded"><input type="text" x-model="state.name" class="w-full text-xs font-bold bg-transparent border-none"></div></template></div>
+                            </div>
+                            <div class="mb-6 card p-3">
+                                <h3 class="text-[11px] uppercase font-bold text-[#6c6c6c] mb-2">Initial State Vector</h3>
+                                <template x-for="(state, idx) in states" :key="idx">
+                                    <div class="flex justify-between items-center mb-1"><span class="text-xs text-[#888]" x-text="state.name"></span><input type="number" step="0.01" min="0" max="1" x-model.number="initialVector[idx]" class="w-20 text-[10px] p-1 rounded"></div>
+                                </template>
+                            </div>
+                             <div class="mb-6 card p-3">
+                                <h3 class="text-[11px] uppercase font-bold text-[#6c6c6c] mb-2">Simulation Steps</h3>
+                                <input type="number" min="1" x-model.number="steps" class="w-full text-sm p-1 rounded">
+                            </div>
+                        </aside>
+                         <div class="flex-1 overflow-auto p-8">
+                            <h2 class="text-sm font-bold mb-6 text-[#4ec9b0]">Transition Probability Matrix (P)</h2>
+                            <p class="text-xs text-[#888] mb-4 max-w-xl">Each cell (Row, Col) is the probability of moving FROM 'Row' state TO 'Col' state. <strong class="text-[#ce9178]">Each row's sum must equal 1.</strong></p>
+                            <div class="inline-block card rounded-lg overflow-hidden mb-10">
+                                <table class="matrix-table text-xs">
+                                    <thead><tr class="bg-[#2d2d2d]"><th class="p-3 border-b border-[#333] sticky left-0 z-10 bg-[#2d2d2d]">↓ FROM / TO →</th><template x-for="state in states"><th class="p-3 border-b border-[#333] text-[#4ec9b0] font-normal" x-text="state.name"></th></template></tr></thead>
+                                    <tbody><template x-for="(rowState, rIdx) in states" :key="rIdx"><tr><td class="p-3 bg-[#2d2d2d] border-r border-[#333] font-bold" x-text="rowState.name"></td><template x-for="(colState, cIdx) in states" :key="cIdx"><td class="p-1 border-b border-r border-[#333]"><input type="number" step="0.01" min="0" max="1" x-model.number="transitionMatrix[rIdx][cIdx]" :class="{'row-sum-error': rowSums[rIdx] !== 1}"></td></template></tr></template></tbody>
+                                </table>
+                            </div>
+                            <!-- Markov Results -->
+                            <div class="grid grid-cols-2 gap-8">
+                                <template x-if="results.after_n_steps"><div class="card p-6 rounded-lg"><h3 class="text-[#ce9178] font-bold text-xs uppercase mb-4" x-text="`Distribution after ${steps} Steps`"></h3><div class="space-y-2"><template x-for="(state, idx) in states" :key="idx"><div class="flex justify-between border-b border-[#333] py-2"><span class="text-[#888]" x-text="state.name"></span><div class="flex items-center gap-4"><span class="text-sm text-gray-400" x-text="`( ${(initialVector[idx]*100).toFixed(1)}% -> ${(results.after_n_steps[idx]*100).toFixed(1)}% )`"></span><span class="text-white font-bold font-mono text-lg" x-text="(results.after_n_steps[idx]*100).toFixed(2) + '%'"></span></div></div></template></div></div></template>
+                                <template x-if="results.steady_state"><div class="card p-6 rounded-lg"><h3 class="text-[#9cdcfe] font-bold text-xs uppercase mb-4">Steady-State Distribution (Long-term)</h3><div class="space-y-2"><template x-for="(state, idx) in states" :key="idx"><div class="flex justify-between border-b border-[#333] py-2"><span class="text-[#888]" x-text="state.name"></span><span class="text-white font-bold font-mono text-lg" x-text="(results.steady_state[idx]*100).toFixed(2) + '%'"></span></div></template></div></div></template>
+                            </div>
+                         </div>
+                    </div>
+                </div>
+
             </main>
         </div>
     </div>
 
     <script>
-        function matrixEngine() {
-            // Изолируем инстанс солвера
-            let lpSolver = null;
-
-            return {
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('matrixApp', () => ({
+                activeTab: 'simplex',
+                init() {
+                    mermaid.initialize({ startOnLoad: false, theme: 'dark', darkMode: true });
+                },
+                solve() {
+                    console.log("matrixApp.solve() called. Active tab:", this.activeTab);
+                    const eventName = { simplex: 'solve-simplex', leontief: 'solve-leontief', markov: 'solve-markov' }[this.activeTab];
+                    if(eventName) this.$dispatch(eventName);
+                }
+            }));
+            
+            Alpine.data('simplexEngine', () => ({
                 resources: [{name: 'Iron', limit: 500}, {name: 'Wood', limit: 300}],
                 products: [{name: 'Sword', profit: 50}, {name: 'Shield', profit: 40}],
                 matrixA: [[2, 1], [1, 3]],
                 results: null,
-
-                init() {
-                    lpSolver = window.solver || null;
-                    console.log("Matrix Engine Initialized. Solver status:", lpSolver ? "OK" : "FAILED");
-                },
-
-                addResource() {
-                    this.resources.push({name: 'New Resource', limit: 100});
-                    this.matrixA.push(new Array(this.products.length).fill(0));
-                },
-
-                addProduct() {
-                    this.products.push({name: 'New Product', profit: 10});
-                    this.matrixA.forEach(row => row.push(0));
-                },
-
+                init() { 
+                    console.log("simplexEngine init() called.");
+                    this.$root.addEventListener('solve-simplex', () => this.solve()) },
+                addResource() { this.resources.push({name: 'New Resource', limit: 100}); this.matrixA.push(new Array(this.products.length).fill(0)); },
+                addProduct() { this.products.push({name: 'New Product', profit: 10}); this.matrixA.forEach(row => row.push(0)); },
                 solve() {
-                    if (!lpSolver) {
-                        alert("Error: solver.js is not loaded.");
-                        return;
-                    }
-
+                    console.log("simplexEngine solve() called.");
+                    if (!window.solver) return alert("solver.js not loaded.");
                     try {
-                        const model = {
-                            optimize: "profit",
-                            opType: "max",
-                            constraints: {},
-                            variables: {}
-                        };
-
-                        // 1. Настройка ограничений
-                        this.resources.forEach(res => {
-                            model.constraints[res.name] = { max: parseFloat(res.limit) || 0 };
-                        });
-
-                        // 2. Настройка переменных
+                        const model = { optimize: "profit", opType: "max", constraints: {}, variables: {} };
+                        this.resources.forEach(res => { model.constraints[res.name] = { max: res.limit || 0 }; });
                         this.products.forEach((prod, pIdx) => {
-                            const v = { profit: parseFloat(prod.profit) || 0 };
-                            this.resources.forEach((res, rIdx) => {
-                                v[res.name] = parseFloat(this.matrixA[rIdx][pIdx]) || 0;
-                            });
+                            const v = { profit: prod.profit || 0 };
+                            this.resources.forEach((res, rIdx) => { v[res.name] = this.matrixA[rIdx][pIdx] || 0; });
                             model.variables[prod.name] = v;
                         });
-
-                        // 3. Расчет
-                        const solution = lpSolver.Solve(model);
-                        
-                        if (!solution.feasible) {
-                            alert("Optimization failed: Infeasible solution.");
-                            return;
-                        }
-
-                        // 4. Расчет утилизации
+                        const solution = solver.Solve(model);
+                        if (!solution.feasible) return alert("Infeasible solution.");
                         const usage = {};
                         this.resources.forEach((res, rIdx) => {
                             let total = 0;
-                            this.products.forEach((p, pIdx) => {
-                                total += (solution[p.name] || 0) * (parseFloat(this.matrixA[rIdx][pIdx]) || 0);
-                            });
-                            usage[res.name] = {
-                                used: total,
-                                limit: res.limit,
-                                percent: (total / res.limit) * 100
-                            };
+                            this.products.forEach((p, pIdx) => { total += (solution[p.name] || 0) * (this.matrixA[rIdx][pIdx] || 0); });
+                            usage[res.name] = { used: total, limit: res.limit, percent: (total / res.limit) * 100 };
                         });
+                        this.results = { solution, totalProfit: solution.result || 0, usage };
+                        console.log("simplexEngine solve() finished successfully.");
+                    } catch (e) { console.error(e); alert("Math Error: " + e.message); }
+                }
+            }));
+
+            Alpine.data('leontiefEngine', () => ({
+                items: [{name: 'Iron Ore', demand: 0}, {name: 'Iron Ingot', demand: 100}],
+                techMatrix: [[0, 0.2], [0, 0]],
+                totalProduction: null,
+                init() { 
+                    console.log("leontiefEngine init() called.");
+                    this.$root.addEventListener('solve-leontief', () => this.solve()) },
+                addItem() { this.items.push({name: 'New Item', demand: 0}); this.techMatrix.forEach(row => row.push(0)); this.techMatrix.push(new Array(this.items.length).fill(0)); },
+                async visualizeGraph() {
+                    console.log("leontiefEngine visualizeGraph() called.");
+                    let graph = 'graph TD;\n'; let hasEdges = false;
+                    this.items.forEach((r, rIdx) => { this.items.forEach((c, cIdx) => {
+                        const val = this.techMatrix[rIdx][cIdx];
+                        if (val > 0) { graph += `    ${rIdx}["${r.name}"] -- ${val} --> ${cIdx}["${c.name}"];\n`; hasEdges = true; }
+                    })});
+                    if (!hasEdges) return this.$refs.leontiefGraph.innerHTML = '<div class="text-xs text-[#888] text-center p-4">No dependencies.</div>';
+                    const { svg } = await mermaid.render('leontiefGraphSvg', graph);
+                    this.$refs.leontiefGraph.innerHTML = svg;
+                    console.log("leontiefEngine visualizeGraph() finished.");
+                },
+                solve() {
+                    console.log("leontiefEngine solve() called.");
+                    if (!window.math) return alert("math.js not loaded.");
+                    try {
+                        const A = math.matrix(this.techMatrix);
+                        const y = math.matrix(this.items.map(i => i.demand));
+                        const n = this.items.length; if (n === 0) return;
+                        const I = math.identity(n);
+                        const I_minus_A = math.subtract(I, A);
+                        if (math.abs(math.det(I_minus_A)) < 1e-9) return alert("Matrix is singular (non-productive economy).");
+                        const leontiefInverse = math.inv(I_minus_A);
+                        this.totalProduction = math.multiply(leontiefInverse, y).toArray();
+                        this.$nextTick(() => this.visualizeGraph());
+                        console.log("leontiefEngine solve() finished successfully.");
+                    } catch(e) { console.error(e); alert("Math Error: " + e.message); }
+                }
+            }));
+
+            Alpine.data('markovEngine', () => ({
+                states: [{name: 'New Player'}, {name: 'Engaged'}, {name: 'Churned'}],
+                transitionMatrix: [[0.1, 0.8, 0.1], [0.05, 0.9, 0.05], [0, 0, 1]],
+                initialVector: [1, 0, 0],
+                steps: 10,
+                results: {},
+                get rowSums() { return this.transitionMatrix.map(row => math.round(math.sum(row), 3)); },
+                init() { 
+                    console.log("markovEngine init() called.");
+                    this.$root.addEventListener('solve-markov', () => this.solve()); },
+                addState() {
+                    this.states.push({name: 'New State'});
+                    this.initialVector.push(0);
+                    this.transitionMatrix.forEach(row => row.push(0));
+                    this.transitionMatrix.push(new Array(this.states.length).fill(0));
+                },
+                solve() {
+                    console.log("markovEngine solve() called.");
+                    if (!window.math) return alert("math.js not loaded.");
+                    try {
+                        // Validation
+                        if (math.abs(math.sum(this.initialVector) - 1) > 1e-9) return alert("Sum of Initial State Vector must be 1.");
+                        if (this.rowSums.some(s => math.abs(s - 1) > 1e-9)) return alert("The sum of each row in the transition matrix must be 1.");
+                        
+                        const P = math.matrix(this.transitionMatrix);
+                        const s0 = math.matrix(this.initialVector);
+                        
+                        // N-step calculation
+                        const P_n = math.pow(P, this.steps);
+                        const s_n = math.multiply(s0, P_n).toArray();
+
+                        // Steady-state calculation
+                        const eigs = math.eigs(math.transpose(P));
+                        const steadyIdx = math.findIndex(eigs.values, v => math.abs(math.subtract(v, 1)) < 1e-9);
+                        if (steadyIdx === -1) throw new Error("No steady state found.");
+                        
+                        let steadyVector = math.flatten(eigs.vectors[steadyIdx].toArray());
+                        const steadySum = math.sum(steadyVector);
+                        steadyVector = math.multiply(steadyVector, 1 / steadySum).map(v => math.abs(v)); // Normalize and ensure non-negative
 
                         this.results = {
-                            solution: solution,
-                            totalProfit: solution.result || 0,
-                            usage: usage
+                            after_n_steps: s_n,
+                            steady_state: steadyVector.toArray()
                         };
-
-                    } catch (e) {
-                        console.error(e);
-                        alert("Math Error: " + e.message);
-                    }
+                        console.log("markovEngine solve() finished successfully.");
+                    } catch(e) { console.error(e); alert("Markov Calc Error: " + e.message); }
                 }
-            }
-        }
+            }));
+        });
     </script>
 </body>
 </html>
