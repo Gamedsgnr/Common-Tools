@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -23,7 +23,7 @@
             user-select: text;
         }
         
-        /* Сетка - Infinite Grid Simulation */
+        /* Grid - Infinite Grid Simulation */
         .grid-canvas {
             background-color: #0f172a;
             background-image: 
@@ -38,7 +38,7 @@
         }
         .grid-canvas:active { cursor: grabbing; }
 
-        /* Ноды */
+        /* Nodes */
         .node-wrapper {
             position: absolute;
             width: 300px;
@@ -57,7 +57,7 @@
             z-index: 50;
         }
 
-        /* Хедеры нод */
+        /* Node Headers */
         .node-header {
             padding: 10px 12px;
             border-radius: 10px 10px 0 0;
@@ -75,7 +75,7 @@
         .type-condition { background: linear-gradient(135deg, #d97706, #b45309); }
         .type-switcher { background: linear-gradient(135deg, #0ea5e9, #0284c7); }
 
-        /* Сокеты */
+        /* Sockets */
         .socket {
             width: 18px;
             height: 18px;
@@ -90,27 +90,27 @@
         }
         .socket:hover { background: #fff; transform: scale(1.2); border-color: #fff; }
         
-        /* Позиционирование сокетов */
-        .socket-in { left: -9px; top: 18px; } /* Вход всегда сверху слева на хедере */
+        /* Socket positioning */
+        .socket-in { left: -9px; top: 18px; } /* Input always top-left on header */
         .socket-out { right: -9px; top: 50%; margin-top: -9px; }
         .socket-out.case-socket { right: -16px; }
 
-        /* SVG слой связей */
+        /* SVG connections layer */
         .connections-layer {
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            pointer-events: none; /* Чтобы кликать сквозь SVG по канвасу */
+            pointer-events: none; /* Allow clicks through SVG to canvas */
             overflow: visible;
             z-index: 5;
         }
         .connection-path {
-            pointer-events: stroke; /* Клики только по линии */
+            pointer-events: stroke; /* Clicks only on the line */
             cursor: pointer;
         }
         .connection-path:hover { stroke: #fff; stroke-width: 4; }
 
-        /* UI Элементы */
+        /* UI elements */
         .glass-panel {
             background: rgba(15, 23, 42, 0.85);
             backdrop-filter: blur(12px);
@@ -644,7 +644,7 @@
                         </div>
 
                         <div v-if="!variables.length" class="text-xs text-slate-500 border border-dashed border-slate-700 rounded p-3 text-center">
-                            No variables yet. Click “Add”.
+                            No variables yet. Click "Add".
                         </div>
 
                         <div class="space-y-2">
@@ -712,7 +712,7 @@
                         </div>
 
                         <div v-if="!characters.length" class="text-xs text-slate-500 border border-dashed border-slate-700 rounded p-3 text-center">
-                            No characters yet. Click “Add”.
+                            No characters yet. Click "Add".
                         </div>
 
                         <div class="space-y-2">
@@ -977,7 +977,7 @@
                 const getSocketPos = (nodeId, socketType) => {
                     if (!canvasContainer.value) return { x: 0, y: 0 };
 
-                    // Берем реальные координаты сокета из DOM, чтобы линии всегда совпадали с UI
+                    // Read real socket coordinates from DOM so lines always align with UI
                     const socket = canvasContainer.value.querySelector(`[data-node-id="${nodeId}"][data-socket-id="${socketType}"]`);
                     if (!socket) return { x: 0, y: 0 };
 
@@ -1004,7 +1004,7 @@
                     }
                     if (e.button !== 0) return;
 
-                    // Если кликнули по ноде/сокету/кнопке — панорамирование не стартует
+                    // If clicking on node/socket/button — do not start panning
                     if (e.target.closest('.node-wrapper') || e.target.closest('.socket') || e.target.closest('button')) {
                         return;
                     }
@@ -1018,7 +1018,7 @@
                         return;
                     }
 
-                    // Клик по пустому месту запускает область выделения
+                    // Clicking empty space starts box selection
                     const local = toLocal(e.clientX, e.clientY);
                     selectionBox.active = true;
                     selectionBox.shift = e.shiftKey;
@@ -1104,7 +1104,7 @@
                         return;
                     }
 
-                    // ЛКМ по ноде = выбор + перетаскивание ноды
+                    // Click on node = select + drag node
                     startDragNode(node, e);
                 };
 
@@ -1222,9 +1222,9 @@
                     if (isEditingElement()) return;
                     const key = e.key.toLowerCase();
                     const isCmd = e.ctrlKey || e.metaKey;
-                    if (['c', 's', 'a', 'd'].includes(key)) {
-                        const map = { c: 'condition', s: 'switcher', a: 'action', d: 'dialog' };
-                        createKey.value = map[key];
+                    if (['KeyC', 'KeyS', 'KeyA', 'KeyD'].includes(e.code)) {
+                        const map = { KeyC: 'condition', KeyS: 'switcher', KeyA: 'action', KeyD: 'dialog' };
+                        createKey.value = map[e.code];
                     }
                     if (key === 'delete' || key === 'backspace') {
                         if (selectedNodeIds.value.length) {
@@ -1239,7 +1239,7 @@
                     }
                     if (!isCmd) return;
 
-                    if (key === 'c') {
+                    if (e.code === 'KeyC') {
                         if (selectedNode.value) {
                             copySelectedNode();
                             e.preventDefault();
@@ -1247,7 +1247,7 @@
                         return;
                     }
 
-                    if (key === 'v') {
+                    if (e.code === 'KeyV') {
                         const pasted = pasteClipboardNode();
                         if (pasted) {
                             selectedNodeId.value = pasted.id;
@@ -1259,8 +1259,7 @@
                 };
 
                 const onGlobalKeyUp = (e) => {
-                    const key = e.key.toLowerCase();
-                    if (['c', 's', 'a', 'd'].includes(key)) {
+                    if (['KeyC', 'KeyS', 'KeyA', 'KeyD'].includes(e.code)) {
                         createKey.value = null;
                     }
                 };
@@ -1273,7 +1272,7 @@
                             return;
                         }
 
-                        // Из одного выходного сокета разрешено только одно подключение.
+                        // Only one connection allowed from a single output socket.
                         connections.value = connections.value.filter(c =>
                             !(c.from === dragLine.value.from && c.fromSocket === dragLine.value.socket)
                         );
@@ -1507,7 +1506,7 @@
                         variable.init = Number.isNaN(parsedValue) ? 0 : parsedValue;
                     }
 
-                    // Обновляем action-операции, связанные с этой переменной
+                    // Update action ops tied to this variable
                     nodes.value.forEach(node => {
                         if (node.type !== 'action' || !Array.isArray(node.data.ops)) return;
                         node.data.ops.forEach(op => {
@@ -1531,7 +1530,7 @@
                         });
                     });
 
-                    // Обновляем condition/switcher, связанные с этой переменной
+                    // Update condition/switcher tied to this variable
                     nodes.value.forEach(node => {
                         if (node.type === 'condition' && node.data.varId === variable.id) {
                             if (variable.type === 'bool') {
@@ -1575,7 +1574,7 @@
                 const removeVariable = (variableId) => {
                     variables.value = variables.value.filter(v => v.id !== variableId);
 
-                    // Чистим ссылки на удаленную переменную в нодах условий/действий.
+                    // Clear references to deleted variable in condition/action/switcher nodes.
                     nodes.value.forEach(node => {
                         if (node.type === 'condition' && node.data.varId === variableId) {
                             node.data.varId = null;
@@ -1653,7 +1652,7 @@
                 const getVarType = (id) => variables.value.find(v => v.id === id)?.type || null;
                 const getRuntimeDisplay = (v) => {
                     const val = runtimeVars.value[v.id];
-                    if (val === undefined || val === null) return '—';
+                    if (val === undefined || val === null) return '\\u2014';
                     if (v.type === 'bool') return val ? 'True' : 'False';
                     if (v.type === 'num') return (Number(val) || 0).toString();
                     return val != null ? String(val) : '';
@@ -2081,7 +2080,7 @@
                     nodes.value.push({ id: startId, type: 'start', x: 100, y: 100, data: {} });
                     schedulePathUpdate();
 
-                    // Глобальные listeners: drag/pan/line продолжают работать даже если курсор вышел за пределы canvas
+                    // Global listeners: drag/pan/line keep working even if cursor leaves the canvas
                     window.addEventListener('mousemove', onGlobalMouseMove);
                     window.addEventListener('mouseup', onGlobalMouseUp);
                     window.addEventListener('keydown', onGlobalKeyDown);
