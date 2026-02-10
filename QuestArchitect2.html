@@ -117,10 +117,7 @@
     </style>
 </head>
 <body>
-    <div id="app" class="h-screen w-screen flex flex-col relative" 
-         @mousemove="onGlobalMouseMove" 
-         @mouseup="onGlobalMouseUp"
-         @mouseleave="onGlobalMouseUp">
+    <div id="app" class="h-screen w-screen flex flex-col relative">
 
         <header class="h-14 bg-slate-900 border-b border-slate-700 flex items-center justify-between px-6 shrink-0 z-50">
             <div class="flex items-center gap-3">
@@ -141,12 +138,12 @@
             
             <div class="flex-1 relative overflow-hidden bg-slate-950" ref="canvasContainer" 
                  @wheel.prevent="handleWheel"
-                 @mousedown.self="startPan">
+                 @mousedown="onCanvasMouseDown">
                 
                 <div class="origin-top-left absolute w-full h-full"
                      :style="{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }">
                     
-                    <div class="grid-canvas" style="width: 10000px; height: 10000px; transform: translate(-5000px, -5000px);" @mousedown.self="startPan"></div>
+                    <div class="grid-canvas" style="width: 10000px; height: 10000px; transform: translate(-5000px, -5000px);"></div>
 
                     <svg class="connections-layer overflow-visible">
                         <path v-for="conn in connections" :key="conn.id"
@@ -166,9 +163,10 @@
                          class="node-wrapper"
                          :class="{ 'selected': selectedNodeId === node.id }"
                          :style="{ transform: `translate(${node.x}px, ${node.y}px)` }"
-                         @mousedown.stop="selectNode(node.id)">
+                         @mousedown.stop="onNodeMouseDown(node, $event)"
+                         @click.stop="selectNode(node.id)">
                         
-                        <div class="node-header" :class="'type-' + node.type" @mousedown.stop="startDragNode(node, $event)">
+                        <div class="node-header" :class="'type-' + node.type" @mousedown.stop="onNodeMouseDown(node, $event)">
                             <div class="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
                                 <i :class="getNodeIcon(node.type)"></i> {{ node.type }}
                             </div>
@@ -178,6 +176,8 @@
                             
                             <div v-if="node.type !== 'start'" 
                                  class="socket socket-in hover:border-blue-400 bg-slate-900"
+                                 :data-node-id="node.id"
+                                 data-socket-id="in"
                                  @mouseup="onSocketMouseUp(node.id, 'in')"></div>
                         </div>
 
@@ -186,7 +186,9 @@
                             <div v-if="node.type === 'start'" class="py-2 text-center text-xs text-slate-400">
                                 Точка входа
                                 <div class="socket socket-out hover:border-emerald-400" 
-                                     @mousedown.stop.prevent="startDragLine(node.id, 'default')"></div>
+                                     :data-node-id="node.id"
+                                     data-socket-id="default"
+                                     @mousedown.stop.prevent="startDragLine(node.id, 'default', $event)"></div>
                             </div>
 
                             <div v-if="node.type === 'dialog'">
@@ -199,7 +201,9 @@
                                          class="relative bg-slate-800 border border-slate-700 p-2 rounded text-xs flex justify-between">
                                         <span class="truncate max-w-[200px]">{{ choice.text }}</span>
                                         <div class="socket socket-out" 
-                                             @mousedown.stop.prevent="startDragLine(node.id, 'choice-' + idx)"></div>
+                                             :data-node-id="node.id"
+                                             :data-socket-id="'choice-' + idx"
+                                             @mousedown.stop.prevent="startDragLine(node.id, 'choice-' + idx, $event)"></div>
                                     </div>
                                 </div>
                             </div>
@@ -212,7 +216,9 @@
                                     </div>
                                 </div>
                                 <div class="socket socket-out hover:border-purple-400" 
-                                     @mousedown.stop.prevent="startDragLine(node.id, 'default')"></div>
+                                     :data-node-id="node.id"
+                                     data-socket-id="default"
+                                     @mousedown.stop.prevent="startDragLine(node.id, 'default', $event)"></div>
                             </div>
 
                             <div v-if="node.type === 'condition'">
@@ -222,11 +228,17 @@
                                 <div class="relative h-14">
                                     <div class="absolute right-0 top-0 flex items-center gap-2">
                                         <span class="text-[10px] font-bold text-emerald-500">TRUE</span>
-                                        <div class="socket relative" @mousedown.stop.prevent="startDragLine(node.id, 'true')"></div>
+                                        <div class="socket relative"
+                                             :data-node-id="node.id"
+                                             data-socket-id="true"
+                                             @mousedown.stop.prevent="startDragLine(node.id, 'true', $event)"></div>
                                     </div>
                                     <div class="absolute right-0 bottom-0 flex items-center gap-2">
                                         <span class="text-[10px] font-bold text-rose-500">FALSE</span>
-                                        <div class="socket relative" @mousedown.stop.prevent="startDragLine(node.id, 'false')"></div>
+                                        <div class="socket relative"
+                                             :data-node-id="node.id"
+                                             data-socket-id="false"
+                                             @mousedown.stop.prevent="startDragLine(node.id, 'false', $event)"></div>
                                     </div>
                                 </div>
                             </div>
@@ -387,7 +399,7 @@
     </div>
 
     <script>
-        const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
+        const { createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } = Vue;
 
         createApp({
             setup() {
@@ -443,38 +455,17 @@
 
                 // Approximate socket positions relative to node (Fixed geometry approach)
                 const getSocketPos = (nodeId, socketType) => {
-                    const node = nodes.value.find(n => n.id === nodeId);
-                    if (!node) return { x: 0, y: 0 };
+                    if (!canvasContainer.value) return { x: 0, y: 0 };
 
-                    // Вход всегда сверху слева в хедере
-                    if (socketType === 'in') {
-                        return { x: node.x + 10, y: node.y + 20 };
-                    }
+                    // Берем реальные координаты сокета из DOM, чтобы линии всегда совпадали с UI
+                    const socket = canvasContainer.value.querySelector(`[data-node-id="${nodeId}"][data-socket-id="${socketType}"]`);
+                    if (!socket) return { x: 0, y: 0 };
 
-                    // Выходы. Тут сложнее, зависит от высоты контента.
-                    // Для прототипа используем querySelector, так как у нас есть ID нод.
-                    // Но в Vue data-driven лучше считать математически.
-                    // Чтобы не усложнять, сделаем "умный" поиск через DOM, но только когда нужно.
-                    // В реальном production-коде здесь нужна формула высоты.
-                    // HACK: Для плавности линий при драге используем приблизительные оффсеты
-                    const width = 300;
-                    
-                    if (node.type === 'start') return { x: node.x + width/2, y: node.y + 60 };
-                    
-                    if (socketType.startsWith('choice-')) {
-                        const idx = parseInt(socketType.split('-')[1]);
-                        // Header(40) + Speaker(20) + Text(60) + ChoiceHeight(40)*idx
-                        const approxY = 40 + 20 + 60 + (idx * 42) + 20; 
-                        return { x: node.x + width, y: node.y + approxY };
-                    }
-                    
-                    if (node.type === 'condition') {
-                        if (socketType === 'true') return { x: node.x + width, y: node.y + 70 };
-                        if (socketType === 'false') return { x: node.x + width, y: node.y + 100 };
-                    }
-                    
-                    // Action / Default
-                    return { x: node.x + width, y: node.y + 80 };
+                    const socketRect = socket.getBoundingClientRect();
+                    const centerX = socketRect.left + socketRect.width / 2;
+                    const centerY = socketRect.top + socketRect.height / 2;
+
+                    return toWorld(centerX, centerY);
                 };
 
                 // --- MOUSE EVENTS HANDLING (CORE FIX) ---
@@ -483,6 +474,15 @@
                     isPanning.value = true;
                     lastMouse.x = e.clientX;
                     lastMouse.y = e.clientY;
+                };
+
+                const onCanvasMouseDown = (e) => {
+                    // Панорамирование только ЛКМ/СКМ и только по пустому канвасу
+                    if (e.button !== 0 && e.button !== 1) return;
+                    if (e.target.closest('.node-wrapper') || e.target.closest('.socket') || e.target.closest('button')) {
+                        return;
+                    }
+                    startPan(e);
                 };
 
                 const handleWheel = (e) => {
@@ -521,14 +521,24 @@
                     lastMouse.y = e.clientY;
                 };
 
-                const startDragLine = (nodeId, socketId) => {
+                const onNodeMouseDown = (node, e) => {
+                    // ЛКМ/СКМ: запускаем перетаскивание ноды из любой части, кроме интерактивных элементов
+                    if (e.button !== 0 && e.button !== 1) return;
+                    if (e.target.closest('.socket') || e.target.closest('button')) return;
+                    startDragNode(node, e);
+                };
+
+                const startDragLine = (nodeId, socketId, e) => {
                     const startPos = getSocketPos(nodeId, socketId);
+                    const fallbackPos = toWorld(e.clientX, e.clientY);
+                    const validStart = (startPos.x || startPos.y) ? startPos : fallbackPos;
+
                     dragLine.value = {
                         from: nodeId,
                         socket: socketId,
-                        startPos: startPos,
-                        currPos: startPos,
-                        path: ''
+                        startPos: validStart,
+                        currPos: validStart,
+                        path: makeBezier(validStart.x, validStart.y, validStart.x, validStart.y)
                     };
                 };
 
@@ -730,6 +740,15 @@
                     // Demo Data
                     const startId = 'start';
                     nodes.value.push({ id: startId, type: 'start', x: 100, y: 100, data: {} });
+
+                    // Глобальные listeners: drag/pan/line продолжают работать даже если курсор вышел за пределы canvas
+                    window.addEventListener('mousemove', onGlobalMouseMove);
+                    window.addEventListener('mouseup', onGlobalMouseUp);
+                });
+
+                onBeforeUnmount(() => {
+                    window.removeEventListener('mousemove', onGlobalMouseMove);
+                    window.removeEventListener('mouseup', onGlobalMouseUp);
                 });
 
                 return {
@@ -738,7 +757,7 @@
                     tab, isPlayMode, gameLog, activeNode, gameFinished, newVarName, newVarType,
                     dragLine,
                     
-                    handleWheel, startPan, startDragNode, startDragLine,
+                    handleWheel, onCanvasMouseDown, onNodeMouseDown, startPan, startDragNode, startDragLine,
                     onGlobalMouseMove, onGlobalMouseUp, onSocketMouseUp,
                     addNode, deleteNode, selectNode, selectConnection,
                     addVariable, getVarName, getConditionText, getNodeIcon,
