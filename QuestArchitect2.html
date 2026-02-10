@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dialog Architect 5.0 | Pro Edition</title>
+    <title>Quest Architect 5.0 | Pro Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -16,6 +17,10 @@
             color: #e2e8f0; 
             overflow: hidden; 
             user-select: none;
+        }
+
+        input, textarea, select {
+            user-select: text;
         }
         
         /* Сетка - Infinite Grid Simulation */
@@ -68,6 +73,7 @@
         .type-dialog { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
         .type-action { background: linear-gradient(135deg, #9333ea, #7e22ce); }
         .type-condition { background: linear-gradient(135deg, #d97706, #b45309); }
+        .type-switcher { background: linear-gradient(135deg, #0ea5e9, #0284c7); }
 
         /* Сокеты */
         .socket {
@@ -87,6 +93,7 @@
         /* Позиционирование сокетов */
         .socket-in { left: -9px; top: 18px; } /* Вход всегда сверху слева на хедере */
         .socket-out { right: -9px; top: 50%; margin-top: -9px; }
+        .socket-out.case-socket { right: -16px; }
 
         /* SVG слой связей */
         .connections-layer {
@@ -115,22 +122,40 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+        .selection-box {
+            position: absolute;
+            border: 1px dashed rgba(148, 163, 184, 0.9);
+            background: rgba(59, 130, 246, 0.12);
+            pointer-events: none;
+            z-index: 30;
+        }
     </style>
 </head>
 <body>
     <div id="app" class="h-screen w-screen flex flex-col relative">
+        <input type="file" ref="loadInput" class="hidden" accept="application/json" @change="loadProject">
 
         <header class="h-14 bg-slate-900 border-b border-slate-700 flex items-center justify-between px-6 shrink-0 z-50">
             <div class="flex items-center gap-3">
                 <i class="fa-solid fa-diagram-project text-blue-500 text-xl"></i>
-                <h1 class="font-bold text-lg text-slate-100">Dialog <span class="text-blue-500">Architect</span></h1>
+                <h1 class="font-bold text-lg text-slate-100">Quest <span class="text-blue-500">Architect</span></h1>
+                <div v-if="currentProjectTitle" class="ml-3 px-2 py-0.5 text-[10px] uppercase tracking-wider text-slate-300 bg-slate-800/70 border border-slate-700 rounded">
+                    {{ currentProjectTitle }}
+                </div>
             </div>
             <div class="flex gap-3">
+                <button @click="triggerLoad" class="px-3 py-1.5 text-xs font-bold bg-slate-800 hover:bg-slate-700 rounded border border-slate-600 transition">
+                    <i class="fa-solid fa-folder-open mr-1"></i> LOAD
+                </button>
                 <button @click="saveProject" class="px-3 py-1.5 text-xs font-bold bg-slate-800 hover:bg-slate-700 rounded border border-slate-600 transition">
                     <i class="fa-solid fa-save mr-1"></i> SAVE
                 </button>
-                <button @click="runScenario" class="px-4 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded shadow-lg transition transform hover:scale-105">
-                    <i class="fa-solid fa-play mr-1"></i> PLAY
+                <button v-if="isAuth" @click="openCloudModal('load')" class="px-3 py-1.5 text-xs font-bold bg-sky-900/60 hover:bg-sky-800/70 text-sky-200 rounded border border-sky-700/60 transition">
+                    <i class="fa-solid fa-cloud-arrow-down mr-1"></i> LOAD CLOUD
+                </button>
+                <button v-if="isAuth" @click="openCloudModal('save')" class="px-3 py-1.5 text-xs font-bold bg-emerald-900/60 hover:bg-emerald-800/70 text-emerald-200 rounded border border-emerald-700/60 transition">
+                    <i class="fa-solid fa-cloud-arrow-up mr-1"></i> SAVE CLOUD
                 </button>
             </div>
         </header>
@@ -140,6 +165,10 @@
             <div class="flex-1 relative overflow-hidden bg-slate-950" ref="canvasContainer" 
                  @wheel.prevent="handleWheel"
                  @mousedown="onCanvasMouseDown">
+                
+                <div v-if="selectionBox.active"
+                     class="selection-box"
+                     :style="{ left: selectionBox.x + 'px', top: selectionBox.y + 'px', width: selectionBox.w + 'px', height: selectionBox.h + 'px' }"></div>
                 
                 <div class="origin-top-left absolute w-full h-full"
                      :style="{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }">
@@ -162,8 +191,9 @@
 
                     <div v-for="node in nodes" :key="node.id"
                          class="node-wrapper"
-                         :class="{ 'selected': selectedNodeId === node.id }"
+                         :class="{ 'selected': selectedNodeIds.includes(node.id) }"
                          :style="{ transform: `translate(${node.x}px, ${node.y}px)` }"
+                         :data-node-id="node.id"
                          @mousedown.stop="onNodeMouseDown(node, $event)">
                         
                         <div class="node-header" :class="'type-' + node.type" @mousedown.stop="onNodeMouseDown(node, $event)">
@@ -184,7 +214,7 @@
                         <div class="p-3 text-slate-300 text-sm relative">
                             
                             <div v-if="node.type === 'start'" class="py-2 text-center text-xs text-slate-400">
-                                Точка входа
+                                Entry point
                                 <div class="socket socket-out hover:border-emerald-400" 
                                      :data-node-id="node.id"
                                      data-socket-id="default"
@@ -192,29 +222,86 @@
                             </div>
 
                             <div v-if="node.type === 'dialog'">
-                                <div class="font-bold text-blue-400 mb-1 truncate">{{ node.data.speaker || '???' }}</div>
-                                <div class="bg-slate-900/50 p-2 rounded border border-slate-700/50 italic text-xs mb-3 min-h-[40px]">
-                                    {{ node.data.text || '...' }}
-                                </div>
+                                <select v-model="node.data.speakerId" @mousedown.stop
+                                        class="w-full bg-slate-900/70 border border-slate-700 rounded px-2 py-1 text-xs text-blue-300 font-bold mb-2">
+                                    <option :value="null">Character...</option>
+                                    <option v-for="c in characters" :value="c.id">{{ c.name }}</option>
+                                </select>
+                                <textarea v-model="node.data.text" @mousedown.stop rows="3"
+                                          class="w-full bg-slate-900/60 border border-slate-700/50 rounded p-2 text-xs text-slate-200 italic mb-3 min-h-[60px] resize-none"></textarea>
                                 <div class="space-y-2">
                                     <div v-for="(choice, idx) in node.data.choices" :key="idx" 
                                          class="relative bg-slate-800 border border-slate-700 p-2 rounded text-xs flex justify-between translate-x-2">
-                                        <span class="truncate max-w-[200px]">{{ choice.text }}</span>
+                                        <input v-model="choice.text" @mousedown.stop
+                                               class="flex-1 bg-transparent outline-none text-slate-200 pr-6"
+                                               placeholder="Reply..." />
                                         <div class="socket socket-out" 
                                              :data-node-id="node.id"
                                              :data-socket-id="'choice-' + idx"
                                              @mousedown.stop.prevent="startDragLine(node.id, 'choice-' + idx, $event)"></div>
                                     </div>
                                 </div>
+                                <button @click.stop="node.data.choices.push({text:'New Option'})"
+                                        class="mt-2 w-full py-1 text-[10px] border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-slate-400 rounded transition">
+                                    + Add reply
+                                </button>
                             </div>
 
                             <div v-if="node.type === 'action'">
-                                <div v-if="!node.data.ops.length" class="text-center text-xs text-slate-500 py-2">Нет действий</div>
-                                <div v-else class="space-y-1">
-                                    <div v-for="(op, i) in node.data.ops" :key="i" class="bg-purple-900/30 px-2 py-1 rounded text-xs border border-purple-500/30 font-mono text-purple-200">
-                                        {{ getVarName(op.varId) }} {{ op.op }} {{ op.val }}
+                                <div v-if="!node.data.ops.length" class="text-center text-xs text-slate-500 py-2">No actions</div>
+                                <div v-else class="space-y-2">
+                                    <div v-for="(op, i) in node.data.ops" :key="op.id" class="bg-purple-900/20 px-2 py-2 rounded text-xs border border-purple-500/30 space-y-2">
+                                        <div class="flex items-center gap-2">
+                                            <select v-model="op.varId" @change="onActionVarChange(op)" @mousedown.stop
+                                                    class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-purple-200">
+                                                <option :value="null">Variable...</option>
+                                                <option v-for="v in variables" :value="v.id">{{ v.name }}</option>
+                                            </select>
+                                            <button @click.stop="removeActionOp(node, i)" class="text-slate-500 hover:text-red-400">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </div>
+
+                                        <div v-if="!op.varId" class="text-[10px] text-slate-500">
+                                            Select a variable.
+                                        </div>
+
+                                        <div v-else-if="getVarType(op.varId) === 'bool'">
+                                            <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-emerald-200">
+                                                <input type="checkbox" v-model="op.val" @mousedown.stop class="accent-emerald-500">
+                                                <span>Set {{ op.val ? 'True' : 'False' }}</span>
+                                            </label>
+                                        </div>
+
+                                        <div v-else-if="getVarType(op.varId) === 'enum'">
+                                            <select v-model="op.val" @mousedown.stop class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-purple-200">
+                                                <option v-for="opt in getVarOptions(op.varId)" :value="opt">{{ opt }}</option>
+                                            </select>
+                                        </div>
+
+                                        <div v-else-if="getVarType(op.varId) === 'string'">
+                                            <input type="text" v-model="op.val" @mousedown.stop
+                                                   class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-purple-200"
+                                                   placeholder="Text..." />
+                                        </div>
+
+                                        <div v-else class="flex gap-2">
+                                            <select v-model="op.op" @mousedown.stop class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-purple-200">
+                                                <option value="add">+</option>
+                                                <option value="sub">-</option>
+                                                <option value="mul">*</option>
+                                                <option value="div">/</option>
+                                                <option value="set">=</option>
+                                            </select>
+                                            <input type="number" v-model.number="op.val" @mousedown.stop
+                                                   class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-purple-200">
+                                        </div>
                                     </div>
                                 </div>
+                                <button @click.stop="addActionOp(node)"
+                                        class="mt-2 w-full py-1 text-[10px] border border-dashed border-purple-700 text-purple-300 hover:text-white hover:border-purple-400 rounded transition">
+                                    + Extra action
+                                </button>
                                 <div class="socket socket-out hover:border-purple-400" 
                                      :data-node-id="node.id"
                                      data-socket-id="default"
@@ -222,8 +309,52 @@
                             </div>
 
                             <div v-if="node.type === 'condition'">
-                                <div class="bg-yellow-900/20 p-2 rounded border border-yellow-500/20 text-center mb-3 text-xs font-mono text-yellow-200">
-                                    {{ getConditionText(node.data) }}
+                                <div class="bg-yellow-900/20 p-2 rounded border border-yellow-500/20 mb-3 space-y-2">
+                                    <select v-model="node.data.varId" @mousedown.stop
+                                            class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-yellow-200">
+                                        <option :value="null">Variable...</option>
+                                        <option v-for="v in variables" :value="v.id">{{ v.name }}</option>
+                                    </select>
+                                    <div v-if="node.data.varId">
+                                        <div v-if="getVarType(node.data.varId) === 'bool'" class="flex gap-2">
+                                            <select v-model="node.data.op" @mousedown.stop class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-yellow-200">
+                                                <option value="eq">==</option>
+                                                <option value="neq">!=</option>
+                                            </select>
+                                            <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-emerald-200">
+                                                <input type="checkbox" v-model="node.data.val" @mousedown.stop class="accent-emerald-500">
+                                                <span>{{ node.data.val ? 'True' : 'False' }}</span>
+                                            </label>
+                                        </div>
+                                        <div v-else-if="getVarType(node.data.varId) === 'enum'" class="flex gap-2">
+                                            <select v-model="node.data.op" @mousedown.stop class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-yellow-200">
+                                                <option value="eq">==</option>
+                                                <option value="neq">!=</option>
+                                            </select>
+                                            <select v-model="node.data.val" @mousedown.stop
+                                                    class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-yellow-200">
+                                                <option v-for="opt in getVarOptions(node.data.varId)" :value="opt">{{ opt }}</option>
+                                            </select>
+                                        </div>
+                                        <div v-else-if="getVarType(node.data.varId) === 'string'" class="flex gap-2">
+                                            <select v-model="node.data.op" @mousedown.stop class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-yellow-200">
+                                                <option value="eq">==</option>
+                                                <option value="neq">!=</option>
+                                            </select>
+                                            <input type="text" v-model="node.data.val" @mousedown.stop
+                                                   class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-yellow-200">
+                                        </div>
+                                        <div v-else class="flex gap-2">
+                                            <select v-model="node.data.op" @mousedown.stop class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-yellow-200">
+                                                <option value="eq">==</option>
+                                                <option value="neq">!=</option>
+                                                <option value="gt">&gt;</option>
+                                                <option value="lt">&lt;</option>
+                                            </select>
+                                            <input type="number" v-model.number="node.data.val" @mousedown.stop
+                                                   class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-yellow-200">
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="relative h-14">
                                     <div class="absolute right-0 top-0 flex items-center gap-2">
@@ -240,6 +371,72 @@
                                              data-socket-id="false"
                                              @mousedown.stop.prevent="startDragLine(node.id, 'false', $event)"></div>
                                     </div>
+                                </div>
+                            </div>
+
+                            <div v-if="node.type === 'switcher'">
+                                <div class="bg-sky-900/20 p-2 rounded border border-sky-500/20 mb-3 space-y-2">
+                                    <select v-model="node.data.varId" @mousedown.stop @change="onSwitcherVarChange(node)"
+                                            class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-sky-200">
+                                        <option :value="null">Variable...</option>
+                                        <option v-for="v in variables" :value="v.id">{{ v.name }}</option>
+                                    </select>
+                                </div>
+
+                                <div v-if="!node.data.cases.length" class="text-center text-[10px] text-slate-500 py-1">
+                                    No cases
+                                </div>
+                                <div class="space-y-2">
+                                    <div v-for="(c, idx) in node.data.cases" :key="c.id"
+                                         class="relative bg-slate-800 border border-slate-700 p-2 rounded text-xs flex items-center gap-2 translate-x-2 pr-6">
+                                        <template v-if="!node.data.varId">
+                                            <span class="text-[10px] text-slate-500">Select a variable</span>
+                                        </template>
+                                        <template v-else>
+                                            <template v-if="getVarType(node.data.varId) === 'enum'">
+                                                <select v-model="c.value" @mousedown.stop
+                                                        class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-sky-200">
+                                                    <option v-for="opt in getVarOptions(node.data.varId)" :value="opt">{{ opt }}</option>
+                                                </select>
+                                            </template>
+                                            <template v-else-if="getVarType(node.data.varId) === 'string'">
+                                                <input v-model="c.value" @mousedown.stop
+                                                       class="flex-1 bg-transparent outline-none text-slate-200"
+                                                       placeholder="Value..." />
+                                            </template>
+                                            <template v-else-if="getVarType(node.data.varId) === 'bool'">
+                                                <select v-model="c.value" @mousedown.stop
+                                                        class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-sky-200">
+                                                    <option :value="true">True</option>
+                                                    <option :value="false">False</option>
+                                                </select>
+                                            </template>
+                                            <template v-else>
+                                                <input type="number" v-model.number="c.value" @mousedown.stop
+                                                       class="flex-1 bg-transparent outline-none text-slate-200"
+                                                       placeholder="0" />
+                                            </template>
+                                        </template>
+                                        <button @click.stop="removeSwitcherCase(node, c)" class="text-slate-500 hover:text-red-400">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                        <div class="socket socket-out case-socket" 
+                                             :data-node-id="node.id"
+                                             :data-socket-id="c.socketId"
+                                             @mousedown.stop.prevent="startDragLine(node.id, c.socketId, $event)"></div>
+                                    </div>
+                                </div>
+                                <button @click.stop="addSwitcherCase(node)"
+                                        class="mt-2 w-full py-1 text-[10px] border border-dashed border-sky-700 text-sky-300 hover:text-white hover:border-sky-400 rounded transition">
+                                    + Add case
+                                </button>
+
+                                <div class="relative mt-3 bg-slate-900/40 border border-slate-700 rounded p-2 text-[10px] flex items-center justify-between translate-x-2">
+                                    <span class="text-slate-400">DEFAULT</span>
+                                    <div class="socket socket-out" 
+                                         :data-node-id="node.id"
+                                         data-socket-id="default"
+                                         @mousedown.stop.prevent="startDragLine(node.id, 'default', $event)"></div>
                                 </div>
                             </div>
 
@@ -265,9 +462,19 @@
                             <span class="text-[10px] font-bold">IF / ELSE</span>
                         </button>
                         <div class="w-px h-10 bg-slate-700"></div>
+                        <button @click="addNode('switcher')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-sky-600/20 hover:text-sky-400 text-slate-400 transition group">
+                            <i class="fa-solid fa-shuffle text-2xl mb-1 group-hover:scale-110 transition"></i>
+                            <span class="text-[10px] font-bold">SWITCH</span>
+                        </button>
+                        <div class="w-px h-10 bg-slate-700"></div>
                         <button @click="resetView" title="Reset Camera" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-slate-700 text-slate-500 hover:text-white transition">
                             <i class="fa-solid fa-crosshairs text-xl mb-1"></i>
                             <span class="text-[10px] font-bold">CENTER</span>
+                        </button>
+                        <div class="w-10"></div>
+                        <button @click="runScenario" class="flex flex-col items-center justify-center w-32 h-16 rounded-xl bg-emerald-600/20 text-emerald-300 hover:bg-emerald-500/30 hover:text-emerald-200 transition group">
+                            <i class="fa-solid fa-play text-2xl mb-1 group-hover:scale-110 transition"></i>
+                            <span class="text-[10px] font-bold">PLAY</span>
                         </button>
                     </div>
                 </div>
@@ -276,13 +483,18 @@
 
             <aside class="w-80 bg-slate-900 border-l border-slate-700 flex flex-col z-40 shadow-xl">
                 <div class="flex border-b border-slate-700">
-                    <button @click="tab = 'props'" class="flex-1 py-3 text-xs font-bold uppercase transition hover:text-white" :class="tab==='props' ? 'text-blue-400 border-b-2 border-blue-500 bg-slate-800' : 'text-slate-500'">Свойства</button>
-                    <button @click="tab = 'vars'" class="flex-1 py-3 text-xs font-bold uppercase transition hover:text-white" :class="tab==='vars' ? 'text-yellow-400 border-b-2 border-yellow-500 bg-slate-800' : 'text-slate-500'">Переменные</button>
+                    <button @click="tab = 'props'" class="flex-1 py-3 text-xs font-bold uppercase transition hover:text-white" :class="tab==='props' ? 'text-blue-400 border-b-2 border-blue-500 bg-slate-800' : 'text-slate-500'">Properties</button>
+                    <button @click="tab = 'vars'" class="flex-1 py-3 text-xs font-bold uppercase transition hover:text-white" :class="tab==='vars' ? 'text-yellow-400 border-b-2 border-yellow-500 bg-slate-800' : 'text-slate-500'">Variables</button>
+                    <button @click="tab = 'chars'" class="flex-1 py-3 text-xs font-bold uppercase transition hover:text-white" :class="tab==='chars' ? 'text-emerald-400 border-b-2 border-emerald-500 bg-slate-800' : 'text-slate-500'">Characters</button>
                 </div>
 
                 <div class="flex-1 overflow-y-auto p-4">
                     <div v-if="tab === 'props'">
-                        <div v-if="selectedNode">
+                        <div v-if="selectedNodeIds.length > 1" class="h-full flex flex-col items-center justify-center text-slate-400">
+                            <i class="fa-solid fa-layer-group text-3xl mb-2"></i>
+                            <div class="text-sm">Selected {{ selectedNodeIds.length }} items</div>
+                        </div>
+                        <div v-else-if="selectedNode">
                             <div class="mb-4 pb-2 border-b border-slate-700 flex justify-between items-center text-slate-400 text-[10px] font-mono">
                                 <span>ID: {{ selectedNode.id.substr(-6) }}</span>
                                 <span class="uppercase font-bold text-white">{{ selectedNode.type }}</span>
@@ -290,15 +502,18 @@
 
                             <div v-if="selectedNode.type === 'dialog'" class="space-y-4">
                                 <div>
-                                    <label class="text-xs text-slate-500 block mb-1">Говорящий</label>
-                                    <input v-model="selectedNode.data.speaker" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none transition">
+                                    <label class="text-xs text-slate-500 block mb-1">Speaker</label>
+                                    <select v-model="selectedNode.data.speakerId" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm">
+                                        <option :value="null">Select character...</option>
+                                        <option v-for="c in characters" :value="c.id">{{ c.name }}</option>
+                                    </select>
                                 </div>
                                 <div>
-                                    <label class="text-xs text-slate-500 block mb-1">Текст</label>
+                                    <label class="text-xs text-slate-500 block mb-1">Text</label>
                                     <textarea v-model="selectedNode.data.text" rows="4" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none resize-none transition"></textarea>
                                 </div>
                                 <div>
-                                    <label class="text-xs text-slate-500 block mb-1">Ответы</label>
+                                    <label class="text-xs text-slate-500 block mb-1">Replies</label>
                                     <div class="space-y-2">
                                         <div v-for="(c, i) in selectedNode.data.choices" :key="i" class="flex gap-2">
                                             <input v-model="c.text" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs">
@@ -306,22 +521,22 @@
                                         </div>
                                     </div>
                                     <button @click="selectedNode.data.choices.push({text:'New Option'})" class="mt-2 w-full py-1 text-xs border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-slate-400 rounded transition">
-                                        + Добавить ответ
+                                        + Add reply
                                     </button>
                                 </div>
                             </div>
 
                             <div v-if="selectedNode.type === 'action'" class="space-y-4">
-                                <label class="text-xs text-slate-500 block">Действия</label>
+                                <label class="text-xs text-slate-500 block">Actions</label>
                                 <div v-if="!selectedNode.data.ops.length" class="text-xs text-slate-500 border border-dashed border-slate-700 rounded p-3 text-center">
-                                    Нет действий. Добавьте первый блок.
+                                    No actions. Add the first block.
                                 </div>
 
                                 <div class="space-y-3">
                                     <div v-for="(op, i) in selectedNode.data.ops" :key="op.id" class="bg-slate-800/60 p-3 rounded border border-slate-700 space-y-2">
                                         <div class="flex items-center gap-2">
                                             <select v-model="op.varId" @change="onActionVarChange(op)" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs">
-                                                <option :value="null">Переменная...</option>
+                                                <option :value="null">Variable...</option>
                                                 <option v-for="v in variables" :value="v.id">{{ v.name }}</option>
                                             </select>
                                             <button @click="removeActionOp(selectedNode, i)" class="text-slate-500 hover:text-red-400">
@@ -330,14 +545,24 @@
                                         </div>
 
                                         <div v-if="!op.varId" class="text-xs text-slate-500">
-                                            Выберите переменную для действия.
+                                            Select a variable for the action.
                                         </div>
 
                                         <div v-else-if="getVarType(op.varId) === 'bool'">
                                             <label class="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded px-2 py-2 text-xs">
                                                 <input type="checkbox" v-model="op.val" class="accent-emerald-500">
-                                                <span>Сделать {{ op.val ? 'True' : 'False' }}</span>
+                                                <span>Set {{ op.val ? 'True' : 'False' }}</span>
                                             </label>
+                                        </div>
+
+                                        <div v-else-if="getVarType(op.varId) === 'enum'">
+                                            <select v-model="op.val" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs">
+                                                <option v-for="opt in getVarOptions(op.varId)" :value="opt">{{ opt }}</option>
+                                            </select>
+                                        </div>
+
+                                        <div v-else-if="getVarType(op.varId) === 'string'">
+                                            <input type="text" v-model="op.val" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Text...">
                                         </div>
 
                                         <div v-else class="flex gap-2">
@@ -359,39 +584,67 @@
                             </div>
 
                             <div v-if="selectedNode.type === 'condition'" class="space-y-4">
-                                <label class="text-xs text-slate-500 block">Условие перехода</label>
+                                <label class="text-xs text-slate-500 block">Condition</label>
                                 <select v-model="selectedNode.data.varId" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm">
-                                    <option :value="null">Выбрать переменную...</option>
+                                    <option :value="null">Select variable...</option>
                                     <option v-for="v in variables" :value="v.id">{{ v.name }}</option>
                                 </select>
                                 <div class="flex gap-2" v-if="selectedNode.data.varId">
-                                    <select v-model="selectedNode.data.op" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
-                                        <option value="eq">==</option>
-                                        <option value="neq">!=</option>
-                                        <option value="gt">&gt;</option>
-                                        <option value="lt">&lt;</option>
-                                    </select>
-                                    <input type="number" v-model.number="selectedNode.data.val" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                    <div v-if="getVarType(selectedNode.data.varId) === 'bool'" class="flex gap-2 w-full">
+                                        <select v-model="selectedNode.data.op" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                            <option value="eq">==</option>
+                                            <option value="neq">!=</option>
+                                        </select>
+                                        <label class="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                            <input type="checkbox" v-model="selectedNode.data.val" class="accent-emerald-500">
+                                            <span>{{ selectedNode.data.val ? 'True' : 'False' }}</span>
+                                        </label>
+                                    </div>
+                                    <div v-else-if="getVarType(selectedNode.data.varId) === 'enum'" class="flex gap-2 w-full">
+                                        <select v-model="selectedNode.data.op" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                            <option value="eq">==</option>
+                                            <option value="neq">!=</option>
+                                        </select>
+                                        <select v-model="selectedNode.data.val" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                            <option v-for="opt in getVarOptions(selectedNode.data.varId)" :value="opt">{{ opt }}</option>
+                                        </select>
+                                    </div>
+                                    <div v-else-if="getVarType(selectedNode.data.varId) === 'string'" class="flex gap-2 w-full">
+                                        <select v-model="selectedNode.data.op" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                            <option value="eq">==</option>
+                                            <option value="neq">!=</option>
+                                        </select>
+                                        <input type="text" v-model="selectedNode.data.val" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                    </div>
+                                    <div v-else class="flex gap-2 w-full">
+                                        <select v-model="selectedNode.data.op" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                            <option value="eq">==</option>
+                                            <option value="neq">!=</option>
+                                            <option value="gt">&gt;</option>
+                                            <option value="lt">&lt;</option>
+                                        </select>
+                                        <input type="number" v-model.number="selectedNode.data.val" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                    </div>
                                 </div>
                             </div>
 
                         </div>
                         <div v-else class="h-full flex flex-col items-center justify-center text-slate-600 opacity-50">
                             <i class="fa-solid fa-computer-mouse text-4xl mb-2"></i>
-                            <span class="text-xs">Выберите ноду</span>
+                            <span class="text-xs">Select a node</span>
                         </div>
                     </div>
 
                     <div v-if="tab === 'vars'" class="space-y-3">
                         <div class="flex items-center justify-between">
-                            <h3 class="text-[11px] font-bold uppercase text-slate-400 tracking-wide">Переменные сценария</h3>
+                            <h3 class="text-[11px] font-bold uppercase text-slate-400 tracking-wide">Scenario Variables</h3>
                             <button @click="addVariable" class="px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold transition">
-                                <i class="fa-solid fa-plus mr-1"></i> Добавить
+                                <i class="fa-solid fa-plus mr-1"></i> Add
                             </button>
                         </div>
 
                         <div v-if="!variables.length" class="text-xs text-slate-500 border border-dashed border-slate-700 rounded p-3 text-center">
-                            Пока нет переменных. Нажмите «Добавить».
+                            No variables yet. Click “Add”.
                         </div>
 
                         <div class="space-y-2">
@@ -401,7 +654,7 @@
                                           :class="getVariableTypeClass(v.type)">
                                         {{ getVariableTypeLabel(v.type) }}
                                     </span>
-                                    <input v-model="v.name" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Имя переменной">
+                                    <input v-model="v.name" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Variable name">
                                     <button @click="removeVariable(v.id)" class="text-slate-500 hover:text-red-400">
                                         <i class="fa-solid fa-trash"></i>
                                     </button>
@@ -409,17 +662,66 @@
 
                                 <div class="grid grid-cols-2 gap-2">
                                     <select v-model="v.type" @change="updateVariableType(v)" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs">
-                                        <option value="num">Число</option>
+                                        <option value="num">Number</option>
                                         <option value="bool">Bool</option>
+                                        <option value="string">String</option>
+                                        <option value="enum">Enum</option>
                                     </select>
 
                                     <div v-if="v.type === 'num'">
                                         <input type="number" v-model.number="v.init" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs">
                                     </div>
-                                    <label v-else class="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs">
+                                    <label v-else-if="v.type === 'bool'" class="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs">
                                         <input type="checkbox" v-model="v.init" class="accent-emerald-500">
                                         <span>{{ v.init ? 'True' : 'False' }}</span>
                                     </label>
+                                    <div v-else-if="v.type === 'string'">
+                                        <input type="text" v-model="v.init" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Text">
+                                    </div>
+                                    <div v-else class="space-y-2">
+                                        <select v-model="v.init" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs">
+                                            <option v-for="opt in v.options" :value="opt">{{ opt }}</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div v-if="v.type === 'enum'" class="space-y-2">
+                                    <div class="text-[10px] text-slate-500 uppercase">Options</div>
+                                    <div class="space-y-1">
+                                        <div v-for="(opt, idx) in v.options" :key="idx" class="flex items-center gap-2">
+                                            <input v-model="v.options[idx]" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Option">
+                                            <button @click="removeEnumOption(v, idx)" class="text-slate-500 hover:text-red-400">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button @click="addEnumOption(v)" class="w-full py-1 text-[10px] border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-slate-400 rounded transition">
+                                        + Add option
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="tab === 'chars'" class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-[11px] font-bold uppercase text-slate-400 tracking-wide">Characters</h3>
+                            <button @click="addCharacter" class="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition">
+                                <i class="fa-solid fa-plus mr-1"></i> Add
+                            </button>
+                        </div>
+
+                        <div v-if="!characters.length" class="text-xs text-slate-500 border border-dashed border-slate-700 rounded p-3 text-center">
+                            No characters yet. Click “Add”.
+                        </div>
+
+                        <div class="space-y-2">
+                            <div v-for="c in characters" :key="c.id" class="bg-slate-800/60 p-3 rounded border border-slate-700 space-y-2">
+                                <div class="flex items-center gap-2">
+                                    <input v-model="c.name" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Character name">
+                                    <button @click="removeCharacter(c.id)" class="text-slate-500 hover:text-red-400">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -428,37 +730,114 @@
             </aside>
         </div>
 
+        <div class="absolute left-4 bottom-4 z-40 text-[10px] text-slate-300 bg-slate-900/70 border border-slate-700 rounded px-3 py-2 space-y-1 pointer-events-none">
+            <div class="font-bold uppercase text-[9px] text-slate-400">Hotkeys</div>
+            <div v-for="(h, i) in hotkeyHints" :key="i" class="flex items-center gap-2">
+                <span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-200 font-mono">{{ h.keys }}</span>
+                <span class="text-slate-300">{{ h.label }}</span>
+            </div>
+        </div>
+
         <div v-if="isPlayMode" class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center">
-            <div class="w-[800px] h-[600px] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl flex flex-col overflow-hidden">
+            <div class="w-[1250px] h-[780px] max-w-[95vw] max-h-[92vh] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl flex flex-col overflow-hidden">
                 <div class="h-10 bg-slate-950 flex justify-between items-center px-4 border-b border-slate-800">
                     <span class="text-xs font-bold text-emerald-500 uppercase tracking-widest">Running Scenario</span>
                     <button @click="isPlayMode = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
                 </div>
-                <div class="flex-1 p-6 overflow-y-auto font-mono text-sm" ref="gameLogRef">
-                    <div v-for="(msg, i) in gameLog" :key="i" class="mb-4">
-                        <span class="text-blue-400 font-bold block text-xs mb-1">{{ msg.speaker }}</span>
-                        <p class="text-slate-200">{{ msg.text }}</p>
+                <div class="flex-1 flex min-h-0">
+                    <div class="flex-1 flex flex-col p-6 gap-4 min-h-0">
+                        <div class="flex-1 min-h-0 overflow-hidden font-mono text-sm flex flex-col justify-end" ref="gameLogRef">
+                            <div class="flex flex-col gap-3">
+                                <div v-for="(msg, i) in gameLog" :key="i">
+                                    <span class="text-blue-400 font-bold block text-xs mb-1">{{ getCharacterName(msg.speakerId) }}</span>
+                                    <p class="text-slate-200">{{ msg.text }}</p>
                         <div v-if="msg.choice" class="mt-1 pl-2 border-l-2 border-slate-600 text-slate-500 text-xs italic">
-                            Выбрано: {{ msg.choice }}
+                            Chosen: {{ msg.choice }}
+                        </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="activeNode && activeNode.type === 'dialog' && !gameFinished" class="shrink-0 p-4 bg-slate-800 rounded border border-slate-700">
+                            <div class="text-blue-400 font-bold mb-2">{{ getCharacterName(activeNode.data.speakerId) }}</div>
+                            <div class="text-lg text-white mb-4">{{ activeNode.data.text }}</div>
+                            <div class="space-y-2">
+                                <button v-for="(c, i) in activeNode.data.choices" :key="i"
+                                        @click="makeChoice(i)"
+                                        class="w-full text-left p-3 rounded bg-slate-700 hover:bg-blue-600 transition text-slate-200 hover:text-white border border-slate-600">
+                                    {{ i + 1 }}. {{ c.text }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div v-if="gameFinished" class="shrink-0 text-center text-slate-500">
+                            --- End of scenario ---
+                            <br>
+                            <button @click="runScenario" class="mt-2 text-emerald-500 underline">Run again</button>
                         </div>
                     </div>
-                    
-                    <div v-if="activeNode && activeNode.type === 'dialog' && !gameFinished" class="mt-6 p-4 bg-slate-800 rounded border border-slate-700">
-                        <div class="text-blue-400 font-bold mb-2">{{ activeNode.data.speaker }}</div>
-                        <div class="text-lg text-white mb-4">{{ activeNode.data.text }}</div>
+
+                    <div class="w-56 border-l border-slate-800 bg-slate-950/40 p-4 space-y-3">
+                        <div class="text-xs font-bold uppercase text-slate-400 tracking-wide">Variables</div>
+                        <div v-if="!variables.length" class="text-xs text-slate-500">No variables</div>
                         <div class="space-y-2">
-                            <button v-for="(c, i) in activeNode.data.choices" :key="i"
-                                    @click="makeChoice(i)"
-                                    class="w-full text-left p-3 rounded bg-slate-700 hover:bg-blue-600 transition text-slate-200 hover:text-white border border-slate-600">
-                                {{ i + 1 }}. {{ c.text }}
-                            </button>
+                            <div v-for="v in variables" :key="v.id" class="flex items-center justify-between gap-2 text-xs">
+                                <span class="text-slate-400 truncate">{{ v.name }}</span>
+                                <span class="font-mono text-slate-200">{{ getRuntimeDisplay(v) }}</span>
+                            </div>
                         </div>
                     </div>
-                    
-                    <div v-if="gameFinished" class="mt-8 text-center text-slate-500">
-                        --- Конец сценария ---
-                        <br>
-                        <button @click="runScenario" class="mt-2 text-emerald-500 underline">Запустить снова</button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="cloud.show" class="fixed inset-0 z-[90] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
+            <div class="w-[800px] max-w-[95vw] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl overflow-hidden">
+                <div class="h-12 bg-slate-950 flex items-center justify-between px-4 border-b border-slate-800">
+                    <span class="text-xs font-bold uppercase tracking-widest text-slate-300">
+                        {{ cloud.mode === 'load' ? 'Load From Cloud' : 'Save To Cloud' }}
+                    </span>
+                    <button @click="cloud.show = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+
+                <div class="p-4">
+                    <div v-if="cloud.mode === 'save'" class="space-y-3">
+                        <label class="text-xs text-slate-500 block">Title</label>
+                        <input v-model="cloud.saveTitle" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm">
+                        <div class="flex items-center justify-between text-xs text-slate-500">
+                            <span v-if="cloud.currentId">Current project will be overwritten</span>
+                            <span v-else>Create new project</span>
+                        </div>
+                        <button @click="saveToCloud" class="w-full py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded">
+                            Save To Cloud
+                        </button>
+                    </div>
+
+                    <div v-else class="space-y-3">
+                        <div v-if="cloud.loading" class="text-center text-slate-500 py-10">
+                            <i class="fa-solid fa-spinner fa-spin text-2xl"></i>
+                            <div class="mt-2 text-xs">Loading...</div>
+                        </div>
+                        <div v-else-if="!cloud.list.length" class="text-center text-slate-500 py-10 text-xs">
+                            No projects
+                        </div>
+                        <div v-else class="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                            <div v-for="q in cloud.list" :key="q.id" @click="loadFromCloud(q)"
+                                 class="bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-500 rounded p-3 text-sm cursor-pointer flex items-center justify-between gap-3">
+                                <div class="min-w-0">
+                                    <div class="text-slate-200 font-bold truncate">{{ q.title }}</div>
+                                    <div class="text-[10px] text-slate-500">
+                                        {{ new Date((q.updated_at || q.created_at)).toLocaleString() }}
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <button @click.stop="deleteFromCloud(q)" class="text-slate-500 hover:text-red-400">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                    <i class="fa-solid fa-download text-slate-500"></i>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -467,6 +846,9 @@
     </div>
 
     <script>
+        const SUPABASE_URL = 'https://vmwwvwtsznxwoswzdzui.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_hfVfEOEyUxTAl9TCGQLQdA_2qpquHGk';
+
         const { createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } = Vue;
 
         createApp({
@@ -475,7 +857,39 @@
                 const nodes = ref([]);
                 const connections = ref([]); // { id, from, fromSocket, to, toSocket }
                 const variables = ref([]);
-                
+                const characters = ref([]);
+                const nodeClipboard = ref(null);
+                const currentProjectTitle = ref('');
+
+                const isAuth = ref(false);
+                const supabase = ref(null);
+                const cloud = reactive({
+                    show: false,
+                    mode: 'load',
+                    list: [],
+                    loading: false,
+                    saveTitle: 'New Project',
+                    currentId: null
+                });
+
+                const syncAuthFromSession = () => {
+                    const sessionAuth = sessionStorage.getItem('ct_supabase_auth') === 'true';
+                    if (isAuth.value !== sessionAuth) {
+                        isAuth.value = sessionAuth;
+                        if (isAuth.value && !supabase.value) initSupabaseAuto();
+                        if (!isAuth.value) {
+                            cloud.show = false;
+                        }
+                    }
+                };
+
+                const onAuthMessage = (e) => {
+                    if (!e?.data || e.data.type !== 'ct_auth') return;
+                    isAuth.value = !!e.data.isAuth;
+                    if (isAuth.value && !supabase.value) initSupabaseAuto();
+                    if (!isAuth.value) cloud.show = false;
+                };
+
                 // Viewport
                 const pan = reactive({ x: 0, y: 0 });
                 const scale = ref(1);
@@ -485,9 +899,11 @@
                 const dragLine = ref(null); // { fromNode, fromSocket, path }
                 const isPanning = ref(false);
                 const lastMouse = reactive({ x: 0, y: 0 });
+                const lastWorldMouse = reactive({ x: 0, y: 0, valid: false });
                 
                 // Selection
                 const selectedNodeId = ref(null);
+                const selectedNodeIds = ref([]);
                 const selectedConnId = ref(null);
                 
                 // UI & Logic
@@ -500,7 +916,11 @@
                 const runtimeVars = ref({});
                 const gameLogRef = ref(null);
 
+                const selectionBox = reactive({ active: false, x: 0, y: 0, w: 0, h: 0, startX: 0, startY: 0, shift: false, baseIds: [] });
+                const createKey = ref(null);
+
                 const canvasContainer = ref(null);
+                const loadInput = ref(null);
 
                 // --- HELPERS: Coordinates ---
                 // Convert screen coordinates to world coordinates
@@ -513,10 +933,45 @@
                     };
                 };
 
+                const toLocal = (sx, sy) => {
+                    if (!canvasContainer.value) return { x: 0, y: 0 };
+                    const rect = canvasContainer.value.getBoundingClientRect();
+                    return { x: sx - rect.left, y: sy - rect.top };
+                };
+
                 const getNodeIcon = (type) => {
-                    const map = { start: 'fa-play', dialog: 'fa-comment', action: 'fa-bolt', condition: 'fa-code-branch' };
+                    const map = { start: 'fa-play', dialog: 'fa-comment', action: 'fa-bolt', condition: 'fa-code-branch', switcher: 'fa-shuffle' };
                     return 'fa-solid ' + (map[type] || 'fa-circle');
                 };
+
+                const hotkeyHints = computed(() => {
+                    const base = [
+                        { keys: 'C + Click', label: 'Create Condition node' },
+                        { keys: 'S + Click', label: 'Create Switcher node' },
+                        { keys: 'A + Click', label: 'Create Action node' },
+                        { keys: 'D + Click', label: 'Create Dialog node' }
+                    ];
+                    const selection = selectedNodeIds.value.length;
+                    if (selection === 1) {
+                        return base.concat([
+                            { keys: 'Alt + Drag', label: 'Duplicate node' },
+                            { keys: 'Del/Backspace', label: 'Delete node' },
+                            { keys: 'Ctrl/Cmd+C', label: 'Copy' },
+                            { keys: 'Ctrl/Cmd+V', label: 'Paste' }
+                        ]);
+                    }
+                    if (selection > 1) {
+                        return base.concat([
+                            { keys: 'Alt + Drag', label: 'Duplicate group' },
+                            { keys: 'Del/Backspace', label: 'Delete group' },
+                            { keys: 'Shift + Click', label: 'Toggle selection' }
+                        ]);
+                    }
+                    return base.concat([
+                        { keys: 'Shift + Drag', label: 'Box select (toggle)' },
+                        { keys: 'Shift + Click', label: 'Toggle selection' }
+                    ]);
+                });
 
                 // Approximate socket positions relative to node (Fixed geometry approach)
                 const getSocketPos = (nodeId, socketType) => {
@@ -554,8 +1009,30 @@
                         return;
                     }
 
-                    // Клик по пустому месту без Shift сбрасывает выбор
-                    selectedNodeId.value = null;
+                    if (createKey.value) {
+                        const world = toWorld(e.clientX, e.clientY);
+                        spawnNode(createKey.value, world.x - 150, world.y - 50);
+                        selectedNodeIds.value = [nodes.value[nodes.value.length - 1].id];
+                        selectedNodeId.value = selectedNodeIds.value[0];
+                        selectedConnId.value = null;
+                        return;
+                    }
+
+                    // Клик по пустому месту запускает область выделения
+                    const local = toLocal(e.clientX, e.clientY);
+                    selectionBox.active = true;
+                    selectionBox.shift = e.shiftKey;
+                    selectionBox.baseIds = selectionBox.shift ? selectedNodeIds.value.slice() : [];
+                    selectionBox.startX = local.x;
+                    selectionBox.startY = local.y;
+                    selectionBox.x = local.x;
+                    selectionBox.y = local.y;
+                    selectionBox.w = 0;
+                    selectionBox.h = 0;
+                    if (!selectionBox.shift) {
+                        selectedNodeId.value = null;
+                        selectedNodeIds.value = [];
+                    }
                     selectedConnId.value = null;
                 };
 
@@ -583,14 +1060,17 @@
                 };
 
                 const startDragNode = (node, e) => {
+                    if (!selectedNodeIds.value.includes(node.id)) {
+                        selectedNodeIds.value = [node.id];
+                    }
                     selectedNodeId.value = node.id;
                     selectedConnId.value = null;
                     tab.value = 'props';
                     
-                    draggingNode.value = {
-                        node: node,
-                        // Важно: запоминаем не mouse, а дельту, чтобы не скакало
-                    };
+                    const selected = selectedNodeIds.value.map(id => nodes.value.find(n => n.id === id)).filter(Boolean);
+                    draggingNode.value = selected.length > 1
+                        ? { nodes: selected }
+                        : { node: node };
                     lastMouse.x = e.clientX;
                     lastMouse.y = e.clientY;
                 };
@@ -601,6 +1081,28 @@
                         return;
                     }
                     if (e.button !== 0) return;
+
+                    if (e.shiftKey) {
+                        if (selectedNodeIds.value.includes(node.id)) {
+                            selectedNodeIds.value = selectedNodeIds.value.filter(id => id !== node.id);
+                        } else {
+                            selectedNodeIds.value = [...selectedNodeIds.value, node.id];
+                        }
+                        selectedNodeId.value = selectedNodeIds.value.length === 1 ? selectedNodeIds.value[0] : null;
+                        selectedConnId.value = null;
+                        return;
+                    }
+
+                    if (e.altKey) {
+                        if (selectedNodeIds.value.length > 1 && selectedNodeIds.value.includes(node.id)) {
+                            const dups = duplicateNodes(selectedNodeIds.value, 20);
+                            if (dups.length) startDragNode(dups[0], e);
+                        } else {
+                            const dup = duplicateNode(node);
+                            if (dup) startDragNode(dup, e);
+                        }
+                        return;
+                    }
 
                     // ЛКМ по ноде = выбор + перетаскивание ноды
                     startDragNode(node, e);
@@ -621,6 +1123,53 @@
                 };
 
                 const onGlobalMouseMove = (e) => {
+                    const worldPos = toWorld(e.clientX, e.clientY);
+                    lastWorldMouse.x = worldPos.x;
+                    lastWorldMouse.y = worldPos.y;
+                    lastWorldMouse.valid = true;
+
+                    // 0. Selection box
+                    if (selectionBox.active) {
+                        const local = toLocal(e.clientX, e.clientY);
+                        const x = Math.min(selectionBox.startX, local.x);
+                        const y = Math.min(selectionBox.startY, local.y);
+                        const w = Math.abs(selectionBox.startX - local.x);
+                        const h = Math.abs(selectionBox.startY - local.y);
+                        selectionBox.x = x;
+                        selectionBox.y = y;
+                        selectionBox.w = w;
+                        selectionBox.h = h;
+
+                        const containerRect = canvasContainer.value.getBoundingClientRect();
+                        const selRect = {
+                            left: containerRect.left + x,
+                            top: containerRect.top + y,
+                            right: containerRect.left + x + w,
+                            bottom: containerRect.top + y + h
+                        };
+
+                        const hits = [];
+                        nodes.value.forEach(n => {
+                            const el = canvasContainer.value.querySelector(`.node-wrapper[data-node-id="${n.id}"]`);
+                            if (!el) return;
+                            const r = el.getBoundingClientRect();
+                            const intersect = !(r.right < selRect.left || r.left > selRect.right || r.bottom < selRect.top || r.top > selRect.bottom);
+                            if (intersect) hits.push(n.id);
+                        });
+                        if (selectionBox.shift) {
+                            const base = new Set(selectionBox.baseIds);
+                            hits.forEach(id => {
+                                if (base.has(id)) base.delete(id);
+                                else base.add(id);
+                            });
+                            selectedNodeIds.value = Array.from(base);
+                        } else {
+                            selectedNodeIds.value = hits;
+                        }
+                        selectedNodeId.value = selectedNodeIds.value.length === 1 ? selectedNodeIds.value[0] : null;
+                        selectedConnId.value = null;
+                    }
+
                     // 1. Panning
                     if (isPanning.value) {
                         const dx = e.clientX - lastMouse.x;
@@ -635,10 +1184,17 @@
                     if (draggingNode.value) {
                         const dx = (e.clientX - lastMouse.x) / scale.value;
                         const dy = (e.clientY - lastMouse.y) / scale.value;
-                        
-                        draggingNode.value.node.x += dx;
-                        draggingNode.value.node.y += dy;
-                        
+
+                        if (draggingNode.value.nodes) {
+                            draggingNode.value.nodes.forEach(n => {
+                                n.x += dx;
+                                n.y += dy;
+                            });
+                        } else {
+                            draggingNode.value.node.x += dx;
+                            draggingNode.value.node.y += dy;
+                        }
+
                         lastMouse.x = e.clientX;
                         lastMouse.y = e.clientY;
                         schedulePathUpdate();
@@ -646,7 +1202,6 @@
 
                     // 3. Line Dragging
                     if (dragLine.value) {
-                        const worldPos = toWorld(e.clientX, e.clientY);
                         dragLine.value.currPos = worldPos;
                         
                         // Update bezier
@@ -660,6 +1215,54 @@
                     isPanning.value = false;
                     draggingNode.value = null;
                     dragLine.value = null;
+                    selectionBox.active = false;
+                };
+
+                const onGlobalKeyDown = (e) => {
+                    if (isEditingElement()) return;
+                    const key = e.key.toLowerCase();
+                    const isCmd = e.ctrlKey || e.metaKey;
+                    if (['c', 's', 'a', 'd'].includes(key)) {
+                        const map = { c: 'condition', s: 'switcher', a: 'action', d: 'dialog' };
+                        createKey.value = map[key];
+                    }
+                    if (key === 'delete' || key === 'backspace') {
+                        if (selectedNodeIds.value.length) {
+                            const toDelete = selectedNodeIds.value.slice();
+                            toDelete.forEach(id => deleteNode(id));
+                            selectedNodeIds.value = selectedNodeIds.value.filter(id => nodes.value.find(n => n.id === id));
+                            selectedNodeId.value = selectedNodeIds.value.length === 1 ? selectedNodeIds.value[0] : null;
+                            selectedConnId.value = null;
+                            e.preventDefault();
+                        }
+                        return;
+                    }
+                    if (!isCmd) return;
+
+                    if (key === 'c') {
+                        if (selectedNode.value) {
+                            copySelectedNode();
+                            e.preventDefault();
+                        }
+                        return;
+                    }
+
+                    if (key === 'v') {
+                        const pasted = pasteClipboardNode();
+                        if (pasted) {
+                            selectedNodeId.value = pasted.id;
+                            selectedConnId.value = null;
+                            tab.value = 'props';
+                            e.preventDefault();
+                        }
+                    }
+                };
+
+                const onGlobalKeyUp = (e) => {
+                    const key = e.key.toLowerCase();
+                    if (['c', 's', 'a', 'd'].includes(key)) {
+                        createKey.value = null;
+                    }
                 };
 
                 const onSocketMouseUp = (targetNodeId, targetSocket) => {
@@ -709,36 +1312,173 @@
                 };
 
                 // --- LOGIC: Nodes CRUD ---
+                const genId = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
                 const createActionOp = () => ({
-                    id: `op_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+                    id: genId('op'),
                     varId: null,
                     op: 'set',
                     val: 0
                 });
+
+                const createSwitchCase = () => ({
+                    id: genId('case'),
+                    socketId: genId('socket'),
+                    value: ''
+                });
+
+                const defaultNodeData = (type) => {
+                    if (type === 'dialog') return { speakerId: null, text: '', choices: [] };
+                    if (type === 'action') return { ops: [createActionOp()] };
+                    if (type === 'condition') return { varId: null, op: 'eq', val: 0 };
+                    if (type === 'switcher') return { varId: null, cases: [createSwitchCase()] };
+                    return {};
+                };
+
+                const cloneNodeData = (type, data) => {
+                    const cloned = JSON.parse(JSON.stringify(data || {}));
+                    if (type === 'dialog') {
+                        if (!Array.isArray(cloned.choices)) cloned.choices = [];
+                        if (!('speakerId' in cloned)) cloned.speakerId = null;
+                        if (!('text' in cloned)) cloned.text = '';
+                    }
+                    if (type === 'action') {
+                        if (!Array.isArray(cloned.ops)) cloned.ops = [];
+                        cloned.ops = cloned.ops.map(op => ({ ...op, id: genId('op') }));
+                        if (!cloned.ops.length) cloned.ops = [createActionOp()];
+                    }
+                    if (type === 'condition') {
+                        if (!('varId' in cloned)) cloned.varId = null;
+                        if (!('op' in cloned)) cloned.op = 'eq';
+                        if (!('val' in cloned)) cloned.val = 0;
+                    }
+                    if (type === 'switcher') {
+                        if (!Array.isArray(cloned.cases)) cloned.cases = [];
+                        cloned.cases = cloned.cases.map(c => ({
+                            ...c,
+                            id: genId('case'),
+                            socketId: genId('socket')
+                        }));
+                        if (!cloned.cases.length) cloned.cases = [createSwitchCase()];
+                        if (!('varId' in cloned)) cloned.varId = null;
+                    }
+                    return cloned;
+                };
+
+                const spawnNode = (type, x, y, dataOverride = null) => {
+                    const node = {
+                        id: genId('node'),
+                        type,
+                        x,
+                        y,
+                        data: dataOverride || defaultNodeData(type)
+                    };
+                    nodes.value.push(node);
+                    schedulePathUpdate();
+                    return node;
+                };
+
+                const duplicateNode = (sourceNode, posOverride = null) => {
+                    if (sourceNode.type === 'start') return null;
+                    const data = cloneNodeData(sourceNode.type, sourceNode.data);
+                    const x = posOverride?.x ?? sourceNode.x;
+                    const y = posOverride?.y ?? sourceNode.y;
+                    const node = spawnNode(sourceNode.type, x, y, data);
+                    selectedNodeId.value = node.id;
+                    selectedConnId.value = null;
+                    tab.value = 'props';
+                    return node;
+                };
+
+                const duplicateNodes = (ids, offset = 20) => {
+                    const created = [];
+                    const idMap = new Map();
+                    ids.forEach(id => {
+                        const n = nodes.value.find(x => x.id === id);
+                        if (!n || n.type === 'start') return;
+                        const data = cloneNodeData(n.type, n.data);
+                        const node = spawnNode(n.type, n.x + offset, n.y + offset, data);
+                        idMap.set(id, node.id);
+                        created.push(node);
+                    });
+
+                    if (idMap.size) {
+                        const newConnections = [];
+                        connections.value.forEach(c => {
+                            const newFrom = idMap.get(c.from);
+                            const newTo = idMap.get(c.to);
+                            if (newFrom && newTo) {
+                                newConnections.push({
+                                    id: genId('conn'),
+                                    from: newFrom,
+                                    fromSocket: c.fromSocket,
+                                    to: newTo,
+                                    toSocket: c.toSocket,
+                                    path: ''
+                                });
+                            }
+                        });
+                        connections.value = connections.value.concat(newConnections);
+                        schedulePathUpdate();
+                    }
+
+                    selectedNodeIds.value = created.map(n => n.id);
+                    selectedNodeId.value = created.length === 1 ? created[0].id : null;
+                    selectedConnId.value = null;
+                    tab.value = 'props';
+                    return created;
+                };
+
+                const isEditingElement = () => {
+                    const el = document.activeElement;
+                    if (!el) return false;
+                    const tag = el.tagName;
+                    return el.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+                };
+
+                const copySelectedNode = () => {
+                    if (!selectedNode.value || selectedNode.value.type === 'start') return;
+                    nodeClipboard.value = {
+                        type: selectedNode.value.type,
+                        data: JSON.parse(JSON.stringify(selectedNode.value.data)),
+                        x: selectedNode.value.x,
+                        y: selectedNode.value.y
+                    };
+                };
+
+                const pasteClipboardNode = () => {
+                    if (!nodeClipboard.value) return null;
+                    const base = nodeClipboard.value;
+                    const data = cloneNodeData(base.type, base.data);
+                    const x = lastWorldMouse.valid ? lastWorldMouse.x : base.x + 30;
+                    const y = lastWorldMouse.valid ? lastWorldMouse.y : base.y + 30;
+                    return spawnNode(base.type, x, y, data);
+                };
 
                 const addNode = (type) => {
                     const rect = canvasContainer.value.getBoundingClientRect();
                     // Center of visible screen converted to world coords
                     const center = toWorld(rect.width/2 + rect.left, rect.height/2 + rect.top);
                     
-                    nodes.value.push({
-                        id: Date.now().toString(),
-                        type,
-                        x: center.x - 150,
-                        y: center.y - 50,
-                        data: type === 'dialog' ? { choices: [] } : (type === 'action' ? { ops: [createActionOp()] } : { ops: [] })
-                    });
-                    schedulePathUpdate();
+                    spawnNode(type, center.x - 150, center.y - 50);
                 };
 
                 const deleteNode = (id) => {
+                    const target = nodes.value.find(n => n.id === id);
+                    if (target && target.type === 'start') return;
                     nodes.value = nodes.value.filter(n => n.id !== id);
                     connections.value = connections.value.filter(c => c.from !== id && c.to !== id);
                     if (selectedNodeId.value === id) selectedNodeId.value = null;
+                    selectedNodeIds.value = selectedNodeIds.value.filter(nid => nid !== id);
                     schedulePathUpdate();
                 };
 
-                const selectNode = (id) => { selectedNodeId.value = id; selectedConnId.value = null; tab.value = 'props'; };
+                const selectNode = (id) => {
+                    selectedNodeId.value = id;
+                    selectedNodeIds.value = [id];
+                    selectedConnId.value = null;
+                    tab.value = 'props';
+                };
                 const selectConnection = (id) => { selectedConnId.value = id; selectedNodeId.value = null; };
 
                 // --- LOGIC: Variables ---
@@ -748,13 +1488,20 @@
                         id: Date.now().toString(),
                         name: `Var_${nextIndex}`,
                         type: 'num',
-                        init: 0
+                        init: 0,
+                        options: []
                     });
                 };
 
                 const updateVariableType = (variable) => {
                     if (variable.type === 'bool') {
                         variable.init = Boolean(variable.init);
+                    } else if (variable.type === 'string') {
+                        variable.init = variable.init != null ? String(variable.init) : '';
+                    } else if (variable.type === 'enum') {
+                        if (!Array.isArray(variable.options)) variable.options = [];
+                        if (!variable.options.length) variable.options = ['Option_1'];
+                        if (!variable.options.includes(variable.init)) variable.init = variable.options[0];
                     } else {
                         const parsedValue = Number(variable.init);
                         variable.init = Number.isNaN(parsedValue) ? 0 : parsedValue;
@@ -768,12 +1515,60 @@
                             if (variable.type === 'bool') {
                                 op.op = 'set';
                                 op.val = Boolean(op.val);
+                            } else if (variable.type === 'string') {
+                                op.op = 'set';
+                                op.val = op.val != null ? String(op.val) : '';
+                            } else if (variable.type === 'enum') {
+                                op.op = 'set';
+                                if (!Array.isArray(variable.options)) variable.options = [];
+                                if (!variable.options.length) variable.options = ['Option_1'];
+                                op.val = variable.options.includes(op.val) ? op.val : variable.options[0];
                             } else {
                                 if (!['add', 'sub', 'mul', 'div', 'set'].includes(op.op)) op.op = 'set';
                                 const numVal = Number(op.val);
                                 op.val = Number.isNaN(numVal) ? 0 : numVal;
                             }
                         });
+                    });
+
+                    // Обновляем condition/switcher, связанные с этой переменной
+                    nodes.value.forEach(node => {
+                        if (node.type === 'condition' && node.data.varId === variable.id) {
+                            if (variable.type === 'bool') {
+                                node.data.op = ['eq', 'neq'].includes(node.data.op) ? node.data.op : 'eq';
+                                node.data.val = Boolean(node.data.val);
+                            } else if (variable.type === 'string') {
+                                node.data.op = ['eq', 'neq'].includes(node.data.op) ? node.data.op : 'eq';
+                                node.data.val = node.data.val != null ? String(node.data.val) : '';
+                            } else if (variable.type === 'enum') {
+                                node.data.op = ['eq', 'neq'].includes(node.data.op) ? node.data.op : 'eq';
+                                if (!Array.isArray(variable.options)) variable.options = [];
+                                if (!variable.options.length) variable.options = ['Option_1'];
+                                node.data.val = variable.options.includes(node.data.val) ? node.data.val : variable.options[0];
+                            } else {
+                                node.data.op = ['eq', 'neq', 'gt', 'lt'].includes(node.data.op) ? node.data.op : 'eq';
+                                const numVal = Number(node.data.val);
+                                node.data.val = Number.isNaN(numVal) ? 0 : numVal;
+                            }
+                        }
+
+                        if (node.type === 'switcher' && node.data.varId === variable.id) {
+                            if (!Array.isArray(node.data.cases)) return;
+                            node.data.cases.forEach(c => {
+                                if (variable.type === 'bool') {
+                                    c.value = Boolean(c.value);
+                                } else if (variable.type === 'string') {
+                                    c.value = c.value != null ? String(c.value) : '';
+                                } else if (variable.type === 'enum') {
+                                    if (!Array.isArray(variable.options)) variable.options = [];
+                                    if (!variable.options.length) variable.options = ['Option_1'];
+                                    c.value = variable.options.includes(c.value) ? c.value : variable.options[0];
+                                } else {
+                                    const numVal = Number(c.value);
+                                    c.value = Number.isNaN(numVal) ? 0 : numVal;
+                                }
+                            });
+                        }
                     });
                 };
 
@@ -789,17 +1584,81 @@
                         if (node.type === 'action' && Array.isArray(node.data.ops)) {
                             node.data.ops = node.data.ops.filter(op => op.varId !== variableId);
                         }
+
+                        if (node.type === 'switcher' && node.data.varId === variableId) {
+                            node.data.varId = null;
+                        }
                     });
                 };
 
                 const getVariableTypeClass = (type) => {
-                    if (type === 'bool') return 'bg-emerald-900/40 text-emerald-300 border border-emerald-500/30';
-                    return 'bg-blue-900/40 text-blue-300 border border-blue-500/30';
+                    if (type === 'bool') return 'bg-orange-900/40 text-orange-300 border border-orange-500/30';
+                    if (type === 'string') return 'bg-pink-900/40 text-pink-300 border border-pink-500/30';
+                    if (type === 'enum') return 'bg-teal-900/40 text-teal-300 border border-teal-500/30';
+                    return 'bg-emerald-900/40 text-emerald-300 border border-emerald-500/30';
                 };
 
-                const getVariableTypeLabel = (type) => type === 'bool' ? 'Bool' : 'Num';
+                const getVariableTypeLabel = (type) => {
+                    if (type === 'bool') return 'Bool';
+                    if (type === 'string') return 'String';
+                    if (type === 'enum') return 'Enum';
+                    return 'Num';
+                };
+
+                const addEnumOption = (variable) => {
+                    if (!Array.isArray(variable.options)) variable.options = [];
+                    const nextIndex = variable.options.length + 1;
+                    variable.options.push(`Option_${nextIndex}`);
+                    if (!variable.options.includes(variable.init)) {
+                        variable.init = variable.options[0];
+                    }
+                    updateVariableType(variable);
+                };
+
+                const removeEnumOption = (variable, index) => {
+                    if (!Array.isArray(variable.options)) return;
+                    variable.options.splice(index, 1);
+                    if (!variable.options.length) variable.options = ['Option_1'];
+                    if (!variable.options.includes(variable.init)) {
+                        variable.init = variable.options[0];
+                    }
+                    updateVariableType(variable);
+                };
+
+                const getVarOptions = (id) => {
+                    const opts = variables.value.find(v => v.id === id)?.options;
+                    return Array.isArray(opts) ? opts : [];
+                };
+
+                // --- LOGIC: Characters ---
+                const addCharacter = () => {
+                    const nextIndex = characters.value.length + 1;
+                    characters.value.push({
+                        id: `char_${Date.now()}`,
+                        name: `NPC_${nextIndex}`
+                    });
+                };
+
+                const removeCharacter = (id) => {
+                    characters.value = characters.value.filter(c => c.id !== id);
+                    nodes.value.forEach(node => {
+                        if (node.type === 'dialog' && node.data.speakerId === id) {
+                            node.data.speakerId = null;
+                        }
+                    });
+                };
+
+                const getCharacterName = (id) => characters.value.find(c => c.id === id)?.name || '???';
 
                 const getVarType = (id) => variables.value.find(v => v.id === id)?.type || null;
+                const getRuntimeDisplay = (v) => {
+                    const val = runtimeVars.value[v.id];
+                    if (val === undefined || val === null) return '—';
+                    if (v.type === 'bool') return val ? 'True' : 'False';
+                    if (v.type === 'num') return (Number(val) || 0).toString();
+                    return val != null ? String(val) : '';
+                };
+
 
                 const onActionVarChange = (op) => {
                     const v = variables.value.find(v => v.id === op.varId);
@@ -807,6 +1666,14 @@
                     if (v.type === 'bool') {
                         op.op = 'set';
                         op.val = Boolean(v.init);
+                    } else if (v.type === 'string') {
+                        op.op = 'set';
+                        op.val = v.init != null ? String(v.init) : '';
+                    } else if (v.type === 'enum') {
+                        op.op = 'set';
+                        if (!Array.isArray(v.options)) v.options = [];
+                        if (!v.options.length) v.options = ['Option_1'];
+                        op.val = v.options.includes(op.val) ? op.val : v.options[0];
                     } else {
                         if (!['add', 'sub', 'mul', 'div', 'set'].includes(op.op)) op.op = 'set';
                         const numVal = Number(op.val);
@@ -825,6 +1692,35 @@
                     node.data.ops.splice(index, 1);
                 };
 
+                const addSwitcherCase = (node) => {
+                    if (!node?.data) return;
+                    if (!Array.isArray(node.data.cases)) node.data.cases = [];
+                    node.data.cases.push(createSwitchCase());
+                };
+
+                const removeSwitcherCase = (node, caseItem) => {
+                    if (!node?.data || !Array.isArray(node.data.cases)) return;
+                    node.data.cases = node.data.cases.filter(c => c.id !== caseItem.id);
+                    connections.value = connections.value.filter(c => !(c.from === node.id && c.fromSocket === caseItem.socketId));
+                    schedulePathUpdate();
+                };
+
+                const onSwitcherVarChange = (node) => {
+                    if (!node?.data) return;
+                    const v = variables.value.find(v => v.id === node.data.varId);
+                    if (!v) return;
+                    if (!Array.isArray(node.data.cases)) node.data.cases = [];
+                    node.data.cases.forEach(c => {
+                        if (v.type === 'bool') c.value = false;
+                        else if (v.type === 'string') c.value = '';
+                        else if (v.type === 'enum') {
+                            if (!Array.isArray(v.options)) v.options = [];
+                            if (!v.options.length) v.options = ['Option_1'];
+                            c.value = v.options[0];
+                        } else c.value = 0;
+                    });
+                };
+
                 // --- LOGIC: Helper ---
                 const getVarName = (id) => variables.value.find(v => v.id === id)?.name || '???';
                 const getConditionText = (d) => {
@@ -841,7 +1737,7 @@
                 // --- RUNTIME ---
                 const runScenario = () => {
                     const start = nodes.value.find(n => n.type === 'start');
-                    if (!start) { alert("Нет ноды Start!"); return; }
+                    if (!start) { alert("No Start node!"); return; }
                     
                     // Init Vars
                     runtimeVars.value = {};
@@ -875,6 +1771,11 @@
                                 return;
                             }
 
+                            if (v.type === 'string' || v.type === 'enum') {
+                                runtimeVars.value[op.varId] = op.val != null ? String(op.val) : '';
+                                return;
+                            }
+
                             const current = Number(runtimeVars.value[op.varId]) || 0;
                             const val = Number(op.val) || 0;
                             if (op.op === 'add') runtimeVars.value[op.varId] = current + val;
@@ -885,13 +1786,56 @@
                         });
                         traverse(node.id, 'default');
                     }
+                    else if (node.type === 'switcher') {
+                        const variable = variables.value.find(v => v.id === node.data.varId);
+                        const vType = variable?.type || 'num';
+                        const rawVal = runtimeVars.value[node.data.varId];
+                        let current = rawVal;
+
+                        if (vType === 'bool') current = Boolean(rawVal);
+                        else if (vType === 'string' || vType === 'enum') current = rawVal != null ? String(rawVal) : '';
+                        else current = Number(rawVal) || 0;
+
+                        let matched = null;
+                        if (Array.isArray(node.data.cases)) {
+                            for (const c of node.data.cases) {
+                                let caseVal = c.value;
+                                if (vType === 'bool') caseVal = Boolean(c.value);
+                                else if (vType === 'string' || vType === 'enum') caseVal = c.value != null ? String(c.value) : '';
+                                else caseVal = Number(c.value) || 0;
+
+                                if (caseVal === current) { matched = c; break; }
+                            }
+                        }
+
+                        traverse(node.id, matched ? matched.socketId : 'default');
+                    }
                     else if (node.type === 'condition') {
-                        const val = runtimeVars.value[node.data.varId] || 0;
-                        const target = node.data.val;
+                        const variable = variables.value.find(v => v.id === node.data.varId);
+                        const vType = variable?.type || 'num';
+                        const rawVal = runtimeVars.value[node.data.varId];
+                        let val = rawVal;
+                        let target = node.data.val;
                         let res = false;
-                        if (node.data.op === 'eq') res = val == target;
-                        if (node.data.op === 'gt') res = val > target;
-                        if (node.data.op === 'lt') res = val < target;
+
+                        if (vType === 'bool') {
+                            val = Boolean(rawVal);
+                            target = Boolean(node.data.val);
+                            if (node.data.op === 'eq') res = val === target;
+                            if (node.data.op === 'neq') res = val !== target;
+                        } else if (vType === 'string' || vType === 'enum') {
+                            val = rawVal != null ? String(rawVal) : '';
+                            target = node.data.val != null ? String(node.data.val) : '';
+                            if (node.data.op === 'eq') res = val === target;
+                            if (node.data.op === 'neq') res = val !== target;
+                        } else {
+                            val = Number(rawVal) || 0;
+                            target = Number(node.data.val) || 0;
+                            if (node.data.op === 'eq') res = val == target;
+                            if (node.data.op === 'gt') res = val > target;
+                            if (node.data.op === 'lt') res = val < target;
+                            if (node.data.op === 'neq') res = val != target;
+                        }
                         
                         traverse(node.id, res ? 'true' : 'false');
                     }
@@ -912,16 +1856,225 @@
 
                 const makeChoice = (idx) => {
                     gameLog.value.push({
-                        speaker: activeNode.value.data.speaker,
+                        speakerId: activeNode.value.data.speakerId,
                         text: activeNode.value.data.text,
                         choice: activeNode.value.data.choices[idx].text
                     });
-                    nextTick(() => { if (gameLogRef.value) gameLogRef.value.scrollTop = 9999; });
                     traverse(activeNode.value.id, 'choice-' + idx);
+                };
+
+                const triggerLoad = () => {
+                    if (loadInput.value) loadInput.value.click();
+                };
+
+                const buildProjectPayload = () => ({
+                    version: 1,
+                    title: currentProjectTitle.value || '',
+                    nodes: nodes.value,
+                    connections: connections.value,
+                    variables: variables.value,
+                    characters: characters.value,
+                    pan: { x: pan.x, y: pan.y },
+                    scale: scale.value
+                });
+
+                const applyProjectData = (data) => {
+                    nodes.value = Array.isArray(data.nodes) ? data.nodes : [];
+                    connections.value = Array.isArray(data.connections) ? data.connections : [];
+                    variables.value = Array.isArray(data.variables) ? data.variables : [];
+                    characters.value = Array.isArray(data.characters) ? data.characters : [];
+                    pan.x = data.pan?.x ?? 0;
+                    pan.y = data.pan?.y ?? 0;
+                    scale.value = data.scale ?? 1;
+                    currentProjectTitle.value = data.title || '';
+
+                    // Normalize loaded data
+                    variables.value.forEach(v => updateVariableType(v));
+                    nodes.value.forEach(n => {
+                        if (n.type === 'action') {
+                            if (!Array.isArray(n.data?.ops)) n.data.ops = [];
+                            n.data.ops = n.data.ops.map(op => ({ ...op, id: op.id || genId('op') }));
+                            if (!n.data.ops.length) n.data.ops = [createActionOp()];
+                        }
+                        if (n.type === 'switcher') {
+                            if (!Array.isArray(n.data?.cases)) n.data.cases = [];
+                            n.data.cases = n.data.cases.map(c => ({
+                                ...c,
+                                id: c.id || genId('case'),
+                                socketId: c.socketId || genId('socket')
+                            }));
+                            if (!n.data.cases.length) n.data.cases = [createSwitchCase()];
+                        }
+                        if (n.type === 'dialog') {
+                            if (!Array.isArray(n.data?.choices)) n.data.choices = [];
+                        }
+                        if (n.type === 'condition') {
+                            if (!('op' in n.data)) n.data.op = 'eq';
+                            if (!('val' in n.data)) n.data.val = 0;
+                        }
+                    });
+
+                    selectedNodeId.value = null;
+                    selectedConnId.value = null;
+                    schedulePathUpdate();
+                };
+
+                const saveProject = () => {
+                    const payload = buildProjectPayload();
+                    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'quest_architect.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                };
+
+                const loadProject = (e) => {
+                    const f = e.target.files[0];
+                    if (!f) return;
+                    const r = new FileReader();
+                    r.onload = (ev) => {
+                        try {
+                            const data = JSON.parse(ev.target.result);
+                            applyProjectData(data);
+                            cloud.currentId = null;
+                        } catch (err) {
+                            alert('Project load error');
+                        }
+                    };
+                    r.readAsText(f);
+                    e.target.value = '';
+                };
+
+                const initSupabaseAuto = () => {
+                    try {
+                        supabase.value = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                    } catch (e) {
+                        console.error('Supabase init failed', e);
+                    }
+                };
+
+                const openCloudModal = async (mode) => {
+                    if (!supabase.value) return;
+                    cloud.mode = mode;
+                    cloud.show = true;
+                    if (mode === 'save') {
+                        cloud.saveTitle = currentProjectTitle.value || cloud.saveTitle || 'New Project';
+                    }
+                    await fetchCloudList();
+                };
+
+                const fetchCloudList = async () => {
+                    if (!supabase.value) return;
+                    cloud.loading = true;
+                    const { data, error } = await supabase.value
+                        .from('quest_projects')
+                        .select('id, title, created_at, updated_at')
+                        .order('updated_at', { ascending: false });
+                    if (error) {
+                        console.error('Cloud list error:', error);
+                        cloud.list = [];
+                    } else {
+                        cloud.list = data || [];
+                    }
+                    cloud.loading = false;
+                };
+
+                const saveToCloud = async () => {
+                    if (!supabase.value) return;
+                    const title = (cloud.saveTitle || '').trim();
+                    if (!title) {
+                        alert('Enter a project title');
+                        return;
+                    }
+
+                    const { data: userData, error: userErr } = await supabase.value.auth.getUser();
+                    if (userErr || !userData?.user) {
+                        alert('Not authenticated');
+                        return;
+                    }
+                    const userId = userData.user.id;
+
+                    let targetId = cloud.currentId;
+                    const existing = cloud.list.find(q => q.title === title);
+                    if (existing && existing.id !== cloud.currentId) {
+                    const ok = confirm(`Project "${title}" already exists. Overwrite?`);
+                        if (!ok) return;
+                        targetId = existing.id;
+                    }
+
+                    const payload = buildProjectPayload();
+                    payload.title = title;
+
+                    const row = {
+                        client_id: userId,
+                        title,
+                        data: payload,
+                        updated_at: new Date().toISOString()
+                    };
+                    if (targetId) row.id = targetId;
+
+                    const { data, error } = await supabase.value
+                        .from('quest_projects')
+                        .upsert(row)
+                        .select();
+
+                    if (error) {
+                        alert('Save error: ' + error.message);
+                        return;
+                    }
+                    if (data && data[0]) {
+                        cloud.currentId = data[0].id;
+                    }
+                    currentProjectTitle.value = title;
+                    cloud.show = false;
+                    fetchCloudList();
+                };
+
+                const loadFromCloud = async (questMeta) => {
+                    if (!supabase.value) return;
+                    cloud.loading = true;
+                    const { data, error } = await supabase.value
+                        .from('quest_projects')
+                        .select('data, title')
+                        .eq('id', questMeta.id)
+                        .single();
+                    if (error) {
+                        alert('Load error: ' + error.message);
+                        cloud.loading = false;
+                        return;
+                    }
+                    applyProjectData(data.data || {});
+                    currentProjectTitle.value = data.title || '';
+                    cloud.currentId = questMeta.id;
+                    cloud.saveTitle = currentProjectTitle.value || cloud.saveTitle;
+                    cloud.show = false;
+                    cloud.loading = false;
+                };
+
+                const deleteFromCloud = async (questMeta) => {
+                    if (!supabase.value) return;
+                    const ok = confirm(`Delete project "${questMeta.title}"?`);
+                    if (!ok) return;
+                    const { error } = await supabase.value
+                        .from('quest_projects')
+                        .delete()
+                        .eq('id', questMeta.id);
+                    if (error) {
+                        alert('Delete error: ' + error.message);
+                        return;
+                    }
+                    if (cloud.currentId === questMeta.id) {
+                        cloud.currentId = null;
+                        currentProjectTitle.value = '';
+                    }
+                    fetchCloudList();
                 };
 
                 // Init
                 onMounted(() => {
+                    syncAuthFromSession();
                     resetView();
                     // Demo Data
                     const startId = 'start';
@@ -931,27 +2084,43 @@
                     // Глобальные listeners: drag/pan/line продолжают работать даже если курсор вышел за пределы canvas
                     window.addEventListener('mousemove', onGlobalMouseMove);
                     window.addEventListener('mouseup', onGlobalMouseUp);
+                    window.addEventListener('keydown', onGlobalKeyDown);
+                    window.addEventListener('keyup', onGlobalKeyUp);
+                    window.addEventListener('message', onAuthMessage);
+                    window.addEventListener('focus', syncAuthFromSession);
+                    document.addEventListener('visibilitychange', syncAuthFromSession);
                 });
 
                 onBeforeUnmount(() => {
                     window.removeEventListener('mousemove', onGlobalMouseMove);
                     window.removeEventListener('mouseup', onGlobalMouseUp);
+                    window.removeEventListener('keydown', onGlobalKeyDown);
+                    window.removeEventListener('keyup', onGlobalKeyUp);
+                    window.removeEventListener('message', onAuthMessage);
+                    window.removeEventListener('focus', syncAuthFromSession);
+                    document.removeEventListener('visibilitychange', syncAuthFromSession);
                 });
 
                 return {
-                    nodes, connections, variables, pan, scale, canvasContainer,
-                    selectedNodeId, selectedNode, selectedConnId,
+                    nodes, connections, variables, characters, pan, scale, canvasContainer, loadInput,
+                    isAuth, cloud, currentProjectTitle,
+                    selectedNodeId, selectedNodeIds, selectedNode, selectedConnId,
                     tab, isPlayMode, gameLog, activeNode, gameFinished,
                     dragLine,
+                    selectionBox, hotkeyHints,
                     
                     handleWheel, onCanvasMouseDown, startPan, onNodeMouseDown, startDragNode, startDragLine,
                     onGlobalMouseMove, onGlobalMouseUp, onSocketMouseUp,
                     addNode, deleteNode, selectNode, selectConnection,
-                    addVariable, updateVariableType, removeVariable, getVariableTypeClass, getVariableTypeLabel, getVarType,
+                    addVariable, updateVariableType, removeVariable, getVariableTypeClass, getVariableTypeLabel, getVarType, getVarOptions,
+                    addEnumOption, removeEnumOption,
                     addActionOp, removeActionOp, onActionVarChange,
+                    addSwitcherCase, removeSwitcherCase, onSwitcherVarChange,
+                    addCharacter, removeCharacter, getCharacterName, getRuntimeDisplay,
                     getVarName, getConditionText, getNodeIcon,
                     resetView, runScenario, makeChoice,
-                    saveProject: () => alert('Mock Save')
+                    saveProject, loadProject, triggerLoad,
+                    openCloudModal, saveToCloud, loadFromCloud, deleteFromCloud
                 };
             }
         }).mount('#app');

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Common Tools and Libs</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         /* Сброс стилей */
@@ -190,7 +191,7 @@
             <li><a href="CurveToCode_Pro.html" target="tool-frame">📉 Curve Editor</a></li>
             <li><a href="progression_balancer.html" target="tool-frame">📊 Balance Progression Tool</a></li>
             <li><a href="factory_architect.html" target="tool-frame">🏭 Factory Architect</a></li>
-            <li><a href="QuestArchitect.html" target="tool-frame">🗺️ Quest Architect</a></li>
+            <li><a href="QuestArchitect2.html" target="tool-frame"><i class="fa-solid fa-diagram-project"></i> Quest Architect</a></li>
         </ul>
 
         <div class="category-title" style="color: #4ec9b0;">Generators</div>
@@ -203,8 +204,6 @@
 <div class="category-title admin-group" style="color: #4ec9b0;">Admin Zone</div>
 <ul class="nav-links admin-group">
     <li><a href="admin_add.html" target="tool-frame">📝 Snippet Builder</a></li>
-    <li><a href="admin_bp_add.html" target="tool-frame">➕ BP Generator</a></li>
-    <li><a href="admin_shader_add.html" target="tool-frame">🔮 Shader Generator</a></li>
 </ul>
 
         <div class="footer" id="loginBtn" onclick="handleAuthClick()">
@@ -213,7 +212,7 @@
     </aside>
 
     <main class="main-content">
-        <iframe src="welcome.html" name="tool-frame"></iframe>
+        <iframe src="welcome.html" name="tool-frame" id="tool-frame"></iframe>
     </main>
 
     <div class="modal-overlay" id="loginModal">
@@ -350,6 +349,8 @@
                 btn.innerHTML = `<span style="margin-right:8px">🟢</span> ${user.email}`;
                 btn.style.color = "#fff";
             }
+
+            broadcastAuthState(true, user?.email || null);
         }
 
         function lockUI() {
@@ -360,6 +361,15 @@
             if (btn) {
                 btn.innerHTML = '<span id="statusIcon" style="margin-right:8px">🔒</span> Login';
                 btn.style.color = "#888";
+            }
+
+            broadcastAuthState(false, null);
+        }
+
+        function broadcastAuthState(isAuth, email) {
+            const frame = document.getElementById('tool-frame');
+            if (frame && frame.contentWindow) {
+                frame.contentWindow.postMessage({ type: 'ct_auth', isAuth, email }, '*');
             }
         }
 

@@ -2,16 +2,175 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Common Tools Hub</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #1e1e1e; color: #d4d4d4; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        h1 { color: #4ec9b0; margin-bottom: 10px; }
-        p { color: #888; max-width: 400px; text-align: center; line-height: 1.5; }
-        .icon { font-size: 4em; margin-bottom: 20px; opacity: 0.8; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 24px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            color: #4ec9b0;
+            font-size: 1.8em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #888;
+            max-width: 500px;
+            line-height: 1.5;
+            font-size: 0.95em;
+        }
+
+        .tools-section {
+            max-width: 960px;
+            width: 100%;
+            margin-bottom: 32px;
+        }
+
+        .tools-section-title {
+            font-size: 1.05em;
+            font-weight: 600;
+            color: #d4d4d4;
+            margin-bottom: 12px;
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        .tool-card {
+            display: block;
+            background-color: #252526;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 18px;
+            text-decoration: none;
+            color: #d4d4d4;
+            transition: background 0.2s, border-color 0.2s, transform 0.15s;
+        }
+
+        .tool-card:hover {
+            background-color: #2a2d2e;
+            border-color: #007acc;
+            transform: translateY(-1px);
+        }
+
+        .tool-card .tool-name {
+            font-weight: 600;
+            color: #4ec9b0;
+            font-size: 1em;
+            margin-bottom: 6px;
+        }
+
+        .tool-card .tool-desc {
+            font-size: 0.85em;
+            color: #888;
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
-    <div class="icon">👋</div>
-    <h1>Добро пожаловать в UE Tools Hub</h1>
-    <p>Выберите нужный инструмент в меню слева, чтобы начать работу.</p>
+    <div class="header">
+        <h1>Common Tools Hub</h1>
+        <p>Choose a tool below to get started. All tools are available in the sidebar.</p>
+    </div>
+
+    <div class="tools-section">
+        <div class="tools-section-title">Visual Library</div>
+        <div class="tools-grid">
+            <a class="tool-card" href="blueprints_view.html" target="tool-frame">
+                <div class="tool-name">Blueprint Gallery</div>
+                <div class="tool-desc">Browse and use Unreal Engine blueprint snippets.</div>
+            </a>
+            <a class="tool-card" href="shaders_view.html" target="tool-frame">
+                <div class="tool-name">Shader Library</div>
+                <div class="tool-desc">Collection of shader examples and utilities.</div>
+            </a>
+            <a class="tool-card" href="hlsl_view.html" target="tool-frame">
+                <div class="tool-name">HLSL Library</div>
+                <div class="tool-desc">HLSL code snippets for graphics programming.</div>
+            </a>
+            <a class="tool-card" href="snippets_view.html" target="tool-frame">
+                <div class="tool-name">Snippets Library</div>
+                <div class="tool-desc">General code snippets and templates.</div>
+            </a>
+        </div>
+    </div>
+
+    <div class="tools-section">
+        <div class="tools-section-title">Data Tools</div>
+        <div class="tools-grid">
+            <a class="tool-card" href="UE_EnumGen.html" target="tool-frame">
+                <div class="tool-name">UE Enum Generator</div>
+                <div class="tool-desc">Generate Unreal Engine enum definitions.</div>
+            </a>
+            <a class="tool-card" href="UE_Converter_Pro.html" target="tool-frame">
+                <div class="tool-name">Data Converter</div>
+                <div class="tool-desc">Convert and transform data formats.</div>
+            </a>
+            <a class="tool-card" href="CurveToCode_Pro.html" target="tool-frame">
+                <div class="tool-name">Curve Editor</div>
+                <div class="tool-desc">Edit curves and export to code.</div>
+            </a>
+            <a class="tool-card" href="progression_balancer.html" target="tool-frame">
+                <div class="tool-name">Balance Progression Tool</div>
+                <div class="tool-desc">Balance and tune progression curves.</div>
+            </a>
+            <a class="tool-card" href="factory_architect.html" target="tool-frame">
+                <div class="tool-name">Factory Architect</div>
+                <div class="tool-desc">Design and configure factory systems.</div>
+            </a>
+            <a class="tool-card" href="QuestArchitect.html" target="tool-frame">
+                <div class="tool-name">Quest Architect</div>
+                <div class="tool-desc">Create and manage quest structures.</div>
+            </a>
+        </div>
+    </div>
+
+    <div class="tools-section">
+        <div class="tools-section-title">Generators</div>
+        <div class="tools-grid">
+            <a class="tool-card" href="math_plotter.html" target="tool-frame">
+                <div class="tool-name">Math Plotter</div>
+                <div class="tool-desc">Plot and visualize mathematical functions.</div>
+            </a>
+            <a class="tool-card" href="shader_playground.html" target="tool-frame">
+                <div class="tool-name">HLSL Live Studio</div>
+                <div class="tool-desc">Live HLSL shader editing and preview.</div>
+            </a>
+            <a class="tool-card" href="noise_gen.html" target="tool-frame">
+                <div class="tool-name">Texture Generator</div>
+                <div class="tool-desc">Generate procedural noise textures.</div>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // When opened standalone (not in iframe), change links to navigate in same window
+            if (window === window.top) {
+                document.querySelectorAll('.tool-card').forEach(function(a) {
+                    a.target = '_self';
+                });
+            }
+        })();
+    </script>
 </body>
 </html>
