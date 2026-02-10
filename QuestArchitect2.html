@@ -71,21 +71,22 @@
 
         /* Сокеты */
         .socket {
-            width: 14px;
-            height: 14px;
+            width: 18px;
+            height: 18px;
             background: #0f172a;
             border: 2px solid #94a3b8;
             border-radius: 50%;
             position: absolute;
             z-index: 20;
             cursor: crosshair;
+            transform-origin: center;
             transition: 0.2s;
         }
         .socket:hover { background: #fff; transform: scale(1.2); border-color: #fff; }
         
         /* Позиционирование сокетов */
-        .socket-in { left: -8px; top: 18px; } /* Вход всегда сверху слева на хедере */
-        .socket-out { right: -8px; top: 50%; transform: translateY(-50%); }
+        .socket-in { left: -9px; top: 18px; } /* Вход всегда сверху слева на хедере */
+        .socket-out { right: -9px; top: 50%; margin-top: -9px; }
 
         /* SVG слой связей */
         .connections-layer {
@@ -147,9 +148,9 @@
 
                     <svg class="connections-layer overflow-visible">
                         <path v-for="conn in connections" :key="conn.id"
-                              :d="calculatePath(conn.from, conn.fromSocket, conn.to, 'in')"
+                              :d="conn.path"
                               stroke="#64748b" stroke-width="3" fill="none"
-                              class="connection-path transition-all"
+                              class="connection-path"
                               :class="{'!stroke-blue-500 !stroke-[4px]': selectedConnId === conn.id}"
                               @click.stop="selectConnection(conn.id)" />
                         
@@ -197,7 +198,7 @@
                                 </div>
                                 <div class="space-y-2">
                                     <div v-for="(choice, idx) in node.data.choices" :key="idx" 
-                                         class="relative bg-slate-800 border border-slate-700 p-2 rounded text-xs flex justify-between">
+                                         class="relative bg-slate-800 border border-slate-700 p-2 rounded text-xs flex justify-between translate-x-2">
                                         <span class="truncate max-w-[200px]">{{ choice.text }}</span>
                                         <div class="socket socket-out" 
                                              :data-node-id="node.id"
@@ -308,6 +309,53 @@
                                         + Добавить ответ
                                     </button>
                                 </div>
+                            </div>
+
+                            <div v-if="selectedNode.type === 'action'" class="space-y-4">
+                                <label class="text-xs text-slate-500 block">Действия</label>
+                                <div v-if="!selectedNode.data.ops.length" class="text-xs text-slate-500 border border-dashed border-slate-700 rounded p-3 text-center">
+                                    Нет действий. Добавьте первый блок.
+                                </div>
+
+                                <div class="space-y-3">
+                                    <div v-for="(op, i) in selectedNode.data.ops" :key="op.id" class="bg-slate-800/60 p-3 rounded border border-slate-700 space-y-2">
+                                        <div class="flex items-center gap-2">
+                                            <select v-model="op.varId" @change="onActionVarChange(op)" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs">
+                                                <option :value="null">Переменная...</option>
+                                                <option v-for="v in variables" :value="v.id">{{ v.name }}</option>
+                                            </select>
+                                            <button @click="removeActionOp(selectedNode, i)" class="text-slate-500 hover:text-red-400">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </div>
+
+                                        <div v-if="!op.varId" class="text-xs text-slate-500">
+                                            Выберите переменную для действия.
+                                        </div>
+
+                                        <div v-else-if="getVarType(op.varId) === 'bool'">
+                                            <label class="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded px-2 py-2 text-xs">
+                                                <input type="checkbox" v-model="op.val" class="accent-emerald-500">
+                                                <span>Сделать {{ op.val ? 'True' : 'False' }}</span>
+                                            </label>
+                                        </div>
+
+                                        <div v-else class="flex gap-2">
+                                            <select v-model="op.op" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs">
+                                                <option value="add">+</option>
+                                                <option value="sub">-</option>
+                                                <option value="mul">*</option>
+                                                <option value="div">/</option>
+                                                <option value="set">=</option>
+                                            </select>
+                                            <input type="number" v-model.number="op.val" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button @click="addActionOp(selectedNode)" class="w-full py-1 text-xs border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-slate-400 rounded transition">
+                                    + Extra action
+                                </button>
                             </div>
 
                             <div v-if="selectedNode.type === 'condition'" class="space-y-4">
@@ -488,22 +536,21 @@
                 // --- MOUSE EVENTS HANDLING (CORE FIX) ---
                 
                 const startPan = (e) => {
+                    if (e.button === 1) e.preventDefault();
                     isPanning.value = true;
                     lastMouse.x = e.clientX;
                     lastMouse.y = e.clientY;
                 };
 
                 const onCanvasMouseDown = (e) => {
+                    if (e.button === 1) {
+                        startPan(e);
+                        return;
+                    }
                     if (e.button !== 0) return;
 
                     // Если кликнули по ноде/сокету/кнопке — панорамирование не стартует
                     if (e.target.closest('.node-wrapper') || e.target.closest('.socket') || e.target.closest('button')) {
-                        return;
-                    }
-
-                    // Панорамирование канваса — только Shift + ЛКМ
-                    if (e.shiftKey) {
-                        startPan(e);
                         return;
                     }
 
@@ -549,13 +596,11 @@
                 };
 
                 const onNodeMouseDown = (node, e) => {
-                    if (e.button !== 0) return;
-
-                    // Shift + ЛКМ по ноде = сдвиг канваса (камера)
-                    if (e.shiftKey) {
+                    if (e.button === 1) {
                         startPan(e);
                         return;
                     }
+                    if (e.button !== 0) return;
 
                     // ЛКМ по ноде = выбор + перетаскивание ноды
                     startDragNode(node, e);
@@ -596,6 +641,7 @@
                         
                         lastMouse.x = e.clientX;
                         lastMouse.y = e.clientY;
+                        schedulePathUpdate();
                     }
 
                     // 3. Line Dragging
@@ -634,10 +680,12 @@
                             from: dragLine.value.from,
                             fromSocket: dragLine.value.socket,
                             to: targetNodeId,
-                            toSocket: targetSocket
+                            toSocket: targetSocket,
+                            path: ''
                         });
                         
                         dragLine.value = null;
+                        schedulePathUpdate();
                     }
                 };
 
@@ -648,13 +696,26 @@
                     return `M ${x1} ${y1} C ${x1 + cpOffset} ${y1}, ${x2 - cpOffset} ${y2}, ${x2} ${y2}`;
                 };
 
-                const calculatePath = (fromId, fromSocket, toId, toSocket) => {
-                    const p1 = getSocketPos(fromId, fromSocket);
-                    const p2 = getSocketPos(toId, toSocket);
-                    return makeBezier(p1.x, p1.y, p2.x, p2.y);
+                const updateConnectionPaths = () => {
+                    connections.value.forEach(conn => {
+                        const p1 = getSocketPos(conn.from, conn.fromSocket);
+                        const p2 = getSocketPos(conn.to, conn.toSocket || 'in');
+                        conn.path = makeBezier(p1.x, p1.y, p2.x, p2.y);
+                    });
+                };
+
+                const schedulePathUpdate = () => {
+                    nextTick(() => updateConnectionPaths());
                 };
 
                 // --- LOGIC: Nodes CRUD ---
+                const createActionOp = () => ({
+                    id: `op_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+                    varId: null,
+                    op: 'set',
+                    val: 0
+                });
+
                 const addNode = (type) => {
                     const rect = canvasContainer.value.getBoundingClientRect();
                     // Center of visible screen converted to world coords
@@ -665,14 +726,16 @@
                         type,
                         x: center.x - 150,
                         y: center.y - 50,
-                        data: type === 'dialog' ? { choices: [] } : { ops: [] }
+                        data: type === 'dialog' ? { choices: [] } : (type === 'action' ? { ops: [createActionOp()] } : { ops: [] })
                     });
+                    schedulePathUpdate();
                 };
 
                 const deleteNode = (id) => {
                     nodes.value = nodes.value.filter(n => n.id !== id);
                     connections.value = connections.value.filter(c => c.from !== id && c.to !== id);
                     if (selectedNodeId.value === id) selectedNodeId.value = null;
+                    schedulePathUpdate();
                 };
 
                 const selectNode = (id) => { selectedNodeId.value = id; selectedConnId.value = null; tab.value = 'props'; };
@@ -692,11 +755,26 @@
                 const updateVariableType = (variable) => {
                     if (variable.type === 'bool') {
                         variable.init = Boolean(variable.init);
-                        return;
+                    } else {
+                        const parsedValue = Number(variable.init);
+                        variable.init = Number.isNaN(parsedValue) ? 0 : parsedValue;
                     }
 
-                    const parsedValue = Number(variable.init);
-                    variable.init = Number.isNaN(parsedValue) ? 0 : parsedValue;
+                    // Обновляем action-операции, связанные с этой переменной
+                    nodes.value.forEach(node => {
+                        if (node.type !== 'action' || !Array.isArray(node.data.ops)) return;
+                        node.data.ops.forEach(op => {
+                            if (op.varId !== variable.id) return;
+                            if (variable.type === 'bool') {
+                                op.op = 'set';
+                                op.val = Boolean(op.val);
+                            } else {
+                                if (!['add', 'sub', 'mul', 'div', 'set'].includes(op.op)) op.op = 'set';
+                                const numVal = Number(op.val);
+                                op.val = Number.isNaN(numVal) ? 0 : numVal;
+                            }
+                        });
+                    });
                 };
 
                 const removeVariable = (variableId) => {
@@ -720,6 +798,32 @@
                 };
 
                 const getVariableTypeLabel = (type) => type === 'bool' ? 'Bool' : 'Num';
+
+                const getVarType = (id) => variables.value.find(v => v.id === id)?.type || null;
+
+                const onActionVarChange = (op) => {
+                    const v = variables.value.find(v => v.id === op.varId);
+                    if (!v) return;
+                    if (v.type === 'bool') {
+                        op.op = 'set';
+                        op.val = Boolean(v.init);
+                    } else {
+                        if (!['add', 'sub', 'mul', 'div', 'set'].includes(op.op)) op.op = 'set';
+                        const numVal = Number(op.val);
+                        op.val = Number.isNaN(numVal) ? 0 : numVal;
+                    }
+                };
+
+                const addActionOp = (node) => {
+                    if (!node?.data) return;
+                    if (!Array.isArray(node.data.ops)) node.data.ops = [];
+                    node.data.ops.push(createActionOp());
+                };
+
+                const removeActionOp = (node, index) => {
+                    if (!node?.data || !Array.isArray(node.data.ops)) return;
+                    node.data.ops.splice(index, 1);
+                };
 
                 // --- LOGIC: Helper ---
                 const getVarName = (id) => variables.value.find(v => v.id === id)?.name || '???';
@@ -758,8 +862,26 @@
                     }
                     else if (node.type === 'action') {
                         node.data.ops.forEach(op => {
-                            // Simple mock update
-                            if (op.op === 'set') runtimeVars.value[op.varId] = op.val;
+                            if (!op.varId) return;
+                            const v = variables.value.find(v => v.id === op.varId);
+                            if (!v) return;
+
+                            if (v.type === 'bool') {
+                                if (op.op === 'toggle') {
+                                    runtimeVars.value[op.varId] = !Boolean(runtimeVars.value[op.varId]);
+                                } else {
+                                    runtimeVars.value[op.varId] = Boolean(op.val);
+                                }
+                                return;
+                            }
+
+                            const current = Number(runtimeVars.value[op.varId]) || 0;
+                            const val = Number(op.val) || 0;
+                            if (op.op === 'add') runtimeVars.value[op.varId] = current + val;
+                            else if (op.op === 'sub') runtimeVars.value[op.varId] = current - val;
+                            else if (op.op === 'mul') runtimeVars.value[op.varId] = current * val;
+                            else if (op.op === 'div') runtimeVars.value[op.varId] = current / val;
+                            else if (op.op === 'set') runtimeVars.value[op.varId] = val;
                         });
                         traverse(node.id, 'default');
                     }
@@ -804,6 +926,7 @@
                     // Demo Data
                     const startId = 'start';
                     nodes.value.push({ id: startId, type: 'start', x: 100, y: 100, data: {} });
+                    schedulePathUpdate();
 
                     // Глобальные listeners: drag/pan/line продолжают работать даже если курсор вышел за пределы canvas
                     window.addEventListener('mousemove', onGlobalMouseMove);
@@ -824,8 +947,10 @@
                     handleWheel, onCanvasMouseDown, startPan, onNodeMouseDown, startDragNode, startDragLine,
                     onGlobalMouseMove, onGlobalMouseUp, onSocketMouseUp,
                     addNode, deleteNode, selectNode, selectConnection,
-                    addVariable, updateVariableType, removeVariable, getVariableTypeClass, getVariableTypeLabel, getVarName, getConditionText, getNodeIcon,
-                    resetView, runScenario, makeChoice, calculatePath,
+                    addVariable, updateVariableType, removeVariable, getVariableTypeClass, getVariableTypeLabel, getVarType,
+                    addActionOp, removeActionOp, onActionVarChange,
+                    getVarName, getConditionText, getNodeIcon,
+                    resetView, runScenario, makeChoice,
                     saveProject: () => alert('Mock Save')
                 };
             }
