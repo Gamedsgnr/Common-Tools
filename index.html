@@ -12,7 +12,7 @@
 
         body {
             font-family: 'Segoe UI', sans-serif;
-            background-color: #1e1e1e;
+            background-color: #1a1f2b;
             color: #d4d4d4;
             height: 100vh;
             display: flex;
@@ -22,63 +22,101 @@
         /* --- САЙДБАР --- */
         .sidebar {
             width: 260px;
-            background-color: #252526;
-            border-right: 1px solid #333;
+            background: #141b26;
+            border-right: 1px solid rgba(148, 163, 184, 0.15);
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
             z-index: 10;
+            padding: 16px 12px;
+            gap: 10px;
         }
 
         .sidebar-header {
-            padding: 20px;
-            background-color: #2d2d2d;
-            border-bottom: 1px solid #333;
-            color: #4ec9b0;
+            padding: 16px 14px;
+            background: rgba(30, 41, 59, 0.45);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 16px;
+            color: #7dd3fc;
             font-weight: bold;
             font-size: 1.2em;
             display: flex;
             align-items: center;
             gap: 10px;
+            box-shadow:
+                0 14px 22px -12px rgba(2, 6, 23, 0.75),
+                inset 0 1px 0 rgba(255, 255, 255, 0.18),
+                inset 0 -12px 20px rgba(2, 6, 23, 0.28);
+            backdrop-filter: blur(18px) saturate(1.2);
+            -webkit-backdrop-filter: blur(18px) saturate(1.2);
         }
 
         .category-title {
-            padding: 15px 20px 5px 20px;
-            font-size: 0.8em;
+            padding: 10px 8px 4px 8px;
+            font-size: 0.72em;
             text-transform: uppercase;
-            color: #6c6c6c;
+            color: #9fb1c2;
             font-weight: bold;
-            letter-spacing: 1px;
+            letter-spacing: 0.2em;
+            transition: color 0.2s ease, text-shadow 0.2s ease;
+        }
+
+        .category-title.active {
+            color: #d7e9ff;
+            text-shadow: 0 0 12px rgba(125, 211, 252, 0.35);
         }
 
         .nav-links {
             list-style: none;
-            padding: 0;
+            padding: 0 4px 6px;
             overflow-y: auto;
         }
 
         .nav-links a {
             display: block;
-            padding: 12px 20px;
-            color: #cccccc;
+            padding: 10px 12px;
+            color: #b8c2cf;
             text-decoration: none;
-            transition: background 0.2s, color 0.2s;
-            border-left: 3px solid transparent;
-            font-size: 0.95em;
+            transition: background 0.2s, color 0.2s, box-shadow 0.2s, border-color 0.2s;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            font-size: 0.93em;
         }
 
         .nav-links a:hover {
-            background-color: #2a2d2e;
-            color: white;
+            background: rgba(30, 41, 59, 0.45);
+            color: #e6f0ff;
+            border-color: rgba(148, 163, 184, 0.35);
+            box-shadow:
+                0 10px 18px -12px rgba(2, 6, 23, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.14),
+                inset 0 -10px 18px rgba(2, 6, 23, 0.25);
+        }
+
+        .nav-links a.active {
+            color: #e6f0ff;
+            border-color: rgba(125, 211, 252, 0.5);
+            background: rgba(30, 41, 59, 0.55);
+            box-shadow:
+                0 10px 18px -12px rgba(2, 6, 23, 0.7),
+                inset 0 2px 4px rgba(255, 255, 255, 0.08),
+                inset 0 -14px 22px rgba(2, 6, 23, 0.45);
+            animation: nav-press 220ms ease;
+        }
+
+        @keyframes nav-press {
+            0% { transform: translateY(0); box-shadow: 0 0 0 rgba(0,0,0,0); }
+            60% { transform: translateY(1px); }
+            100% { transform: translateY(0); }
         }
 
         .footer {
             margin-top: auto;
-            padding: 15px;
+            padding: 12px 10px;
             font-size: 0.9em;
-            color: #888;
+            color: #8fa1b3;
             text-align: center;
-            border-top: 1px solid #333;
+            border-top: 1px solid rgba(148, 163, 184, 0.15);
             cursor: pointer;
             transition: color 0.3s;
             user-select: none;
@@ -88,7 +126,7 @@
         /* --- ОСНОВНАЯ ЧАСТЬ --- */
         .main-content {
             flex-grow: 1;
-            background-color: #1e1e1e;
+            background-color: #1a1f2b;
             position: relative;
         }
 
@@ -236,6 +274,7 @@
         // --- 2. ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ ---
         window.onload = async function() {
             console.log("CommonToolHub: Script loaded");
+            setupSidebarActive();
 
             try {
                 if (window.supabase) {
@@ -370,6 +409,45 @@
             const frame = document.getElementById('tool-frame');
             if (frame && frame.contentWindow) {
                 frame.contentWindow.postMessage({ type: 'ct_auth', isAuth, email }, '*');
+            }
+        }
+
+        function setupSidebarActive() {
+            const links = Array.from(document.querySelectorAll('.nav-links a'));
+            const titles = Array.from(document.querySelectorAll('.category-title'));
+            const frame = document.getElementById('tool-frame');
+
+            function clearActive() {
+                links.forEach(link => link.classList.remove('active'));
+                titles.forEach(title => title.classList.remove('active'));
+            }
+
+            function setActive(link) {
+                if (!link) return;
+                clearActive();
+                link.classList.add('active');
+                const title = link.closest('ul')?.previousElementSibling;
+                if (title && title.classList.contains('category-title')) {
+                    title.classList.add('active');
+                }
+                localStorage.setItem('ct_active_link', link.getAttribute('href'));
+            }
+
+            links.forEach(link => {
+                link.addEventListener('click', () => setActive(link));
+            });
+
+            const stored = localStorage.getItem('ct_active_link');
+            const initialHref = stored || frame?.getAttribute('src');
+            const initialLink = initialHref ? links.find(l => l.getAttribute('href') === initialHref) : links[0];
+            setActive(initialLink);
+
+            if (frame) {
+                frame.addEventListener('load', () => {
+                    const src = frame.getAttribute('src');
+                    const match = links.find(l => l.getAttribute('href') === src);
+                    if (match) setActive(match);
+                });
             }
         }
 

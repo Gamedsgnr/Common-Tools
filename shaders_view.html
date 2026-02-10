@@ -5,50 +5,92 @@
     <title>Shader Library</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #1e1e1e; color: #d4d4d4; padding: 20px; display: flex; height: 95vh; gap: 20px; box-sizing: border-box; margin: 0; }
+        :root {
+            --accent: #fca5a5;
+            --accent-strong: #f87171;
+            --accent-dark: #3a1f22;
+        }
+
+        body { font-family: 'Segoe UI', sans-serif; background-color: #1a1f2b; color: #dbe7f3; padding: 20px; display: flex; height: 100vh; gap: 20px; box-sizing: border-box; margin: 0; }
         
         /* ЛЕВАЯ КОЛОНКА */
-        .list-panel { width: 300px; display: flex; flex-direction: column; border-right: 1px solid #333; padding-right: 20px; flex-shrink: 0; }
-        .search-box { background: #252526; border: 1px solid #333; color: white; padding: 10px; width: 100%; margin-bottom: 15px; border-radius: 4px; box-sizing: border-box; }
+        .list-panel { width: 320px; display: flex; flex-direction: column; gap: 12px; padding: 16px; flex-shrink: 0; background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 16px; box-shadow: 0 18px 30px -12px rgba(2, 6, 23, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 -12px 22px rgba(2, 6, 23, 0.28); backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2); }
+        .search-box { background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(148, 163, 184, 0.35); color: #e2e8f0; padding: 10px 12px; width: 100%; border-radius: 12px; box-sizing: border-box; outline: none; box-shadow: inset 0 0 12px rgba(2, 6, 23, 0.35); }
         .sh-list { overflow-y: auto; flex: 1; }
         
-        .loading-text { text-align: center; color: #888; margin-top: 20px; font-style: italic; }
+        .loading-text { text-align: center; color: #94a3b8; margin-top: 20px; font-style: italic; }
 
-        .sh-item { padding: 12px; margin-bottom: 5px; cursor: pointer; border-radius: 4px; transition: 0.2s; border-left: 3px solid transparent; background: #252526; }
-        .sh-item:hover { background-color: #2a2d2e; }
-        .sh-item.active { background-color: #37373d; border-left-color: #d16969; color: white; } /* Красный акцент для шейдеров */
+        .sh-item { padding: 12px; margin-bottom: 8px; cursor: pointer; border-radius: 12px; transition: 0.2s; border: 1px solid rgba(148, 163, 184, 0.2); background: rgba(15, 23, 42, 0.55); position: relative; overflow: hidden; }
+        .sh-item:hover { background-color: rgba(30, 41, 59, 0.65); border-color: rgba(252, 165, 165, 0.45); box-shadow: 0 12px 18px -12px rgba(2, 6, 23, 0.7); }
+        .sh-item.active {
+            background: rgba(30, 41, 59, 0.45);
+            border-color: rgba(148, 163, 184, 0.35);
+            color: #eaf3ff;
+            box-shadow:
+                0 14px 20px -12px rgba(2, 6, 23, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22),
+                inset 0 -10px 22px rgba(2, 6, 23, 0.32);
+        }
+        .sh-item.active::before {
+            content: '';
+            position: absolute;
+            inset: 4px;
+            border-radius: 10px;
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 55%),
+                linear-gradient(340deg, rgba(252, 165, 165, 0.12), rgba(252, 165, 165, 0) 60%);
+            box-shadow:
+                inset 0 0 10px rgba(255, 255, 255, 0.08),
+                inset 0 0 18px rgba(252, 165, 165, 0.06);
+            opacity: 0.9;
+            pointer-events: none;
+        }
+        .sh-item.active::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 12px;
+            background:
+                linear-gradient(135deg, rgba(2, 6, 23, 0.18), rgba(2, 6, 23, 0) 55%),
+                linear-gradient(315deg, rgba(2, 6, 23, 0.26), rgba(2, 6, 23, 0) 60%);
+            opacity: 0.8;
+            pointer-events: none;
+        }
+        .sh-item.active .s-title { color: var(--accent); }
+        .sh-item > span { position: relative; z-index: 1; }
         
-        .s-title { font-weight: bold; display: block; color: #d16969; }
-        .s-desc { font-size: 0.8em; color: #888; margin-top: 4px; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .s-title { font-weight: bold; display: block; color: var(--accent); }
+        .s-desc { font-size: 0.8em; color: #94a3b8; margin-top: 4px; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
         /* ПРАВАЯ КОЛОНКА */
-        .detail-panel { flex: 1; display: flex; flex-direction: column; background: #111; border-radius: 6px; border: 1px solid #333; overflow: hidden; position: relative; }
+        .detail-panel { flex: 1; display: flex; flex-direction: column; background: rgba(15, 23, 42, 0.55); border-radius: 18px; border: 1px solid rgba(148, 163, 184, 0.25); overflow: hidden; position: relative; box-shadow: 0 20px 30px -12px rgba(2, 6, 23, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -14px 24px rgba(2, 6, 23, 0.28); backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2); }
         
         /* ТУЛБАР */
         .toolbar {
             min-height: 60px;
-            background: #252526; border-bottom: 1px solid #333;
+            background: rgba(30, 41, 59, 0.55); border-bottom: 1px solid rgba(148, 163, 184, 0.2);
             display: flex; align-items: center; justify-content: space-between; 
             padding: 10px 20px;
             box-sizing: border-box;
         }
         
         .header-info { display: flex; flex-direction: column; justify-content: center; gap: 4px; }
-        .main-title { font-weight: bold; color: #ddd; font-size: 1.1em; }
-        .sub-desc { font-size: 0.9em; color: #888; max-width: 600px; }
+        .main-title { font-weight: bold; color: #e2e8f0; font-size: 1.1em; }
+        .sub-desc { font-size: 0.9em; color: #94a3b8; max-width: 600px; }
 
         .btn-copy {
-            background-color: #d16969; color: white; border: none; padding: 8px 16px; 
-            border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+            background-color: var(--accent-strong); color: white; border: 1px solid rgba(252, 165, 165, 0.45); padding: 8px 16px; 
+            border-radius: 10px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; flex-shrink: 0;
             display: none;
+            box-shadow: 0 10px 18px -12px rgba(2, 6, 23, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.2);
         }
-        .btn-copy:hover { background-color: #b04c4c; }
+        .btn-copy:hover { filter: brightness(1.1); }
         .btn-copy:active { transform: translateY(1px); }
 
-        .frame-container { flex: 1; position: relative; background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTAgMGg0MHY0MEgwVjB6IiBmaWxsPSIjZmZmIi8+PC9zdmc+'); }
+        .frame-container { flex: 1; position: relative; background: #1a1f2b; }
         
         iframe { width: 100%; height: 100%; border: none; display: none; }
-        .placeholder { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #555; font-size: 1.2em; }
+        .placeholder { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #64748b; font-size: 1.2em; }
     </style>
 </head>
 <body>

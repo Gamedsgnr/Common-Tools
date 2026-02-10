@@ -7,169 +7,327 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
+        :root {
+            --tile-min: 240px;
+            --tile-row: 170px;
+            --tile-gap: 20px;
+        }
+
         body {
             font-family: 'Segoe UI', sans-serif;
-            background-color: #1e1e1e;
+            background-color: #1a1f2b;
             color: #d4d4d4;
             min-height: 100vh;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            padding: 40px 24px;
         }
 
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
+        .page-header {
+            padding: 28px 32px 10px;
+            z-index: 2;
         }
 
-        .header h1 {
-            color: #4ec9b0;
+        .page-title {
             font-size: 1.8em;
-            margin-bottom: 10px;
+            color: #7dd3fc;
+            font-weight: 700;
         }
 
-        .header p {
-            color: #888;
-            max-width: 500px;
-            line-height: 1.5;
+        .page-subtitle {
+            color: #a3b2c2;
             font-size: 0.95em;
+            line-height: 1.5;
+            max-width: 48ch;
+            margin-top: 6px;
         }
 
-        .tools-section {
-            max-width: 960px;
-            width: 100%;
-            margin-bottom: 32px;
+        .glass-wall {
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+            padding: 32px;
+            width: 100vw;
+            perspective: 1100px;
+            align-content: start;
+            flex: 1;
+            overflow: hidden auto;
         }
 
-        .tools-section-title {
-            font-size: 1.05em;
-            font-weight: 600;
-            color: #d4d4d4;
-            margin-bottom: 12px;
-        }
-
-        .tools-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        .section {
+            display: flex;
+            flex-direction: column;
             gap: 16px;
         }
 
-        .tool-card {
-            display: block;
-            background-color: #252526;
-            border: 1px solid #333;
-            border-radius: 6px;
-            padding: 18px;
+        .section-label {
+            font-size: 0.78em;
+            letter-spacing: 0.28em;
+            text-transform: uppercase;
+            color: #9fb1c2;
+            padding: 0 6px;
+        }
+
+        .section-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(var(--tile-min), 1fr));
+            grid-auto-rows: var(--tile-row);
+            gap: var(--tile-gap);
+        }
+
+        .tile {
+            position: relative;
+            border-radius: 18px;
+            background: rgba(30, 41, 59, 0.38);
+            border: 1px solid rgba(148, 163, 184, var(--border-alpha, 0.28));
+            box-shadow:
+                0 18px 30px -12px rgba(2, 6, 23, 0.7),
+                0 8px 16px -10px rgba(2, 6, 23, 0.55),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2),
+                inset 0 -12px 22px rgba(2, 6, 23, 0.32),
+                0 0 0 2px rgba(59, 130, 246, calc(var(--glow, 0) * 0.35));
+            backdrop-filter: blur(20px) saturate(1.2);
+            -webkit-backdrop-filter: blur(20px) saturate(1.2);
+            transform-style: preserve-3d;
+            animation: tile-appear 0.6s ease both;
+            animation-delay: var(--tile-delay, 0ms);
+        }
+
+        .tile::before {
+            content: '';
+            position: absolute;
+            inset: 6px;
+            border-radius: 12px;
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02) 55%),
+                linear-gradient(340deg, rgba(14, 165, 233, 0.08), rgba(14, 165, 233, 0) 60%);
+            box-shadow:
+                inset 0 0 10px rgba(255, 255, 255, 0.06),
+                inset 0 0 16px rgba(14, 165, 233, 0.05);
+            opacity: 0.9;
+            pointer-events: none;
+        }
+
+        .tile::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 18px;
+            background:
+                linear-gradient(135deg, rgba(2, 6, 23, 0.22), rgba(2, 6, 23, 0) 55%),
+                linear-gradient(315deg, rgba(2, 6, 23, 0.28), rgba(2, 6, 23, 0) 60%);
+            pointer-events: none;
+            opacity: 0.85;
+        }
+
+        .tile-link {
             text-decoration: none;
-            color: #d4d4d4;
-            transition: background 0.2s, border-color 0.2s, transform 0.15s;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 8px;
+            padding: 18px;
+            --lift: 0px;
+            --glow: 0;
+            --border-alpha: calc(0.28 + var(--glow) * 0.45);
+            transform: translateY(var(--lift));
+            transition: transform 0.14s ease, border-color 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+            will-change: transform;
+            filter: brightness(calc(1 + var(--glow) * 0.12));
         }
 
-        .tool-card:hover {
-            background-color: #2a2d2e;
-            border-color: #007acc;
-            transform: translateY(-1px);
+        .tile-kicker {
+            font-size: 0.7em;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: #7b8794;
         }
 
-        .tool-card .tool-name {
+        .tile-title {
             font-weight: 600;
-            color: #4ec9b0;
-            font-size: 1em;
-            margin-bottom: 6px;
+            color: #7dd3fc;
+            font-size: 1.02em;
         }
 
-        .tool-card .tool-desc {
+        .tile-desc {
             font-size: 0.85em;
-            color: #888;
+            color: #9aa4b2;
             line-height: 1.4;
+        }
+
+        .tile-filler {
+            animation:
+                tile-appear 0.6s ease both,
+                tile-sway var(--sway-dur, 9s) ease-in-out infinite;
+            animation-delay:
+                var(--tile-delay, 0ms),
+                var(--sway-delay, 0s);
+        }
+
+        @keyframes tile-appear {
+            0% { opacity: 0; transform: translateY(12px) scale(0.98); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes tile-sway {
+            0% { transform: translateY(0) rotateZ(var(--sway-rot, -1.2deg)); }
+            50% { transform: translateY(-8px) rotateZ(calc(var(--sway-rot, -1.2deg) * -1)); }
+            100% { transform: translateY(0) rotateZ(var(--sway-rot, -1.2deg)); }
+        }
+
+        @media (max-width: 900px) {
+            .glass-wall { padding: 20px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .tile,
+            .tile-filler,
+            .tile-link {
+                animation: none;
+                transition: none;
+                transform: none;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Common Tools Hub</h1>
-        <p>Choose a tool below to get started. All tools are available in the sidebar.</p>
+    <div class="page-header">
+        <div class="page-title">Common Tools Hub</div>
+        <div class="page-subtitle">Choose a tool below to get started. All tools are available in the sidebar.</div>
     </div>
 
-    <div class="tools-section">
-        <div class="tools-section-title">Visual Library</div>
-        <div class="tools-grid">
-            <a class="tool-card" href="blueprints_view.html" target="tool-frame">
-                <div class="tool-name">Blueprint Gallery</div>
-                <div class="tool-desc">Browse and use Unreal Engine blueprint snippets.</div>
-            </a>
-            <a class="tool-card" href="shaders_view.html" target="tool-frame">
-                <div class="tool-name">Shader Library</div>
-                <div class="tool-desc">Collection of shader examples and utilities.</div>
-            </a>
-            <a class="tool-card" href="hlsl_view.html" target="tool-frame">
-                <div class="tool-name">HLSL Library</div>
-                <div class="tool-desc">HLSL code snippets for graphics programming.</div>
-            </a>
-            <a class="tool-card" href="snippets_view.html" target="tool-frame">
-                <div class="tool-name">Snippets Library</div>
-                <div class="tool-desc">General code snippets and templates.</div>
-            </a>
+    <div class="glass-wall">
+        <div class="section">
+            <div class="section-label">Visual Library</div>
+            <div class="section-grid">
+                <a class="tile tile-link" href="blueprints_view.html" target="tool-frame">
+                    <div class="tile-title">Blueprint Gallery</div>
+                    <div class="tile-desc">Browse and use Unreal Engine blueprint snippets.</div>
+                </a>
+                <a class="tile tile-link" href="shaders_view.html" target="tool-frame">
+                    <div class="tile-title">Shader Library</div>
+                    <div class="tile-desc">Collection of shader examples and utilities.</div>
+                </a>
+                <a class="tile tile-link" href="hlsl_view.html" target="tool-frame">
+                    <div class="tile-title">HLSL Library</div>
+                    <div class="tile-desc">HLSL code snippets for graphics programming.</div>
+                </a>
+                <a class="tile tile-link" href="snippets_view.html" target="tool-frame">
+                    <div class="tile-title">Snippets Library</div>
+                    <div class="tile-desc">General code snippets and templates.</div>
+                </a>
+            </div>
         </div>
-    </div>
 
-    <div class="tools-section">
-        <div class="tools-section-title">Data Tools</div>
-        <div class="tools-grid">
-            <a class="tool-card" href="UE_EnumGen.html" target="tool-frame">
-                <div class="tool-name">UE Enum Generator</div>
-                <div class="tool-desc">Generate Unreal Engine enum definitions.</div>
-            </a>
-            <a class="tool-card" href="UE_Converter_Pro.html" target="tool-frame">
-                <div class="tool-name">Data Converter</div>
-                <div class="tool-desc">Convert and transform data formats.</div>
-            </a>
-            <a class="tool-card" href="CurveToCode_Pro.html" target="tool-frame">
-                <div class="tool-name">Curve Editor</div>
-                <div class="tool-desc">Edit curves and export to code.</div>
-            </a>
-            <a class="tool-card" href="progression_balancer.html" target="tool-frame">
-                <div class="tool-name">Balance Progression Tool</div>
-                <div class="tool-desc">Balance and tune progression curves.</div>
-            </a>
-            <a class="tool-card" href="factory_architect.html" target="tool-frame">
-                <div class="tool-name">Factory Architect</div>
-                <div class="tool-desc">Design and configure factory systems.</div>
-            </a>
-            <a class="tool-card" href="QuestArchitect.html" target="tool-frame">
-                <div class="tool-name">Quest Architect</div>
-                <div class="tool-desc">Create and manage quest structures.</div>
-            </a>
+        <div class="section">
+            <div class="section-label">Data Tools</div>
+            <div class="section-grid">
+                <a class="tile tile-link" href="UE_EnumGen.html" target="tool-frame">
+                    <div class="tile-title">UE Enum Generator</div>
+                    <div class="tile-desc">Generate Unreal Engine enum definitions.</div>
+                </a>
+                <a class="tile tile-link" href="UE_Converter_Pro.html" target="tool-frame">
+                    <div class="tile-title">Data Converter</div>
+                    <div class="tile-desc">Convert and transform data formats.</div>
+                </a>
+                <a class="tile tile-link" href="CurveToCode_Pro.html" target="tool-frame">
+                    <div class="tile-title">Curve Editor</div>
+                    <div class="tile-desc">Edit curves and export to code.</div>
+                </a>
+                <a class="tile tile-link" href="progression_balancer.html" target="tool-frame">
+                    <div class="tile-title">Balance Progression Tool</div>
+                    <div class="tile-desc">Balance and tune progression curves.</div>
+                </a>
+                <a class="tile tile-link" href="factory_architect.html" target="tool-frame">
+                    <div class="tile-title">Factory Architect</div>
+                    <div class="tile-desc">Design and configure factory systems.</div>
+                </a>
+                <a class="tile tile-link" href="QuestArchitect2.html" target="tool-frame">
+                    <div class="tile-title">Quest Architect</div>
+                    <div class="tile-desc">Create and manage quest structures.</div>
+                </a>
+            </div>
         </div>
-    </div>
 
-    <div class="tools-section">
-        <div class="tools-section-title">Generators</div>
-        <div class="tools-grid">
-            <a class="tool-card" href="math_plotter.html" target="tool-frame">
-                <div class="tool-name">Math Plotter</div>
-                <div class="tool-desc">Plot and visualize mathematical functions.</div>
-            </a>
-            <a class="tool-card" href="shader_playground.html" target="tool-frame">
-                <div class="tool-name">HLSL Live Studio</div>
-                <div class="tool-desc">Live HLSL shader editing and preview.</div>
-            </a>
-            <a class="tool-card" href="noise_gen.html" target="tool-frame">
-                <div class="tool-name">Texture Generator</div>
-                <div class="tool-desc">Generate procedural noise textures.</div>
-            </a>
+        <div class="section">
+            <div class="section-label">Generators</div>
+            <div class="section-grid">
+                <a class="tile tile-link" href="math_plotter.html" target="tool-frame">
+                    <div class="tile-title">Math Plotter</div>
+                    <div class="tile-desc">Plot and visualize mathematical functions.</div>
+                </a>
+                <a class="tile tile-link" href="shader_playground.html" target="tool-frame">
+                    <div class="tile-title">HLSL Live Studio</div>
+                    <div class="tile-desc">Live HLSL shader editing and preview.</div>
+                </a>
+                <a class="tile tile-link" href="noise_gen.html" target="tool-frame">
+                    <div class="tile-title">Texture Generator</div>
+                    <div class="tile-desc">Generate procedural noise textures.</div>
+                </a>
+            </div>
         </div>
     </div>
 
     <script>
         (function() {
-            // When opened standalone (not in iframe), change links to navigate in same window
-            if (window === window.top) {
-                document.querySelectorAll('.tool-card').forEach(function(a) {
-                    a.target = '_self';
+            const interactiveTiles = Array.from(document.querySelectorAll('.tile-link'));
+
+            function setTileDelays() {
+                Array.from(document.querySelectorAll('.tile')).forEach(function(tile, idx) {
+                    tile.style.setProperty('--tile-delay', (idx * 45) + 'ms');
                 });
             }
+
+            // When opened standalone (not in iframe), change links to navigate in same window
+            if (window === window.top) {
+                interactiveTiles.forEach(function(tile) {
+                    tile.target = '_self';
+                });
+            }
+
+            setTileDelays();
+
+            const influenceRadius = 260;
+            let rafId = null;
+            let mouse = { x: -9999, y: -9999 };
+
+            function updateInteractive() {
+                rafId = null;
+                interactiveTiles.forEach(function(tile) {
+                    const rect = tile.getBoundingClientRect();
+                    const cx = rect.left + rect.width / 2;
+                    const cy = rect.top + rect.height / 2;
+                    const dx = mouse.x - cx;
+                    const dy = mouse.y - cy;
+                    const dist = Math.hypot(dx, dy);
+                    const influence = Math.max(0, 1 - dist / influenceRadius);
+
+                    if (influence > 0) {
+                        tile.style.setProperty('--glow', influence.toFixed(2));
+                    } else {
+                        tile.style.setProperty('--glow', '0');
+                    }
+                });
+            }
+
+            function scheduleUpdate() {
+                if (rafId === null) {
+                    rafId = requestAnimationFrame(updateInteractive);
+                }
+            }
+
+            window.addEventListener('mousemove', function(event) {
+                mouse.x = event.clientX;
+                mouse.y = event.clientY;
+                scheduleUpdate();
+            }, { passive: true });
+
+            window.addEventListener('mouseleave', function() {
+                mouse.x = -9999;
+                mouse.y = -9999;
+                scheduleUpdate();
+            });
         })();
     </script>
 </body>
