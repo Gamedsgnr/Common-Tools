@@ -334,24 +334,45 @@
                         </div>
                     </div>
 
-                    <div v-if="tab === 'vars'" class="space-y-4">
-                        <div class="bg-slate-800 p-3 rounded border border-slate-700">
-                            <h3 class="text-[10px] font-bold uppercase text-slate-400 mb-2">Создать переменную</h3>
-                            <input v-model="newVarName" placeholder="Имя (напр. Gold)" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs mb-2">
-                            <select v-model="newVarType" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs mb-2">
-                                <option value="num">Число</option>
-                                <option value="bool">Логическая (True/False)</option>
-                            </select>
-                            <button @click="addVariable" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1 rounded">Создать</button>
+                    <div v-if="tab === 'vars'" class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-[11px] font-bold uppercase text-slate-400 tracking-wide">Переменные сценария</h3>
+                            <button @click="addVariable" class="px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold transition">
+                                <i class="fa-solid fa-plus mr-1"></i> Добавить
+                            </button>
                         </div>
-                        
+
+                        <div v-if="!variables.length" class="text-xs text-slate-500 border border-dashed border-slate-700 rounded p-3 text-center">
+                            Пока нет переменных. Нажмите «Добавить».
+                        </div>
+
                         <div class="space-y-2">
-                            <div v-for="v in variables" :key="v.id" class="flex justify-between items-center bg-slate-800/50 p-2 rounded border border-slate-700">
-                                <div>
-                                    <div class="font-bold text-xs text-slate-200">{{ v.name }}</div>
-                                    <div class="text-[10px] text-slate-500 uppercase">{{ v.type }} = {{ v.init }}</div>
+                            <div v-for="v in variables" :key="v.id" class="bg-slate-800/60 p-3 rounded border border-slate-700 space-y-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] px-2 py-0.5 rounded font-bold uppercase"
+                                          :class="getVariableTypeClass(v.type)">
+                                        {{ getVariableTypeLabel(v.type) }}
+                                    </span>
+                                    <input v-model="v.name" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Имя переменной">
+                                    <button @click="removeVariable(v.id)" class="text-slate-500 hover:text-red-400">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
                                 </div>
-                                <button @click="variables = variables.filter(x => x.id !== v.id)" class="text-slate-600 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
+
+                                <div class="grid grid-cols-2 gap-2">
+                                    <select v-model="v.type" @change="updateVariableType(v)" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs">
+                                        <option value="num">Число</option>
+                                        <option value="bool">Bool</option>
+                                    </select>
+
+                                    <div v-if="v.type === 'num'">
+                                        <input type="number" v-model.number="v.init" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs">
+                                    </div>
+                                    <label v-else class="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs">
+                                        <input type="checkbox" v-model="v.init" class="accent-emerald-500">
+                                        <span>{{ v.init ? 'True' : 'False' }}</span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -424,9 +445,6 @@
                 // UI & Logic
                 const tab = ref('props');
                 const isPlayMode = ref(false);
-                const newVarName = ref('');
-                const newVarType = ref('num');
-
                 // Runtime
                 const gameLog = ref([]);
                 const activeNode = ref(null);
@@ -476,11 +494,22 @@
                 };
 
                 const onCanvasMouseDown = (e) => {
+                    if (e.button !== 0) return;
+
                     // Если кликнули по ноде/сокету/кнопке — панорамирование не стартует
                     if (e.target.closest('.node-wrapper') || e.target.closest('.socket') || e.target.closest('button')) {
                         return;
                     }
-                    startPan(e);
+
+                    // Панорамирование канваса — только Shift + ЛКМ
+                    if (e.shiftKey) {
+                        startPan(e);
+                        return;
+                    }
+
+                    // Клик по пустому месту без Shift сбрасывает выбор
+                    selectedNodeId.value = null;
+                    selectedConnId.value = null;
                 };
 
                 const handleWheel = (e) => {
@@ -517,6 +546,19 @@
                     };
                     lastMouse.x = e.clientX;
                     lastMouse.y = e.clientY;
+                };
+
+                const onNodeMouseDown = (node, e) => {
+                    if (e.button !== 0) return;
+
+                    // Shift + ЛКМ по ноде = сдвиг канваса (камера)
+                    if (e.shiftKey) {
+                        startPan(e);
+                        return;
+                    }
+
+                    // ЛКМ по ноде = выбор + перетаскивание ноды
+                    startDragNode(node, e);
                 };
 
                 const startDragLine = (nodeId, socketId, e) => {
@@ -582,23 +624,18 @@
                             return;
                         }
 
-                        // Удалить старую связь из этого же сокета (Single Output Rule для большинства, но мы разрешим Multi)
-                        // Но запретим дубликаты
-                        const exists = connections.value.find(c => 
-                            c.from === dragLine.value.from && 
-                            c.fromSocket === dragLine.value.socket &&
-                            c.to === targetNodeId
+                        // Из одного выходного сокета разрешено только одно подключение.
+                        connections.value = connections.value.filter(c =>
+                            !(c.from === dragLine.value.from && c.fromSocket === dragLine.value.socket)
                         );
 
-                        if (!exists) {
-                            connections.value.push({
-                                id: Date.now().toString(),
-                                from: dragLine.value.from,
-                                fromSocket: dragLine.value.socket,
-                                to: targetNodeId,
-                                toSocket: targetSocket
-                            });
-                        }
+                        connections.value.push({
+                            id: Date.now().toString(),
+                            from: dragLine.value.from,
+                            fromSocket: dragLine.value.socket,
+                            to: targetNodeId,
+                            toSocket: targetSocket
+                        });
                         
                         dragLine.value = null;
                     }
@@ -643,10 +680,46 @@
 
                 // --- LOGIC: Variables ---
                 const addVariable = () => {
-                    if(!newVarName.value) return;
-                    variables.value.push({ id: Date.now().toString(), name: newVarName.value, type: newVarType.value, init: 0 });
-                    newVarName.value = '';
+                    const nextIndex = variables.value.length + 1;
+                    variables.value.push({
+                        id: Date.now().toString(),
+                        name: `Var_${nextIndex}`,
+                        type: 'num',
+                        init: 0
+                    });
                 };
+
+                const updateVariableType = (variable) => {
+                    if (variable.type === 'bool') {
+                        variable.init = Boolean(variable.init);
+                        return;
+                    }
+
+                    const parsedValue = Number(variable.init);
+                    variable.init = Number.isNaN(parsedValue) ? 0 : parsedValue;
+                };
+
+                const removeVariable = (variableId) => {
+                    variables.value = variables.value.filter(v => v.id !== variableId);
+
+                    // Чистим ссылки на удаленную переменную в нодах условий/действий.
+                    nodes.value.forEach(node => {
+                        if (node.type === 'condition' && node.data.varId === variableId) {
+                            node.data.varId = null;
+                        }
+
+                        if (node.type === 'action' && Array.isArray(node.data.ops)) {
+                            node.data.ops = node.data.ops.filter(op => op.varId !== variableId);
+                        }
+                    });
+                };
+
+                const getVariableTypeClass = (type) => {
+                    if (type === 'bool') return 'bg-emerald-900/40 text-emerald-300 border border-emerald-500/30';
+                    return 'bg-blue-900/40 text-blue-300 border border-blue-500/30';
+                };
+
+                const getVariableTypeLabel = (type) => type === 'bool' ? 'Bool' : 'Num';
 
                 // --- LOGIC: Helper ---
                 const getVarName = (id) => variables.value.find(v => v.id === id)?.name || '???';
@@ -745,13 +818,13 @@
                 return {
                     nodes, connections, variables, pan, scale, canvasContainer,
                     selectedNodeId, selectedNode, selectedConnId,
-                    tab, isPlayMode, gameLog, activeNode, gameFinished, newVarName, newVarType,
+                    tab, isPlayMode, gameLog, activeNode, gameFinished,
                     dragLine,
                     
-                    handleWheel, onCanvasMouseDown, startPan, startDragNode, startDragLine,
+                    handleWheel, onCanvasMouseDown, startPan, onNodeMouseDown, startDragNode, startDragLine,
                     onGlobalMouseMove, onGlobalMouseUp, onSocketMouseUp,
                     addNode, deleteNode, selectNode, selectConnection,
-                    addVariable, getVarName, getConditionText, getNodeIcon,
+                    addVariable, updateVariableType, removeVariable, getVariableTypeClass, getVariableTypeLabel, getVarName, getConditionText, getNodeIcon,
                     resetView, runScenario, makeChoice, calculatePath,
                     saveProject: () => alert('Mock Save')
                 };
