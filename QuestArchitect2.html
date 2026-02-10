@@ -476,8 +476,7 @@
                 };
 
                 const onCanvasMouseDown = (e) => {
-                    // Панорамирование только ЛКМ/СКМ и только по пустому канвасу
-                    if (e.button !== 0 && e.button !== 1) return;
+                    // Если кликнули по ноде/сокету/кнопке — панорамирование не стартует
                     if (e.target.closest('.node-wrapper') || e.target.closest('.socket') || e.target.closest('button')) {
                         return;
                     }
@@ -518,13 +517,6 @@
                     };
                     lastMouse.x = e.clientX;
                     lastMouse.y = e.clientY;
-                };
-
-                const onNodeMouseDown = (node, e) => {
-                    // ЛКМ/СКМ: запускаем перетаскивание ноды из любой части, кроме интерактивных элементов
-                    if (e.button !== 0 && e.button !== 1) return;
-                    if (e.target.closest('.socket') || e.target.closest('button')) return;
-                    startDragNode(node, e);
                 };
 
                 const startDragLine = (nodeId, socketId, e) => {
@@ -756,7 +748,7 @@
                     tab, isPlayMode, gameLog, activeNode, gameFinished, newVarName, newVarType,
                     dragLine,
                     
-                    handleWheel, onCanvasMouseDown, onNodeMouseDown, startPan, startDragNode, startDragLine,
+                    handleWheel, onCanvasMouseDown, startPan, startDragNode, startDragLine,
                     onGlobalMouseMove, onGlobalMouseUp, onSocketMouseUp,
                     addNode, deleteNode, selectNode, selectConnection,
                     addVariable, getVarName, getConditionText, getNodeIcon,
