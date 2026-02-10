@@ -77,23 +77,42 @@
 
         /* Sockets */
         .socket {
-            width: 18px;
-            height: 18px;
-            background: #0f172a;
-            border: 2px solid #94a3b8;
+            width: 38px;
+            height: 38px;
+            background: transparent !important;
+            border: none !important;
             border-radius: 50%;
+            outline: none;
+            box-shadow: none;
             position: absolute;
             z-index: 20;
             cursor: crosshair;
             transform-origin: center;
             transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        .socket:hover { background: #fff; transform: scale(1.2); border-color: #fff; }
+        .socket::after {
+            content: '';
+            width: 18px;
+            height: 18px;
+            background: #0f172a;
+            border: 2px solid #94a3b8;
+            border-radius: 50%;
+            transform-origin: center;
+            transition: 0.2s;
+        }
+        .socket:hover::after { background: #fff; transform: scale(1.2); border-color: #fff; }
         
         /* Socket positioning */
-        .socket-in { left: -9px; top: 18px; } /* Input always top-left on header */
-        .socket-out { right: -9px; top: 50%; margin-top: -9px; }
-        .socket-out.case-socket { right: -16px; }
+        .socket-in { left: -19px; top: 18px; } /* Input always top-left on header */
+        .socket-out { right: -19px; top: 50%; margin-top: -19px; }
+        .socket-out.case-socket { right: -26px; }
+        .socket-cond {
+            position: relative;
+            right: -4px;
+        }
 
         /* SVG connections layer */
         .connections-layer {
@@ -356,17 +375,17 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="relative h-14">
-                                    <div class="absolute right-0 top-0 flex items-center gap-2">
+                                <div class="relative h-16 flex flex-col justify-between">
+                                    <div class="flex items-center justify-end gap-0 pr-3" style="transform: translateX(37px);">
                                         <span class="text-[10px] font-bold text-emerald-500">TRUE</span>
-                                        <div class="socket relative"
+                                        <div class="socket socket-cond socket-cond-true"
                                              :data-node-id="node.id"
                                              data-socket-id="true"
                                              @mousedown.stop.prevent="startDragLine(node.id, 'true', $event)"></div>
                                     </div>
-                                    <div class="absolute right-0 bottom-0 flex items-center gap-2">
+                                    <div class="flex items-center justify-end gap-0 pr-3" style="transform: translateX(37px);">
                                         <span class="text-[10px] font-bold text-rose-500">FALSE</span>
-                                        <div class="socket relative"
+                                        <div class="socket socket-cond socket-cond-false"
                                              :data-node-id="node.id"
                                              data-socket-id="false"
                                              @mousedown.stop.prevent="startDragLine(node.id, 'false', $event)"></div>
