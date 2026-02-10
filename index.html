@@ -13,7 +13,7 @@
         body {
             font-family: 'Segoe UI', sans-serif;
             background-color: #1a1f2b;
-            color: #d4d4d4;
+            color: #dbe7f3;
             height: 100vh;
             display: flex;
             overflow: hidden;
@@ -154,9 +154,9 @@
         }
 
         .modal-box {
-            background: #252526;
+            background: #243142;
             padding: 30px;
-            border: 1px solid #444;
+            border: 1px solid #425368;
             border-radius: 8px;
             width: 340px;
             text-align: center;
@@ -166,21 +166,21 @@
             gap: 10px;
         }
 
-        .modal-box h3 { color: #4ec9b0; margin-bottom: 10px; }
+        .modal-box h3 { color: #6f98b2; margin-bottom: 10px; }
 
         .modal-box input {
             padding: 12px;
-            background: #333;
-            border: 1px solid #555;
+            background: #3a4a5e;
+            border: 1px solid #4a5c73;
             color: white;
             border-radius: 4px;
             outline: none;
         }
-        .modal-box input:focus { border-color: #4ec9b0; }
+        .modal-box input:focus { border-color: #6f98b2; }
 
         .modal-box button.btn-primary {
             padding: 12px;
-            background: #007acc;
+            background: #3f6aa6;
             color: white;
             border: none;
             cursor: pointer;
@@ -188,11 +188,11 @@
             border-radius: 4px;
             margin-top: 10px;
         }
-        .modal-box button.btn-primary:hover { background: #005a9e; }
+        .modal-box button.btn-primary:hover { background: #34598a; }
 
         .modal-box button.btn-close {
             background: transparent;
-            color: #888;
+            color: #9aa4b2;
             border: none;
             cursor: pointer;
             padding: 5px;
@@ -232,14 +232,14 @@
             <li><a href="QuestArchitect2.html" target="tool-frame"><i class="fa-solid fa-diagram-project"></i> Quest Architect</a></li>
         </ul>
 
-        <div class="category-title" style="color: #4ec9b0;">Generators</div>
+        <div class="category-title" style="color: #6f98b2;">Generators</div>
         <ul class="nav-links">
             <li><a href="math_plotter.html" target="tool-frame">📈 Math Plotter</a></li>
             <li><a href="shader_playground.html" target="tool-frame">🎮 HLSL Live Studio</a></li>
             <li><a href="noise_gen.html" target="tool-frame">🏁 Texture Generator</a></li>
         </ul>
 
-<div class="category-title admin-group" style="color: #4ec9b0;">Admin Zone</div>
+<div class="category-title admin-group" style="color: #6f98b2;">Admin Zone</div>
 <ul class="nav-links admin-group">
     <li><a href="admin_add.html" target="tool-frame">📝 Snippet Builder</a></li>
 </ul>
@@ -399,7 +399,7 @@
             const btn = document.getElementById('loginBtn');
             if (btn) {
                 btn.innerHTML = '<span id="statusIcon" style="margin-right:8px">🔒</span> Login';
-                btn.style.color = "#888";
+                btn.style.color = "#9aa4b2";
             }
 
             broadcastAuthState(false, null);
@@ -460,3 +460,4 @@
     </script>
 </body>
 </html>
+

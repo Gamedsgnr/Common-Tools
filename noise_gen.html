@@ -6,13 +6,15 @@
     <title>Texture Lab v2.0 - CommonToolHub</title>
     <style>
         :root {
-            --bg-color: #121212;
-            --panel-bg: #1e1e1e;
-            --input-bg: #2c2c2c;
-            --text-main: #e0e0e0;
-            --text-muted: #a0a0a0;
-            --accent: #00bcd4; /* Cyan accent for Sci-Fi feel */
-            --border: #333;
+            --bg-color: #1a1f2b;
+            --panel-bg: rgba(30, 41, 59, 0.45);
+            --panel-strong: rgba(30, 41, 59, 0.6);
+            --input-bg: rgba(15, 23, 42, 0.65);
+            --text-main: #dbe7f3;
+            --text-muted: #9aa4b2;
+            --accent: #6f98b2;
+            --accent-strong: #3f6aa6;
+            --border: rgba(148, 163, 184, 0.28);
         }
 
         * { box-sizing: border-box; }
@@ -30,8 +32,8 @@
         /* --- SCROLLBARS --- */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-color); }
-        ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        ::-webkit-scrollbar-thumb { background: #425368; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4a5c73; }
 
         /* --- SIDEBAR --- */
         .sidebar {
@@ -44,6 +46,9 @@
             gap: 20px;
             overflow-y: auto;
             flex-shrink: 0;
+            box-shadow: 0 18px 30px -12px rgba(2, 6, 23, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -10px 22px rgba(2, 6, 23, 0.32);
+            backdrop-filter: blur(18px) saturate(1.2);
+            -webkit-backdrop-filter: blur(18px) saturate(1.2);
         }
 
         h2 { margin: 0 0 5px 0; font-size: 1.4rem; color: var(--accent); letter-spacing: 1px; }
@@ -66,7 +71,7 @@
         
         .input-row { display: flex; gap: 10px; align-items: center; }
 
-        input[type="range"] { flex-grow: 1; cursor: pointer; accent-color: var(--accent); height: 4px; border-radius: 2px;}
+        input[type="range"] { flex-grow: 1; cursor: pointer; accent-color: var(--accent-strong); height: 4px; border-radius: 2px;}
         
         input[type="number"] {
             width: 65px;
@@ -74,7 +79,7 @@
             border: 1px solid var(--border);
             color: var(--text-main);
             padding: 5px;
-            border-radius: 4px;
+            border-radius: 8px;
             font-family: monospace;
             font-size: 0.9rem;
         }
@@ -87,7 +92,7 @@
             background-color: var(--input-bg);
             border: 1px solid var(--border);
             color: var(--text-main);
-            border-radius: 4px;
+            border-radius: 8px;
             font-size: 1rem;
             cursor: pointer;
         }
@@ -104,18 +109,18 @@
             position: relative;
             /* Checkerboard BG for transparency feel */
             background-image: 
-                linear-gradient(45deg, #151515 25%, transparent 25%), 
-                linear-gradient(-45deg, #151515 25%, transparent 25%), 
-                linear-gradient(45deg, transparent 75%, #151515 75%), 
-                linear-gradient(-45deg, transparent 75%, #151515 75%);
+                linear-gradient(45deg, #141b26 25%, transparent 25%), 
+                linear-gradient(-45deg, #141b26 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #141b26 75%), 
+                linear-gradient(-45deg, transparent 75%, #141b26 75%);
             background-size: 20px 20px;
             background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
         }
 
         .canvas-wrapper {
-            box-shadow: 0 0 30px rgba(0,0,0,0.7);
-            border: 1px solid #333;
-            background: black;
+            box-shadow: 0 18px 30px -12px rgba(2, 6, 23, 0.7);
+            border: 1px solid var(--border);
+            background: #0f172a;
             padding: 0;
             display: flex;
         }
@@ -128,29 +133,48 @@
             gap: 15px;
             background: var(--panel-bg);
             padding: 10px 20px;
-            border-radius: 50px;
+            border-radius: 20px;
             border: 1px solid var(--border);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 18px -12px rgba(2, 6, 23, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(18px) saturate(1.2);
+            -webkit-backdrop-filter: blur(18px) saturate(1.2);
         }
 
         button {
-            padding: 10px 20px;
+            padding: 10px 18px;
             font-size: 0.95rem;
-            border: none;
-            border-radius: 25px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
             cursor: pointer;
             font-weight: 600;
             transition: all 0.2s;
             display: flex;
             align-items: center;
             gap: 8px;
+            box-shadow: 0 10px 18px -12px rgba(2, 6, 23, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.2);
         }
 
-        .btn-primary { background-color: var(--accent); color: #000; }
-        .btn-primary:hover { background-color: #00e5ff; transform: translateY(-2px); }
+        .btn-primary {
+            background: var(--accent-strong);
+            color: #fff;
+            border-color: rgba(125, 211, 252, 0.55);
+            box-shadow:
+                0 12px 22px -12px rgba(2, 6, 23, 0.8),
+                0 0 14px rgba(63, 106, 166, 0.35),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+        .btn-primary:hover { filter: brightness(1.12); transform: translateY(-1px); }
         
-        .btn-sec { background-color: #333; color: white; }
-        .btn-sec:hover { background-color: #444; transform: translateY(-2px); }
+        .btn-sec {
+            background: var(--panel-strong);
+            color: var(--text-main);
+            border-color: rgba(125, 211, 252, 0.35);
+            box-shadow:
+                0 10px 18px -12px rgba(2, 6, 23, 0.7),
+                0 0 10px rgba(63, 106, 166, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.18);
+        }
+        .btn-sec:hover { filter: brightness(1.08); transform: translateY(-1px); }
 
         /* Checkbox Row */
         .checkbox-group {
@@ -165,12 +189,13 @@
             cursor: pointer;
             user-select: none;
             font-size: 0.9rem;
-            padding: 5px;
-            background: #252525;
-            border-radius: 4px;
+            padding: 6px 8px;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 8px;
+            border: 1px solid var(--border);
         }
-        .checkbox-row:hover { background: #303030; }
-        .checkbox-row input { width: 16px; height: 16px; accent-color: var(--accent); }
+        .checkbox-row:hover { background: rgba(30, 41, 59, 0.6); }
+        .checkbox-row input { width: 16px; height: 16px; accent-color: var(--accent-strong); }
 
     </style>
 </head>

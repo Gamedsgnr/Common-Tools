@@ -1,248 +1,302 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Style Palette</title>
+    <title>Style Palette | Glass System</title>
     <style>
         :root {
-            --primary-color: #4ec9b0; /* From admin_add.html - greenish-blue */
-            --accent-color: #007acc; /* From snippets_view.html and admin_add.html - blue */
-            --bg-color: #1e1e1e; /* From admin_add.html and snippets_view.html */
-            --panel-bg-color: #252526; /* From admin_add.html and snippets_view.html */
-            --border-color: #333; /* From admin_add.html and snippets_view.html */
-            --text-color: #d4d4d4; /* From snippets_view.html */
-            --text-light-color: #888; /* From admin_add.html and snippets_view.html */
-            --error-color: #f48771; /* From admin_add.html */
-            --success-color: #4ec9b0; /* Derived from primary */
+            --bg: #1a1f2b;
+            --panel: rgba(30, 41, 59, 0.45);
+            --panel-strong: rgba(30, 41, 59, 0.6);
+            --border: rgba(148, 163, 184, 0.28);
+            --border-strong: rgba(148, 163, 184, 0.42);
+            --text: #dbe7f3;
+            --text-muted: #9aa4b2;
+            --accent: #6f98b2;
+            --accent-strong: #3f6aa6;
+            --accent-warm: #b98989;
+            --accent-teal: #5fa39a;
+            --accent-orange: #b98460;
+            --accent-purple: #8d82ba;
+            --shadow-outer: 0 18px 30px -12px rgba(2, 6, 23, 0.7);
+            --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -10px 22px rgba(2, 6, 23, 0.32);
         }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             font-family: 'Segoe UI', sans-serif;
-            margin: 20px;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            line-height: 1.6;
+            background: var(--bg);
+            color: var(--text);
+            padding: 28px;
+            line-height: 1.5;
         }
 
-        h1, h2, h3 {
-            color: var(--primary-color);
-            margin-top: 0;
-            margin-bottom: 10px;
+        h1, h2, h3 { color: var(--accent); font-weight: 700; }
+        h1 { font-size: 1.6em; margin-bottom: 12px; }
+        h2 { font-size: 1.1em; margin: 0 0 10px; }
+        h3 { font-size: 0.95em; margin: 12px 0 8px; }
+        p { color: var(--text-muted); margin-bottom: 16px; }
+
+        .section {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px;
+            margin-bottom: 18px;
+            box-shadow: var(--shadow-outer), var(--shadow-inset);
+            backdrop-filter: blur(18px) saturate(1.2);
+            -webkit-backdrop-filter: blur(18px) saturate(1.2);
         }
 
-        section {
-            background-color: var(--panel-bg-color);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        .glass-card {
+            position: relative;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: var(--shadow-outer), var(--shadow-inset);
+            backdrop-filter: blur(18px) saturate(1.2);
+            -webkit-backdrop-filter: blur(18px) saturate(1.2);
         }
 
-        /* Buttons */
-        button {
-            padding: 10px 15px;
-            border: none;
-            border-radius: 4px;
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            inset: 6px;
+            border-radius: 10px;
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 55%),
+                linear-gradient(340deg, rgba(125, 211, 252, 0.08), rgba(125, 211, 252, 0) 60%);
+            box-shadow:
+                inset 0 0 10px rgba(255, 255, 255, 0.06),
+                inset 0 0 16px rgba(125, 211, 252, 0.05);
+            opacity: 0.9;
+            pointer-events: none;
+        }
+
+        .glass-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 16px;
+            background:
+                linear-gradient(135deg, rgba(2, 6, 23, 0.22), rgba(2, 6, 23, 0) 55%),
+                linear-gradient(315deg, rgba(2, 6, 23, 0.3), rgba(2, 6, 23, 0) 60%);
+            opacity: 0.85;
+            pointer-events: none;
+        }
+
+        .glass-card > * { position: relative; z-index: 1; }
+
+        .btn {
+            background: var(--accent-strong);
+            color: white;
+            border: 1px solid rgba(125, 211, 252, 0.45);
+            padding: 8px 14px;
+            border-radius: 10px;
             cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            margin-right: 10px;
-            transition: background-color 0.2s ease;
+            font-weight: 600;
+            box-shadow: 0 10px 18px -12px rgba(2, 6, 23, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            transition: filter 0.2s ease;
+        }
+        .btn:hover { filter: brightness(1.1); }
+
+        .btn-ghost {
+            background: rgba(15, 23, 42, 0.6);
+            color: var(--text);
+            border: 1px solid var(--border);
         }
 
-        .default-btn {
-            background-color: var(--accent-color);
-            color: white;
-        }
-        .default-btn:hover {
-            background-color: #005a9e; /* Darker blue */
-        }
+        .btn-warm { background: #b65f5f; border-color: rgba(185, 137, 137, 0.5); }
+        .btn-teal { background: #328e84; border-color: rgba(95, 163, 154, 0.5); }
+        .btn-orange { background: #b36a3e; border-color: rgba(185, 132, 96, 0.5); }
+        .btn-purple { background: #6f60b0; border-color: rgba(141, 130, 186, 0.5); }
 
-        .primary-btn {
-            background-color: var(--primary-color);
-            color: white;
-        }
-        .primary-btn:hover {
-            background-color: #3e9f8b; /* Darker greenish-blue */
-        }
-
-        .secondary-btn {
-            background-color: #6c757d;
-            color: white;
-        }
-        .secondary-btn:hover {
-            background-color: #5a6268;
-        }
-
-        /* Form Elements */
-        input[type="text"],
-        input[type="email"],
-        input[type="number"],
-        select,
-        textarea {
-            width: calc(100% - 22px); /* Adjust for padding and border */
-            padding: 10px;
-            margin-bottom: 10px;
-            background: #333; /* Darker input background */
-            border: 1px solid var(--border-color);
-            color: var(--text-color);
-            border-radius: 4px;
-            box-sizing: border-box;
+        .input, .select, .textarea {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px 12px;
+            border-radius: 12px;
             outline: none;
-            transition: border-color 0.2s ease;
+            box-shadow: inset 0 0 12px rgba(2, 6, 23, 0.35);
         }
 
-        input:focus,
-        textarea:focus,
-        select:focus {
-            border-color: var(--primary-color);
-        }
-
-        textarea {
-            min-height: 80px;
+        .textarea {
+            min-height: 90px;
             resize: vertical;
-            font-family: 'Consolas', 'Monaco', monospace;
-        }
-        select {
-            appearance: none; /* Remove default arrow */
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            background-image: url('data:image/svg+xml;utf8,<svg fill="white" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
-            background-repeat: no-repeat;
-            background-position: right 8px center;
-            padding-right: 30px; /* Make space for the arrow */
+            font-family: 'Consolas', monospace;
         }
 
-        /* Containers & Boxes */
-        .default-container {
-            border: 2px solid var(--accent-color);
-            padding: 15px;
-            border-radius: 8px;
-            background-color: #2d2d30; /* Slightly lighter than panel-bg */
+        .label {
+            font-size: 0.75em;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            display: block;
         }
 
-        .hint-box {
-            background: #2d2d30;
-            padding: 10px;
-            border-left: 3px solid var(--primary-color);
-            margin-bottom: 15px;
-            font-size: 0.85em;
-            color: #ccc;
-        }
-        
-        .code-block {
-            background: #111;
-            padding: 10px;
-            border-radius: 4px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            color: #dcdcaa;
-            overflow-x: auto;
+        .list-item {
+            padding: 12px;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.55);
+            border: 1px solid var(--border);
+            transition: 0.2s;
+            margin-bottom: 8px;
+            cursor: pointer;
         }
 
-        /* Typography */
-        .text-muted {
-            color: var(--text-light-color);
-            font-size: 0.9em;
+        .list-item:hover {
+            background: rgba(30, 41, 59, 0.65);
+            border-color: var(--border-strong);
+            box-shadow: 0 12px 18px -12px rgba(2, 6, 23, 0.7);
         }
-        .default-link {
-            color: var(--accent-color);
-            text-decoration: none;
+
+        .list-item.active {
+            background: var(--panel);
+            border-color: var(--border-strong);
+            box-shadow: 0 14px 20px -12px rgba(2, 6, 23, 0.7), var(--shadow-inset);
+            position: relative;
+            overflow: hidden;
         }
-        .default-link:hover {
-            text-decoration: underline;
+
+        .list-item.active::before {
+            content: '';
+            position: absolute;
+            inset: 4px;
+            border-radius: 10px;
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 55%),
+                linear-gradient(340deg, rgba(134, 184, 216, 0.12), rgba(134, 184, 216, 0) 60%);
+            box-shadow:
+                inset 0 0 10px rgba(255, 255, 255, 0.08),
+                inset 0 0 18px rgba(134, 184, 216, 0.06);
+            opacity: 0.9;
+            pointer-events: none;
         }
-        .status-message {
-            margin-top: 15px;
-            padding: 10px;
-            border-radius: 4px;
-            font-size: 0.9em;
+
+        .list-item.active::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 12px;
+            background:
+                linear-gradient(135deg, rgba(2, 6, 23, 0.12), rgba(2, 6, 23, 0) 55%),
+                linear-gradient(315deg, rgba(2, 6, 23, 0.18), rgba(2, 6, 23, 0) 60%);
+            opacity: 0.8;
+            pointer-events: none;
         }
-        .status-success {
-            background: rgba(78, 201, 176, 0.1);
-            color: var(--success-color);
-            border: 1px solid var(--success-color);
-        }
-        .status-error {
-            background: rgba(209, 105, 105, 0.1);
-            color: var(--error-color);
-            border: 1px solid var(--error-color);
+
+        .list-item.accent { border-color: rgba(134, 184, 216, 0.55); }
+        .list-item.warm { border-color: rgba(217, 163, 163, 0.55); }
+        .list-item.teal { border-color: rgba(124, 202, 191, 0.55); }
+        .list-item.orange { border-color: rgba(217, 160, 122, 0.55); }
+        .list-item.purple { border-color: rgba(169, 153, 214, 0.55); }
+
+        .list-item.accent::before { background: linear-gradient(160deg, rgba(255,255,255,0.16), rgba(255,255,255,0.03) 55%), linear-gradient(340deg, rgba(134,184,216,0.22), rgba(134,184,216,0) 60%); }
+        .list-item.warm::before { background: linear-gradient(160deg, rgba(255,255,255,0.16), rgba(255,255,255,0.03) 55%), linear-gradient(340deg, rgba(217,163,163,0.24), rgba(217,163,163,0) 60%); }
+        .list-item.teal::before { background: linear-gradient(160deg, rgba(255,255,255,0.16), rgba(255,255,255,0.03) 55%), linear-gradient(340deg, rgba(124,202,191,0.24), rgba(124,202,191,0) 60%); }
+        .list-item.orange::before { background: linear-gradient(160deg, rgba(255,255,255,0.16), rgba(255,255,255,0.03) 55%), linear-gradient(340deg, rgba(217,160,122,0.24), rgba(217,160,122,0) 60%); }
+        .list-item.purple::before { background: linear-gradient(160deg, rgba(255,255,255,0.16), rgba(255,255,255,0.03) 55%), linear-gradient(340deg, rgba(169,153,214,0.24), rgba(169,153,214,0) 60%); }
+
+        .list-item > * { position: relative; z-index: 1; }
+
+        .title { font-size: 1.05em; font-weight: 600; color: var(--accent); }
+        .desc { font-size: 0.85em; color: var(--text-muted); }
+
+        .swatch-row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .swatch {
+            width: 90px;
+            height: 46px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7em;
+            color: var(--text);
         }
     </style>
 </head>
 <body>
-    <h1>Style Palette</h1>
-    <p class="text-muted">A collection of common UI elements and their default styles based on project conventions.</p>
+    <h1>Glass System Style Palette</h1>
+    <p>Эталонные токены и элементы для интерфейса Common Tools.</p>
 
-    <section>
+    <div class="section">
+        <h2>Colors</h2>
+        <div class="swatch-row">
+            <div class="swatch" style="background:#1a1f2b">BG</div>
+            <div class="swatch" style="background:rgba(30,41,59,0.45)">PANEL</div>
+            <div class="swatch" style="background:#6f98b2">ACCENT</div>
+            <div class="swatch" style="background:#3f6aa6">ACCENT+</div>
+            <div class="swatch" style="background:#b98989">WARM</div>
+            <div class="swatch" style="background:#5fa39a">TEAL</div>
+            <div class="swatch" style="background:#b98460">ORANGE</div>
+            <div class="swatch" style="background:#8d82ba">PURPLE</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Cards</h2>
+        <div class="glass-card">
+            <div class="title">Glass Card</div>
+            <div class="desc">Использовать для панелей и блоков с контентом.</div>
+        </div>
+    </div>
+
+    <div class="section">
         <h2>Buttons</h2>
-        <button class="default-btn">Default Button</button>
-        <button class="primary-btn">Primary Button</button>
-        <button class="secondary-btn">Secondary Button</button>
-    </section>
+        <button class="btn">Primary</button>
+        <button class="btn btn-ghost">Ghost</button>
+        <button class="btn btn-warm">Warm</button>
+        <button class="btn btn-teal">Teal</button>
+        <button class="btn btn-orange">Orange</button>
+        <button class="btn btn-purple">Purple</button>
+    </div>
 
-    <section>
-        <h2>Forms</h2>
-        <label for="textInput">Text Input</label>
-        <input type="text" id="textInput" placeholder="Enter text here">
-
-        <label for="emailInput">Email Input</label>
-        <input type="email" id="emailInput" placeholder="Enter email here">
-
-        <label for="numberInput">Number Input</label>
-        <input type="number" id="numberInput" value="123">
-
-        <label for="selectOption">Select Option</label>
-        <select id="selectOption">
-            <option value="option1">Option 1</option>
-            <option value="option2">Option 2</option>
-            <option value="option3">Option 3</option>
+    <div class="section">
+        <h2>Inputs</h2>
+        <label class="label">Text</label>
+        <input class="input" placeholder="Input text">
+        <label class="label">Select</label>
+        <select class="select">
+            <option>Option 1</option>
+            <option>Option 2</option>
         </select>
+        <label class="label">Textarea</label>
+        <textarea class="textarea" placeholder="Write here..."></textarea>
+    </div>
 
-        <label for="textareaInput">Textarea</label>
-        <textarea id="textareaInput" placeholder="Enter multiline text..."></textarea>
-    </section>
-
-    <section>
-        <h2>Borders & Containers</h2>
-        <div class="default-container">
-            <h3>Default Container</h3>
-            <p>This is a default container with a border and background styling.</p>
+    <div class="section">
+        <h2>List Items</h2>
+        <div class="list-item">
+            <div class="title">Default Item</div>
+            <div class="desc">Hover for subtle glass.</div>
         </div>
-
-        <div class="hint-box" style="margin-top: 20px;">
-            This is a hint box, useful for providing inline tips or extra information.
+        <div class="list-item active accent">
+            <div class="title">Active Accent</div>
+            <div class="desc">Inset glass with accent sheen.</div>
         </div>
-    </section>
-
-    <section>
-        <h2>Code Blocks</h2>
-        <div class="code-block">
-            <pre><code>function greet(name) {
-    console.log(`Hello, ${name}!`);
-}
-greet("World");</code></pre>
+        <div class="list-item active warm">
+            <div class="title">Active Warm</div>
+            <div class="desc">Warm variant inset sheen.</div>
         </div>
-    </section>
-
-    <section>
-        <h2>Typography</h2>
-        <h1>Heading 1 - The quick brown fox jumps over the lazy dog</h1>
-        <h2>Heading 2 - The quick brown fox jumps over the lazy dog</h2>
-        <h3>Heading 3 - The quick brown fox jumps over the lazy dog</h3>
-        <p>This is a default paragraph text. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. <a href="#" class="default-link">This is a default link</a>.</p>
-        <p class="text-muted">This is muted text, often used for secondary information.</p>
-    </section>
-
-    <section>
-        <h2>Status Messages</h2>
-        <div class="status-message status-success">
-            <p><strong>Success!</strong> Your operation was completed successfully.</p>
+        <div class="list-item active teal">
+            <div class="title">Active Teal</div>
+            <div class="desc">Teal variant inset sheen.</div>
         </div>
-        <div class="status-message status-error">
-            <p><strong>Error!</strong> Something went wrong during the process.</p>
+        <div class="list-item active orange">
+            <div class="title">Active Orange</div>
+            <div class="desc">Orange variant inset sheen.</div>
         </div>
-    </section>
+        <div class="list-item active purple">
+            <div class="title">Active Purple</div>
+            <div class="desc">Purple variant inset sheen.</div>
+        </div>
+    </div>
 </body>
 </html>

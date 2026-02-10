@@ -5,34 +5,34 @@
     <title>CommonToolHub | Admin Panel</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #4ec9b0; --bg: #1e1e1e; --panel: #252526; --border: #333; --error: #f48771; }
+        :root { --primary: #6f98b2; --bg: #1a1f2b; --panel: #243142; --border: #3a4a5e; --error: #f48771; }
         body { background: var(--bg); color: #ddd; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         .container { background: var(--panel); padding: 30px; border-radius: 8px; border: 1px solid var(--border); width: 100%; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; }
         
         h2 { color: var(--primary); margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 10px; font-size: 1.2em; }
-        label { display: block; margin: 15px 0 5px; font-size: 0.85em; color: #888; }
-        input, textarea, select { width: 100%; background: #333; border: 1px solid var(--border); color: white; padding: 10px; border-radius: 4px; box-sizing: border-box; outline: none; }
+        label { display: block; margin: 15px 0 5px; font-size: 0.85em; color: #9aa4b2; }
+        input, textarea, select { width: 100%; background: #3a4a5e; border: 1px solid var(--border); color: white; padding: 10px; border-radius: 4px; box-sizing: border-box; outline: none; }
         input:focus, textarea:focus, select:focus { border-color: var(--primary); }
         
         textarea { height: 200px; font-family: monospace; font-size: 0.9em; line-height: 1.4; color: #ce9178; }
         
-        button { background: #007acc; color: white; border: none; padding: 12px; width: 100%; cursor: pointer; font-weight: bold; border-radius: 4px; margin-top: 20px; transition: 0.2s; }
-        button:hover { background: #005a9e; }
-        button:disabled { background: #444; cursor: not-allowed; }
+        button { background: #3f6aa6; color: white; border: none; padding: 12px; width: 100%; cursor: pointer; font-weight: bold; border-radius: 4px; margin-top: 20px; transition: 0.2s; }
+        button:hover { background: #34598a; }
+        button:disabled { background: #425368; cursor: not-allowed; }
         
         /* Стили для подсказок */
-        .hint-box { background: #2d2d30; padding: 10px; border-left: 3px solid #4ec9b0; margin-bottom: 15px; font-size: 0.85em; color: #ccc; display: none; }
+        .hint-box { background: #2d2d30; padding: 10px; border-left: 3px solid #6f98b2; margin-bottom: 15px; font-size: 0.85em; color: #ccc; display: none; }
         code { background: #111; padding: 2px 5px; border-radius: 3px; font-family: monospace; color: #dcdcaa; }
 
         /* Статусы */
         .status { margin-top: 15px; padding: 10px; border-radius: 4px; font-size: 0.9em; display: none; }
         .success { background: rgba(78, 201, 176, 0.1); color: var(--primary); border: 1px solid var(--primary); }
-        .error { background: rgba(209, 105, 105, 0.1); color: #d16969; border: 1px solid #d16969; }
+        .error { background: rgba(209, 105, 105, 0.1); color: #b98989; border: 1px solid #b98989; }
 
         /* Экран блокировки */
         #accessDenied { text-align: center; display: none; color: var(--error); }
         #accessDenied h1 { font-size: 3em; margin: 0; }
-        #accessDenied p { color: #888; margin-top: 10px; }
+        #accessDenied p { color: #9aa4b2; margin-top: 10px; }
 
         /* Форма (скрыта по умолчанию до проверки) */
         #adminForm { display: none; }
