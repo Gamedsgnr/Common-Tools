@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dialog Architect 5.0 | Pro Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #020617; 
+            color: #e2e8f0; 
+            overflow: hidden; 
+            user-select: none;
+        }
+        
+        /* Сетка - Infinite Grid Simulation */
+        .grid-canvas {
+            background-color: #0f172a;
+            background-image: 
+                linear-gradient(rgba(30, 41, 59, 0.5) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(30, 41, 59, 0.5) 1px, transparent 1px);
+            background-size: 50px 50px;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0; left: 0;
+            cursor: grab;
+        }
+        .grid-canvas:active { cursor: grabbing; }
+
+        /* Ноды */
+        .node-wrapper {
+            position: absolute;
+            width: 300px;
+            background: #1e293b;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+            border: 2px solid #334155;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            transition: box-shadow 0.2s, border-color 0.2s;
+        }
+        .node-wrapper.selected {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+            z-index: 50;
+        }
+
+        /* Хедеры нод */
+        .node-header {
+            padding: 10px 12px;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: grab;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .node-header:active { cursor: grabbing; }
+
+        .type-start { background: linear-gradient(135deg, #059669, #047857); }
+        .type-dialog { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+        .type-action { background: linear-gradient(135deg, #9333ea, #7e22ce); }
+        .type-condition { background: linear-gradient(135deg, #d97706, #b45309); }
+
+        /* Сокеты */
+        .socket {
+            width: 14px;
+            height: 14px;
+            background: #0f172a;
+            border: 2px solid #94a3b8;
+            border-radius: 50%;
+            position: absolute;
+            z-index: 20;
+            cursor: crosshair;
+            transition: 0.2s;
+        }
+        .socket:hover { background: #fff; transform: scale(1.2); border-color: #fff; }
+        
+        /* Позиционирование сокетов */
+        .socket-in { left: -8px; top: 18px; } /* Вход всегда сверху слева на хедере */
+        .socket-out { right: -8px; top: 50%; transform: translateY(-50%); }
+
+        /* SVG слой связей */
+        .connections-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none; /* Чтобы кликать сквозь SVG по канвасу */
+            overflow: visible;
+            z-index: 5;
+        }
+        .connection-path {
+            pointer-events: stroke; /* Клики только по линии */
+            cursor: pointer;
+        }
+        .connection-path:hover { stroke: #fff; stroke-width: 4; }
+
+        /* UI Элементы */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div id="app" class="h-screen w-screen flex flex-col relative" 
+         @mousemove="onGlobalMouseMove" 
+         @mouseup="onGlobalMouseUp"
+         @mouseleave="onGlobalMouseUp">
+
+        <header class="h-14 bg-slate-900 border-b border-slate-700 flex items-center justify-between px-6 shrink-0 z-50">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-diagram-project text-blue-500 text-xl"></i>
+                <h1 class="font-bold text-lg text-slate-100">Dialog <span class="text-blue-500">Architect</span></h1>
+            </div>
+            <div class="flex gap-3">
+                <button @click="saveProject" class="px-3 py-1.5 text-xs font-bold bg-slate-800 hover:bg-slate-700 rounded border border-slate-600 transition">
+                    <i class="fa-solid fa-save mr-1"></i> SAVE
+                </button>
+                <button @click="runScenario" class="px-4 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded shadow-lg transition transform hover:scale-105">
+                    <i class="fa-solid fa-play mr-1"></i> PLAY
+                </button>
+            </div>
+        </header>
+
+        <div class="flex-1 flex overflow-hidden relative">
+            
+            <div class="flex-1 relative overflow-hidden bg-slate-950" ref="canvasContainer" 
+                 @wheel.prevent="handleWheel"
+                 @mousedown.self="startPan">
+                
+                <div class="origin-top-left absolute w-full h-full"
+                     :style="{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }">
+                    
+                    <div class="grid-canvas" style="width: 10000px; height: 10000px; transform: translate(-5000px, -5000px);" @mousedown.self="startPan"></div>
+
+                    <svg class="connections-layer overflow-visible">
+                        <path v-for="conn in connections" :key="conn.id"
+                              :d="calculatePath(conn.from, conn.fromSocket, conn.to, 'in')"
+                              stroke="#64748b" stroke-width="3" fill="none"
+                              class="connection-path transition-all"
+                              :class="{'!stroke-blue-500 !stroke-[4px]': selectedConnId === conn.id}"
+                              @click.stop="selectConnection(conn.id)" />
+                        
+                        <path v-if="dragLine"
+                              :d="dragLine.path"
+                              stroke="#3b82f6" stroke-width="3" stroke-dasharray="8,4" fill="none" 
+                              class="pointer-events-none opacity-80" />
+                    </svg>
+
+                    <div v-for="node in nodes" :key="node.id"
+                         class="node-wrapper"
+                         :class="{ 'selected': selectedNodeId === node.id }"
+                         :style="{ transform: `translate(${node.x}px, ${node.y}px)` }"
+                         @mousedown.stop="selectNode(node.id)">
+                        
+                        <div class="node-header" :class="'type-' + node.type" @mousedown.stop="startDragNode(node, $event)">
+                            <div class="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                                <i :class="getNodeIcon(node.type)"></i> {{ node.type }}
+                            </div>
+                            <button v-if="node.type !== 'start'" @click.stop="deleteNode(node.id)" class="text-white/40 hover:text-white">
+                                <i class="fa-solid fa-times"></i>
+                            </button>
+                            
+                            <div v-if="node.type !== 'start'" 
+                                 class="socket socket-in hover:border-blue-400 bg-slate-900"
+                                 @mouseup="onSocketMouseUp(node.id, 'in')"></div>
+                        </div>
+
+                        <div class="p-3 text-slate-300 text-sm relative">
+                            
+                            <div v-if="node.type === 'start'" class="py-2 text-center text-xs text-slate-400">
+                                Точка входа
+                                <div class="socket socket-out hover:border-emerald-400" 
+                                     @mousedown.stop.prevent="startDragLine(node.id, 'default')"></div>
+                            </div>
+
+                            <div v-if="node.type === 'dialog'">
+                                <div class="font-bold text-blue-400 mb-1 truncate">{{ node.data.speaker || '???' }}</div>
+                                <div class="bg-slate-900/50 p-2 rounded border border-slate-700/50 italic text-xs mb-3 min-h-[40px]">
+                                    {{ node.data.text || '...' }}
+                                </div>
+                                <div class="space-y-2">
+                                    <div v-for="(choice, idx) in node.data.choices" :key="idx" 
+                                         class="relative bg-slate-800 border border-slate-700 p-2 rounded text-xs flex justify-between">
+                                        <span class="truncate max-w-[200px]">{{ choice.text }}</span>
+                                        <div class="socket socket-out" 
+                                             @mousedown.stop.prevent="startDragLine(node.id, 'choice-' + idx)"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-if="node.type === 'action'">
+                                <div v-if="!node.data.ops.length" class="text-center text-xs text-slate-500 py-2">Нет действий</div>
+                                <div v-else class="space-y-1">
+                                    <div v-for="(op, i) in node.data.ops" :key="i" class="bg-purple-900/30 px-2 py-1 rounded text-xs border border-purple-500/30 font-mono text-purple-200">
+                                        {{ getVarName(op.varId) }} {{ op.op }} {{ op.val }}
+                                    </div>
+                                </div>
+                                <div class="socket socket-out hover:border-purple-400" 
+                                     @mousedown.stop.prevent="startDragLine(node.id, 'default')"></div>
+                            </div>
+
+                            <div v-if="node.type === 'condition'">
+                                <div class="bg-yellow-900/20 p-2 rounded border border-yellow-500/20 text-center mb-3 text-xs font-mono text-yellow-200">
+                                    {{ getConditionText(node.data) }}
+                                </div>
+                                <div class="relative h-14">
+                                    <div class="absolute right-0 top-0 flex items-center gap-2">
+                                        <span class="text-[10px] font-bold text-emerald-500">TRUE</span>
+                                        <div class="socket relative" @mousedown.stop.prevent="startDragLine(node.id, 'true')"></div>
+                                    </div>
+                                    <div class="absolute right-0 bottom-0 flex items-center gap-2">
+                                        <span class="text-[10px] font-bold text-rose-500">FALSE</span>
+                                        <div class="socket relative" @mousedown.stop.prevent="startDragLine(node.id, 'false')"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-50">
+                    <div class="glass-panel rounded-2xl p-2 flex items-center gap-2 shadow-2xl">
+                        <button @click="addNode('dialog')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-blue-600/20 hover:text-blue-400 text-slate-400 transition group">
+                            <i class="fa-solid fa-comment-dots text-2xl mb-1 group-hover:scale-110 transition"></i>
+                            <span class="text-[10px] font-bold">DIALOG</span>
+                        </button>
+                        <div class="w-px h-10 bg-slate-700"></div>
+                        <button @click="addNode('action')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-purple-600/20 hover:text-purple-400 text-slate-400 transition group">
+                            <i class="fa-solid fa-bolt text-2xl mb-1 group-hover:scale-110 transition"></i>
+                            <span class="text-[10px] font-bold">ACTION</span>
+                        </button>
+                        <div class="w-px h-10 bg-slate-700"></div>
+                        <button @click="addNode('condition')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-yellow-600/20 hover:text-yellow-400 text-slate-400 transition group">
+                            <i class="fa-solid fa-code-branch text-2xl mb-1 group-hover:scale-110 transition"></i>
+                            <span class="text-[10px] font-bold">IF / ELSE</span>
+                        </button>
+                        <div class="w-px h-10 bg-slate-700"></div>
+                        <button @click="resetView" title="Reset Camera" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-slate-700 text-slate-500 hover:text-white transition">
+                            <i class="fa-solid fa-crosshairs text-xl mb-1"></i>
+                            <span class="text-[10px] font-bold">CENTER</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <aside class="w-80 bg-slate-900 border-l border-slate-700 flex flex-col z-40 shadow-xl">
+                <div class="flex border-b border-slate-700">
+                    <button @click="tab = 'props'" class="flex-1 py-3 text-xs font-bold uppercase transition hover:text-white" :class="tab==='props' ? 'text-blue-400 border-b-2 border-blue-500 bg-slate-800' : 'text-slate-500'">Свойства</button>
+                    <button @click="tab = 'vars'" class="flex-1 py-3 text-xs font-bold uppercase transition hover:text-white" :class="tab==='vars' ? 'text-yellow-400 border-b-2 border-yellow-500 bg-slate-800' : 'text-slate-500'">Переменные</button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-4">
+                    <div v-if="tab === 'props'">
+                        <div v-if="selectedNode">
+                            <div class="mb-4 pb-2 border-b border-slate-700 flex justify-between items-center text-slate-400 text-[10px] font-mono">
+                                <span>ID: {{ selectedNode.id.substr(-6) }}</span>
+                                <span class="uppercase font-bold text-white">{{ selectedNode.type }}</span>
+                            </div>
+
+                            <div v-if="selectedNode.type === 'dialog'" class="space-y-4">
+                                <div>
+                                    <label class="text-xs text-slate-500 block mb-1">Говорящий</label>
+                                    <input v-model="selectedNode.data.speaker" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none transition">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-slate-500 block mb-1">Текст</label>
+                                    <textarea v-model="selectedNode.data.text" rows="4" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none resize-none transition"></textarea>
+                                </div>
+                                <div>
+                                    <label class="text-xs text-slate-500 block mb-1">Ответы</label>
+                                    <div class="space-y-2">
+                                        <div v-for="(c, i) in selectedNode.data.choices" :key="i" class="flex gap-2">
+                                            <input v-model="c.text" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs">
+                                            <button @click="selectedNode.data.choices.splice(i,1)" class="text-slate-600 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
+                                        </div>
+                                    </div>
+                                    <button @click="selectedNode.data.choices.push({text:'New Option'})" class="mt-2 w-full py-1 text-xs border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-slate-400 rounded transition">
+                                        + Добавить ответ
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div v-if="selectedNode.type === 'condition'" class="space-y-4">
+                                <label class="text-xs text-slate-500 block">Условие перехода</label>
+                                <select v-model="selectedNode.data.varId" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm">
+                                    <option :value="null">Выбрать переменную...</option>
+                                    <option v-for="v in variables" :value="v.id">{{ v.name }}</option>
+                                </select>
+                                <div class="flex gap-2" v-if="selectedNode.data.varId">
+                                    <select v-model="selectedNode.data.op" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                        <option value="eq">==</option>
+                                        <option value="neq">!=</option>
+                                        <option value="gt">&gt;</option>
+                                        <option value="lt">&lt;</option>
+                                    </select>
+                                    <input type="number" v-model.number="selectedNode.data.val" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                </div>
+                            </div>
+
+                        </div>
+                        <div v-else class="h-full flex flex-col items-center justify-center text-slate-600 opacity-50">
+                            <i class="fa-solid fa-computer-mouse text-4xl mb-2"></i>
+                            <span class="text-xs">Выберите ноду</span>
+                        </div>
+                    </div>
+
+                    <div v-if="tab === 'vars'" class="space-y-4">
+                        <div class="bg-slate-800 p-3 rounded border border-slate-700">
+                            <h3 class="text-[10px] font-bold uppercase text-slate-400 mb-2">Создать переменную</h3>
+                            <input v-model="newVarName" placeholder="Имя (напр. Gold)" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs mb-2">
+                            <select v-model="newVarType" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs mb-2">
+                                <option value="num">Число</option>
+                                <option value="bool">Логическая (True/False)</option>
+                            </select>
+                            <button @click="addVariable" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1 rounded">Создать</button>
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <div v-for="v in variables" :key="v.id" class="flex justify-between items-center bg-slate-800/50 p-2 rounded border border-slate-700">
+                                <div>
+                                    <div class="font-bold text-xs text-slate-200">{{ v.name }}</div>
+                                    <div class="text-[10px] text-slate-500 uppercase">{{ v.type }} = {{ v.init }}</div>
+                                </div>
+                                <button @click="variables = variables.filter(x => x.id !== v.id)" class="text-slate-600 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <div v-if="isPlayMode" class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center">
+            <div class="w-[800px] h-[600px] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl flex flex-col overflow-hidden">
+                <div class="h-10 bg-slate-950 flex justify-between items-center px-4 border-b border-slate-800">
+                    <span class="text-xs font-bold text-emerald-500 uppercase tracking-widest">Running Scenario</span>
+                    <button @click="isPlayMode = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="flex-1 p-6 overflow-y-auto font-mono text-sm" ref="gameLogRef">
+                    <div v-for="(msg, i) in gameLog" :key="i" class="mb-4">
+                        <span class="text-blue-400 font-bold block text-xs mb-1">{{ msg.speaker }}</span>
+                        <p class="text-slate-200">{{ msg.text }}</p>
+                        <div v-if="msg.choice" class="mt-1 pl-2 border-l-2 border-slate-600 text-slate-500 text-xs italic">
+                            Выбрано: {{ msg.choice }}
+                        </div>
+                    </div>
+                    
+                    <div v-if="activeNode && activeNode.type === 'dialog' && !gameFinished" class="mt-6 p-4 bg-slate-800 rounded border border-slate-700">
+                        <div class="text-blue-400 font-bold mb-2">{{ activeNode.data.speaker }}</div>
+                        <div class="text-lg text-white mb-4">{{ activeNode.data.text }}</div>
+                        <div class="space-y-2">
+                            <button v-for="(c, i) in activeNode.data.choices" :key="i"
+                                    @click="makeChoice(i)"
+                                    class="w-full text-left p-3 rounded bg-slate-700 hover:bg-blue-600 transition text-slate-200 hover:text-white border border-slate-600">
+                                {{ i + 1 }}. {{ c.text }}
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div v-if="gameFinished" class="mt-8 text-center text-slate-500">
+                        --- Конец сценария ---
+                        <br>
+                        <button @click="runScenario" class="mt-2 text-emerald-500 underline">Запустить снова</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
+
+        createApp({
+            setup() {
+                // --- STATE ---
+                const nodes = ref([]);
+                const connections = ref([]); // { id, from, fromSocket, to, toSocket }
+                const variables = ref([]);
+                
+                // Viewport
+                const pan = reactive({ x: 0, y: 0 });
+                const scale = ref(1);
+                
+                // Interaction State
+                const draggingNode = ref(null); // { node, startX, startY }
+                const dragLine = ref(null); // { fromNode, fromSocket, path }
+                const isPanning = ref(false);
+                const lastMouse = reactive({ x: 0, y: 0 });
+                
+                // Selection
+                const selectedNodeId = ref(null);
+                const selectedConnId = ref(null);
+                
+                // UI & Logic
+                const tab = ref('props');
+                const isPlayMode = ref(false);
+                const newVarName = ref('');
+                const newVarType = ref('num');
+
+                // Runtime
+                const gameLog = ref([]);
+                const activeNode = ref(null);
+                const gameFinished = ref(false);
+                const runtimeVars = ref({});
+                const gameLogRef = ref(null);
+
+                const canvasContainer = ref(null);
+
+                // --- HELPERS: Coordinates ---
+                // Convert screen coordinates to world coordinates
+                const toWorld = (sx, sy) => {
+                    if (!canvasContainer.value) return { x: 0, y: 0 };
+                    const rect = canvasContainer.value.getBoundingClientRect();
+                    return {
+                        x: (sx - rect.left - pan.x) / scale.value,
+                        y: (sy - rect.top - pan.y) / scale.value
+                    };
+                };
+
+                const getNodeIcon = (type) => {
+                    const map = { start: 'fa-play', dialog: 'fa-comment', action: 'fa-bolt', condition: 'fa-code-branch' };
+                    return 'fa-solid ' + (map[type] || 'fa-circle');
+                };
+
+                // Approximate socket positions relative to node (Fixed geometry approach)
+                const getSocketPos = (nodeId, socketType) => {
+                    const node = nodes.value.find(n => n.id === nodeId);
+                    if (!node) return { x: 0, y: 0 };
+
+                    // Вход всегда сверху слева в хедере
+                    if (socketType === 'in') {
+                        return { x: node.x + 10, y: node.y + 20 };
+                    }
+
+                    // Выходы. Тут сложнее, зависит от высоты контента.
+                    // Для прототипа используем querySelector, так как у нас есть ID нод.
+                    // Но в Vue data-driven лучше считать математически.
+                    // Чтобы не усложнять, сделаем "умный" поиск через DOM, но только когда нужно.
+                    // В реальном production-коде здесь нужна формула высоты.
+                    // HACK: Для плавности линий при драге используем приблизительные оффсеты
+                    const width = 300;
+                    
+                    if (node.type === 'start') return { x: node.x + width/2, y: node.y + 60 };
+                    
+                    if (socketType.startsWith('choice-')) {
+                        const idx = parseInt(socketType.split('-')[1]);
+                        // Header(40) + Speaker(20) + Text(60) + ChoiceHeight(40)*idx
+                        const approxY = 40 + 20 + 60 + (idx * 42) + 20; 
+                        return { x: node.x + width, y: node.y + approxY };
+                    }
+                    
+                    if (node.type === 'condition') {
+                        if (socketType === 'true') return { x: node.x + width, y: node.y + 70 };
+                        if (socketType === 'false') return { x: node.x + width, y: node.y + 100 };
+                    }
+                    
+                    // Action / Default
+                    return { x: node.x + width, y: node.y + 80 };
+                };
+
+                // --- MOUSE EVENTS HANDLING (CORE FIX) ---
+                
+                const startPan = (e) => {
+                    isPanning.value = true;
+                    lastMouse.x = e.clientX;
+                    lastMouse.y = e.clientY;
+                };
+
+                const handleWheel = (e) => {
+                    const zoomIntensity = 0.1;
+                    const rect = canvasContainer.value.getBoundingClientRect();
+                    
+                    // Mouse pos relative to canvas
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+
+                    // World pos before zoom
+                    const worldX = (mouseX - pan.x) / scale.value;
+                    const worldY = (mouseY - pan.y) / scale.value;
+
+                    // Apply zoom
+                    const delta = e.deltaY > 0 ? -zoomIntensity : zoomIntensity;
+                    const newScale = Math.min(Math.max(0.2, scale.value + delta), 3);
+                    
+                    scale.value = newScale;
+
+                    // Adjust pan to keep world pos under mouse
+                    pan.x = mouseX - worldX * newScale;
+                    pan.y = mouseY - worldY * newScale;
+                };
+
+                const startDragNode = (node, e) => {
+                    selectedNodeId.value = node.id;
+                    selectedConnId.value = null;
+                    tab.value = 'props';
+                    
+                    draggingNode.value = {
+                        node: node,
+                        // Важно: запоминаем не mouse, а дельту, чтобы не скакало
+                    };
+                    lastMouse.x = e.clientX;
+                    lastMouse.y = e.clientY;
+                };
+
+                const startDragLine = (nodeId, socketId) => {
+                    const startPos = getSocketPos(nodeId, socketId);
+                    dragLine.value = {
+                        from: nodeId,
+                        socket: socketId,
+                        startPos: startPos,
+                        currPos: startPos,
+                        path: ''
+                    };
+                };
+
+                const onGlobalMouseMove = (e) => {
+                    // 1. Panning
+                    if (isPanning.value) {
+                        const dx = e.clientX - lastMouse.x;
+                        const dy = e.clientY - lastMouse.y;
+                        pan.x += dx;
+                        pan.y += dy;
+                        lastMouse.x = e.clientX;
+                        lastMouse.y = e.clientY;
+                    }
+
+                    // 2. Node Dragging (Corrected for Scale)
+                    if (draggingNode.value) {
+                        const dx = (e.clientX - lastMouse.x) / scale.value;
+                        const dy = (e.clientY - lastMouse.y) / scale.value;
+                        
+                        draggingNode.value.node.x += dx;
+                        draggingNode.value.node.y += dy;
+                        
+                        lastMouse.x = e.clientX;
+                        lastMouse.y = e.clientY;
+                    }
+
+                    // 3. Line Dragging
+                    if (dragLine.value) {
+                        const worldPos = toWorld(e.clientX, e.clientY);
+                        dragLine.value.currPos = worldPos;
+                        
+                        // Update bezier
+                        const start = dragLine.value.startPos;
+                        const end = worldPos;
+                        dragLine.value.path = makeBezier(start.x, start.y, end.x, end.y);
+                    }
+                };
+
+                const onGlobalMouseUp = () => {
+                    isPanning.value = false;
+                    draggingNode.value = null;
+                    dragLine.value = null;
+                };
+
+                const onSocketMouseUp = (targetNodeId, targetSocket) => {
+                    if (dragLine.value) {
+                        // Prevent self-loop
+                        if (dragLine.value.from === targetNodeId) {
+                            dragLine.value = null;
+                            return;
+                        }
+
+                        // Удалить старую связь из этого же сокета (Single Output Rule для большинства, но мы разрешим Multi)
+                        // Но запретим дубликаты
+                        const exists = connections.value.find(c => 
+                            c.from === dragLine.value.from && 
+                            c.fromSocket === dragLine.value.socket &&
+                            c.to === targetNodeId
+                        );
+
+                        if (!exists) {
+                            connections.value.push({
+                                id: Date.now().toString(),
+                                from: dragLine.value.from,
+                                fromSocket: dragLine.value.socket,
+                                to: targetNodeId,
+                                toSocket: targetSocket
+                            });
+                        }
+                        
+                        dragLine.value = null;
+                    }
+                };
+
+                // --- RENDERING LINES ---
+                const makeBezier = (x1, y1, x2, y2) => {
+                    const dist = Math.abs(x1 - x2);
+                    const cpOffset = Math.max(dist * 0.5, 50);
+                    return `M ${x1} ${y1} C ${x1 + cpOffset} ${y1}, ${x2 - cpOffset} ${y2}, ${x2} ${y2}`;
+                };
+
+                const calculatePath = (fromId, fromSocket, toId, toSocket) => {
+                    const p1 = getSocketPos(fromId, fromSocket);
+                    const p2 = getSocketPos(toId, toSocket);
+                    return makeBezier(p1.x, p1.y, p2.x, p2.y);
+                };
+
+                // --- LOGIC: Nodes CRUD ---
+                const addNode = (type) => {
+                    const rect = canvasContainer.value.getBoundingClientRect();
+                    // Center of visible screen converted to world coords
+                    const center = toWorld(rect.width/2 + rect.left, rect.height/2 + rect.top);
+                    
+                    nodes.value.push({
+                        id: Date.now().toString(),
+                        type,
+                        x: center.x - 150,
+                        y: center.y - 50,
+                        data: type === 'dialog' ? { choices: [] } : { ops: [] }
+                    });
+                };
+
+                const deleteNode = (id) => {
+                    nodes.value = nodes.value.filter(n => n.id !== id);
+                    connections.value = connections.value.filter(c => c.from !== id && c.to !== id);
+                    if (selectedNodeId.value === id) selectedNodeId.value = null;
+                };
+
+                const selectNode = (id) => { selectedNodeId.value = id; selectedConnId.value = null; tab.value = 'props'; };
+                const selectConnection = (id) => { selectedConnId.value = id; selectedNodeId.value = null; };
+
+                // --- LOGIC: Variables ---
+                const addVariable = () => {
+                    if(!newVarName.value) return;
+                    variables.value.push({ id: Date.now().toString(), name: newVarName.value, type: newVarType.value, init: 0 });
+                    newVarName.value = '';
+                };
+
+                // --- LOGIC: Helper ---
+                const getVarName = (id) => variables.value.find(v => v.id === id)?.name || '???';
+                const getConditionText = (d) => {
+                    const v = getVarName(d.varId);
+                    const opMap = { eq: '==', neq: '!=', gt: '>', lt: '<' };
+                    return d.varId ? `${v} ${opMap[d.op] || '??'} ${d.val}` : 'Select Variable';
+                };
+                const selectedNode = computed(() => nodes.value.find(n => n.id === selectedNodeId.value));
+
+                const resetView = () => {
+                    pan.x = 0; pan.y = 0; scale.value = 1;
+                };
+
+                // --- RUNTIME ---
+                const runScenario = () => {
+                    const start = nodes.value.find(n => n.type === 'start');
+                    if (!start) { alert("Нет ноды Start!"); return; }
+                    
+                    // Init Vars
+                    runtimeVars.value = {};
+                    variables.value.forEach(v => runtimeVars.value[v.id] = v.init);
+                    
+                    gameLog.value = [];
+                    gameFinished.value = false;
+                    isPlayMode.value = true;
+                    
+                    processNode(start);
+                };
+
+                const processNode = (node) => {
+                    activeNode.value = node;
+                    
+                    if (node.type === 'start') {
+                        traverse(node.id, 'default');
+                    }
+                    else if (node.type === 'action') {
+                        node.data.ops.forEach(op => {
+                            // Simple mock update
+                            if (op.op === 'set') runtimeVars.value[op.varId] = op.val;
+                        });
+                        traverse(node.id, 'default');
+                    }
+                    else if (node.type === 'condition') {
+                        const val = runtimeVars.value[node.data.varId] || 0;
+                        const target = node.data.val;
+                        let res = false;
+                        if (node.data.op === 'eq') res = val == target;
+                        if (node.data.op === 'gt') res = val > target;
+                        if (node.data.op === 'lt') res = val < target;
+                        
+                        traverse(node.id, res ? 'true' : 'false');
+                    }
+                    // Dialog stops and waits for UI
+                };
+
+                const traverse = (nodeId, socket) => {
+                    setTimeout(() => {
+                        const conn = connections.value.find(c => c.from === nodeId && c.fromSocket === socket);
+                        if (conn) {
+                            const next = nodes.value.find(n => n.id === conn.to);
+                            if (next) processNode(next);
+                        } else {
+                            if (activeNode.value.type !== 'dialog') gameFinished.value = true;
+                        }
+                    }, 200);
+                };
+
+                const makeChoice = (idx) => {
+                    gameLog.value.push({
+                        speaker: activeNode.value.data.speaker,
+                        text: activeNode.value.data.text,
+                        choice: activeNode.value.data.choices[idx].text
+                    });
+                    nextTick(() => { if (gameLogRef.value) gameLogRef.value.scrollTop = 9999; });
+                    traverse(activeNode.value.id, 'choice-' + idx);
+                };
+
+                // Init
+                onMounted(() => {
+                    resetView();
+                    // Demo Data
+                    const startId = 'start';
+                    nodes.value.push({ id: startId, type: 'start', x: 100, y: 100, data: {} });
+                });
+
+                return {
+                    nodes, connections, variables, pan, scale, canvasContainer,
+                    selectedNodeId, selectedNode, selectedConnId,
+                    tab, isPlayMode, gameLog, activeNode, gameFinished, newVarName, newVarType,
+                    dragLine,
+                    
+                    handleWheel, startPan, startDragNode, startDragLine,
+                    onGlobalMouseMove, onGlobalMouseUp, onSocketMouseUp,
+                    addNode, deleteNode, selectNode, selectConnection,
+                    addVariable, getVarName, getConditionText, getNodeIcon,
+                    resetView, runScenario, makeChoice, calculatePath,
+                    saveProject: () => alert('Mock Save')
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
