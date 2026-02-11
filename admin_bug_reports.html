@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CommonToolHub | Bug Reports</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg: #1a1f2b;
+            --panel: rgba(30, 41, 59, 0.45);
+            --border: rgba(148, 163, 184, 0.28);
+            --text: #dbe7f3;
+            --text-muted: #9aa4b2;
+            --accent: #7dd3fc;
+            --accent-strong: #3b82f6;
+            --shadow-outer: 0 18px 30px -12px rgba(2, 6, 23, 0.7);
+            --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -10px 22px rgba(2, 6, 23, 0.32);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 18px;
+        }
+
+        .shell {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow-outer), var(--shadow-inset);
+            backdrop-filter: blur(18px) saturate(1.2);
+            -webkit-backdrop-filter: blur(18px) saturate(1.2);
+            padding: 16px;
+        }
+
+        .title {
+            margin: 0 0 4px;
+            color: var(--accent);
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            margin: 0 0 14px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .toolbar {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .select, .btn {
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.65);
+            color: var(--text);
+            padding: 9px 10px;
+            font-size: 0.9rem;
+        }
+
+        .btn {
+            background: var(--accent-strong);
+            border-color: rgba(125, 211, 252, 0.45);
+            color: #ffffff;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn:hover { filter: brightness(1.08); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.45);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 980px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 10px 10px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+            vertical-align: top;
+            font-size: 0.84rem;
+        }
+
+        th {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .desc {
+            max-width: 330px;
+            white-space: pre-wrap;
+            color: var(--text);
+        }
+
+        .muted { color: var(--text-muted); }
+
+        .badge {
+            display: inline-block;
+            border-radius: 10px;
+            padding: 4px 9px;
+            font-weight: 700;
+            font-size: 0.72rem;
+            border: 1px solid transparent;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .sev-low { background: rgba(95, 163, 154, 0.14); color: #8ce6d6; border-color: rgba(95, 163, 154, 0.45); }
+        .sev-medium { background: rgba(125, 211, 252, 0.14); color: #7dd3fc; border-color: rgba(125, 211, 252, 0.45); }
+        .sev-high { background: rgba(185, 132, 96, 0.2); color: #ffb98f; border-color: rgba(185, 132, 96, 0.5); }
+        .sev-critical { background: rgba(185, 95, 95, 0.2); color: #ff9d9d; border-color: rgba(185, 95, 95, 0.5); }
+
+        .st-new { background: rgba(125, 211, 252, 0.14); color: #7dd3fc; border-color: rgba(125, 211, 252, 0.45); }
+        .st-in-progress { background: rgba(141, 130, 186, 0.2); color: #c3baf3; border-color: rgba(141, 130, 186, 0.52); }
+        .st-fixed { background: rgba(95, 163, 154, 0.18); color: #9ef2e3; border-color: rgba(95, 163, 154, 0.52); }
+        .st-closed { background: rgba(148, 163, 184, 0.2); color: #d2d9e1; border-color: rgba(148, 163, 184, 0.48); }
+        .st-rejected { background: rgba(185, 132, 96, 0.2); color: #f3c5a5; border-color: rgba(185, 132, 96, 0.5); }
+
+        .row-actions {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .row-actions .select {
+            min-width: 130px;
+            font-size: 0.8rem;
+            padding: 6px 8px;
+            border-radius: 10px;
+        }
+
+        .row-actions .btn {
+            font-size: 0.78rem;
+            padding: 6px 10px;
+            border-radius: 10px;
+        }
+
+        .details-row td {
+            padding: 0 10px 12px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .details-card {
+            background: rgba(15, 23, 42, 0.58);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: var(--shadow-outer), var(--shadow-inset);
+            padding: 10px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .details-card .full {
+            grid-column: 1 / -1;
+        }
+
+        .details-title {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 4px;
+        }
+
+        .details-value {
+            color: var(--text);
+            font-size: 0.82rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .status-msg {
+            margin-top: 12px;
+            display: none;
+            border-radius: 10px;
+            padding: 9px 10px;
+            border: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.65);
+            color: var(--text);
+            font-size: 0.84rem;
+        }
+
+        .status-msg.error {
+            border-color: rgba(185, 95, 95, 0.58);
+            color: #ffb3b3;
+        }
+
+        #accessDenied {
+            display: none;
+            text-align: center;
+            color: #ffb3b3;
+            padding: 28px 10px;
+        }
+
+        @media (max-width: 900px) {
+            body { padding: 10px; }
+            .toolbar { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <h1 class="title">Bug Reports</h1>
+        <p class="subtitle">Админ-таблица баг-репортов: фильтрация и смена статуса.</p>
+
+        <div id="accessDenied">
+            <h3>Доступ запрещен</h3>
+            <p class="muted">Нужна авторизация и claim user_role = admin.</p>
+        </div>
+
+        <div id="adminArea" style="display:none;">
+            <div class="toolbar">
+                <select id="severityFilter" class="select">
+                    <option value="all">Severity: All</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                </select>
+                <select id="statusFilter" class="select">
+                    <option value="all">Status: All</option>
+                    <option value="new">New</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="fixed">Fixed</option>
+                    <option value="closed">Closed</option>
+                    <option value="rejected">Rejected</option>
+                </select>
+                <button id="refreshBtn" class="btn" type="button">Refresh</button>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Created</th>
+                            <th>Tool</th>
+                            <th>Severity</th>
+                            <th>Status</th>
+                            <th>Reporter</th>
+                            <th>Description</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rows"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="statusMsg" class="status-msg"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://vmwwvwtsznxwoswzdzui.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_hfVfEOEyUxTAl9TCGQLQdA_2qpquHGk';
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const rowsEl = document.getElementById('rows');
+        const statusMsg = document.getElementById('statusMsg');
+        const adminArea = document.getElementById('adminArea');
+        const accessDenied = document.getElementById('accessDenied');
+        const severityFilterEl = document.getElementById('severityFilter');
+        const statusFilterEl = document.getElementById('statusFilter');
+        const refreshBtn = document.getElementById('refreshBtn');
+
+        let reports = [];
+        const expandedDetails = new Set();
+
+        function showStatus(text, isError) {
+            statusMsg.textContent = text;
+            statusMsg.className = isError ? 'status-msg error' : 'status-msg';
+            statusMsg.style.display = 'block';
+        }
+
+        function clearStatus() {
+            statusMsg.style.display = 'none';
+            statusMsg.textContent = '';
+            statusMsg.className = 'status-msg';
+        }
+
+        function decodeJwt(token) {
+            try {
+                const payload = token.split('.')[1];
+                const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+                const json = decodeURIComponent(
+                    atob(normalized).split('').map((ch) =>
+                        '%' + ('00' + ch.charCodeAt(0).toString(16)).slice(-2)
+                    ).join('')
+                );
+                return JSON.parse(json);
+            } catch (_e) {
+                return {};
+            }
+        }
+
+        function isAdminFromSession(session) {
+            if (!session || !session.access_token) return false;
+            const claims = decodeJwt(session.access_token);
+            return claims.user_role === 'admin';
+        }
+
+        function badgeSeverity(value) {
+            const sev = (value || 'medium').toLowerCase();
+            const map = {
+                low: 'sev-low',
+                medium: 'sev-medium',
+                high: 'sev-high',
+                critical: 'sev-critical'
+            };
+            return `<span class="badge ${map[sev] || 'sev-medium'}">${sev}</span>`;
+        }
+
+        function badgeStatus(value) {
+            const status = (value || 'new').toLowerCase().replace('_', '-');
+            const map = {
+                new: 'st-new',
+                'in-progress': 'st-in-progress',
+                fixed: 'st-fixed',
+                closed: 'st-closed',
+                rejected: 'st-rejected'
+            };
+            return `<span class="badge ${map[status] || 'st-new'}">${status.replace('-', ' ')}</span>`;
+        }
+
+        function safeText(value) {
+            return (value ?? '').toString().replace(/[<>&]/g, (m) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[m]));
+        }
+
+        function formatDate(value) {
+            if (!value) return 'n/a';
+            const d = new Date(value);
+            if (Number.isNaN(d.getTime())) return value;
+            return d.toLocaleString();
+        }
+
+        function getFilteredRows() {
+            const sev = severityFilterEl.value;
+            const st = statusFilterEl.value;
+            return reports.filter((r) => {
+                const rSev = (r.severity || 'medium').toLowerCase();
+                const rSt = (r.status || 'new').toLowerCase();
+                const sevOk = sev === 'all' || rSev === sev;
+                const stOk = st === 'all' || rSt === st;
+                return sevOk && stOk;
+            });
+        }
+
+        function renderRows() {
+            const filtered = getFilteredRows();
+            if (!filtered.length) {
+                rowsEl.innerHTML = '<tr><td colspan="7" class="muted">Нет записей по текущему фильтру.</td></tr>';
+                return;
+            }
+
+            rowsEl.innerHTML = filtered.map((r) => {
+                const currentStatus = (r.status || 'new').toLowerCase();
+                const reporter = r.reporter_type === 'authenticated'
+                    ? `auth ${safeText(r.reporter_id || '')}`
+                    : 'anon';
+                const rowId = safeText(r.id);
+                const isExpanded = expandedDetails.has(String(r.id));
+                const detailsBtnText = isExpanded ? 'Hide' : 'Details';
+                return `
+                    <tr>
+                        <td class="muted">${safeText(formatDate(r.created_at))}</td>
+                        <td>${safeText(r.tool_key || 'other')}</td>
+                        <td>${badgeSeverity(r.severity)}</td>
+                        <td>${badgeStatus(r.status)}</td>
+                        <td class="muted">${reporter}</td>
+                        <td class="desc">${safeText(r.bug_description || '')}</td>
+                        <td>
+                            <div class="row-actions">
+                                <select class="select" data-status-id="${safeText(r.id)}">
+                                    <option value="new" ${currentStatus === 'new' ? 'selected' : ''}>new</option>
+                                    <option value="in_progress" ${currentStatus === 'in_progress' ? 'selected' : ''}>in_progress</option>
+                                    <option value="fixed" ${currentStatus === 'fixed' ? 'selected' : ''}>fixed</option>
+                                    <option value="closed" ${currentStatus === 'closed' ? 'selected' : ''}>closed</option>
+                                    <option value="rejected" ${currentStatus === 'rejected' ? 'selected' : ''}>rejected</option>
+                                </select>
+                                <button class="btn" type="button" data-details-id="${rowId}">${detailsBtnText}</button>
+                                <button class="btn" type="button" data-save-id="${safeText(r.id)}">Save</button>
+                            </div>
+                        </td>
+                    </tr>
+                    ${isExpanded ? `
+                        <tr class="details-row">
+                            <td colspan="7">
+                                <div class="details-card">
+                                    <div>
+                                        <div class="details-title">Steps to Reproduce</div>
+                                        <div class="details-value">${safeText(r.steps_to_reproduce || 'n/a')}</div>
+                                    </div>
+                                    <div>
+                                        <div class="details-title">Page URL</div>
+                                        <div class="details-value">${safeText(r.page_url || 'n/a')}</div>
+                                    </div>
+                                    <div>
+                                        <div class="details-title">Expected Result</div>
+                                        <div class="details-value">${safeText(r.expected_result || 'n/a')}</div>
+                                    </div>
+                                    <div>
+                                        <div class="details-title">Actual Result</div>
+                                        <div class="details-value">${safeText(r.actual_result || 'n/a')}</div>
+                                    </div>
+                                    <div class="full">
+                                        <div class="details-title">User Agent</div>
+                                        <div class="details-value">${safeText(r.user_agent || 'n/a')}</div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    ` : ''}
+                `;
+            }).join('');
+        }
+
+        async function loadReports() {
+            clearStatus();
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = 'Loading...';
+            try {
+                const { data, error } = await sb
+                    .from('bug_reports')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(300);
+
+                if (error) throw error;
+                reports = data || [];
+                renderRows();
+            } catch (err) {
+                showStatus(err.message || 'Не удалось загрузить bug_reports.', true);
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.textContent = 'Refresh';
+            }
+        }
+
+        async function updateStatus(reportId, nextStatus, buttonEl) {
+            clearStatus();
+            buttonEl.disabled = true;
+            buttonEl.textContent = 'Saving...';
+            try {
+                const { error } = await sb
+                    .from('bug_reports')
+                    .update({ status: nextStatus })
+                    .eq('id', reportId);
+
+                if (error) throw error;
+                const row = reports.find((x) => String(x.id) === String(reportId));
+                if (row) row.status = nextStatus;
+                renderRows();
+                showStatus('Status updated.', false);
+            } catch (err) {
+                showStatus(err.message || 'Не удалось обновить status.', true);
+            } finally {
+                buttonEl.disabled = false;
+                buttonEl.textContent = 'Save';
+            }
+        }
+
+        async function init() {
+            const { data, error } = await sb.auth.getSession();
+            if (error || !data.session || !isAdminFromSession(data.session)) {
+                accessDenied.style.display = 'block';
+                adminArea.style.display = 'none';
+                return;
+            }
+
+            accessDenied.style.display = 'none';
+            adminArea.style.display = 'block';
+            await loadReports();
+        }
+
+        severityFilterEl.addEventListener('change', renderRows);
+        statusFilterEl.addEventListener('change', renderRows);
+        refreshBtn.addEventListener('click', loadReports);
+
+        rowsEl.addEventListener('click', async (event) => {
+            const detailsBtn = event.target.closest('button[data-details-id]');
+            if (detailsBtn) {
+                const id = detailsBtn.getAttribute('data-details-id');
+                if (expandedDetails.has(String(id))) expandedDetails.delete(String(id));
+                else expandedDetails.add(String(id));
+                renderRows();
+                return;
+            }
+
+            const btn = event.target.closest('button[data-save-id]');
+            if (!btn) return;
+
+            const id = btn.getAttribute('data-save-id');
+            const select = rowsEl.querySelector(`select[data-status-id="${id}"]`);
+            if (!select) return;
+            await updateStatus(id, select.value, btn);
+        });
+
+        init();
+    </script>
+</body>
+</html>

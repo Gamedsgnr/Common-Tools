@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Common Tools Hub</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -76,16 +77,18 @@
         }
 
         .tile {
+            --tile-accent-rgb: 125, 211, 252;
             position: relative;
+            overflow: hidden;
             border-radius: 18px;
             background: rgba(30, 41, 59, 0.38);
-            border: 1px solid rgba(148, 163, 184, var(--border-alpha, 0.28));
+            border: 1px solid rgba(var(--tile-accent-rgb), var(--border-alpha, 0.28));
             box-shadow:
                 0 18px 30px -12px rgba(2, 6, 23, 0.7),
                 0 8px 16px -10px rgba(2, 6, 23, 0.55),
                 inset 0 1px 0 rgba(255, 255, 255, 0.2),
                 inset 0 -12px 22px rgba(2, 6, 23, 0.32),
-                0 0 0 2px rgba(59, 130, 246, calc(var(--glow, 0) * 0.35));
+                0 0 0 2px rgba(var(--tile-accent-rgb), calc(var(--glow, 0) * 0.35));
             backdrop-filter: blur(20px) saturate(1.2);
             -webkit-backdrop-filter: blur(20px) saturate(1.2);
             transform-style: preserve-3d;
@@ -100,10 +103,10 @@
             border-radius: 12px;
             background:
                 linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02) 55%),
-                linear-gradient(340deg, rgba(14, 165, 233, 0.08), rgba(14, 165, 233, 0) 60%);
+                linear-gradient(340deg, rgba(var(--tile-accent-rgb), 0.12), rgba(var(--tile-accent-rgb), 0) 60%);
             box-shadow:
                 inset 0 0 10px rgba(255, 255, 255, 0.06),
-                inset 0 0 16px rgba(14, 165, 233, 0.05);
+                inset 0 0 16px rgba(var(--tile-accent-rgb), 0.08);
             opacity: 0.9;
             pointer-events: none;
         }
@@ -130,11 +133,30 @@
             padding: 18px;
             --lift: 0px;
             --glow: 0;
-            --border-alpha: calc(0.28 + var(--glow) * 0.45);
+            --border-alpha: calc(0.26 + var(--glow) * 0.45);
             transform: translateY(var(--lift));
             transition: transform 0.14s ease, border-color 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
             will-change: transform;
             filter: brightness(calc(1 + var(--glow) * 0.12));
+        }
+
+        .tile-bg-icon {
+            position: absolute;
+            top: 50%;
+            right: 0;
+            width: 173px;
+            height: 173px;
+            font-size: 173px;
+            line-height: 1;
+            color: rgba(var(--tile-accent-rgb), 0.08);
+            transform: translate(-5%, -50%) rotate(-20deg);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .tile-link > *:not(.tile-bg-icon) {
+            position: relative;
+            z-index: 3;
         }
 
         .tile-kicker {
@@ -146,9 +168,25 @@
 
         .tile-title {
             font-weight: 600;
-            color: #7dd3fc;
+            color: rgba(var(--tile-accent-rgb), 1);
             font-size: 1.02em;
         }
+
+        .tile-link[href="blueprints_view.html"] { --tile-accent-rgb: 134, 184, 216; }
+        .tile-link[href="shaders_view.html"] { --tile-accent-rgb: 217, 132, 96; }
+        .tile-link[href="hlsl_view.html"] { --tile-accent-rgb: 95, 163, 154; }
+        .tile-link[href="snippets_view.html"] { --tile-accent-rgb: 141, 130, 186; }
+
+        .tile-link[href="UE_EnumGen.html"] { --tile-accent-rgb: 125, 211, 252; }
+        .tile-link[href="UE_Converter_Pro.html"] { --tile-accent-rgb: 95, 163, 154; }
+        .tile-link[href="CurveToCode_Pro.html"] { --tile-accent-rgb: 134, 184, 216; }
+        .tile-link[href="progression_balancer.html"] { --tile-accent-rgb: 185, 132, 96; }
+        .tile-link[href="factory_architect.html"] { --tile-accent-rgb: 95, 163, 154; }
+        .tile-link[href="QuestArchitect2.html"] { --tile-accent-rgb: 141, 130, 186; }
+
+        .tile-link[href="math_plotter.html"] { --tile-accent-rgb: 125, 211, 252; }
+        .tile-link[href="shader_playground.html"] { --tile-accent-rgb: 141, 130, 186; }
+        .tile-link[href="noise_gen.html"] { --tile-accent-rgb: 95, 163, 154; }
 
         .tile-desc {
             font-size: 0.85em;
@@ -177,7 +215,99 @@
         }
 
         @media (max-width: 900px) {
-            .glass-wall { padding: 20px; }
+            :root {
+                --tile-min: 100%;
+                --tile-row: 156px;
+                --tile-gap: 14px;
+            }
+
+            body {
+                overflow: auto;
+            }
+
+            .page-header {
+                padding: 18px 16px 6px;
+            }
+
+            .page-title {
+                font-size: 1.4em;
+            }
+
+            .page-subtitle {
+                font-size: 0.88em;
+                max-width: 100%;
+            }
+
+            .glass-wall {
+                padding: 16px;
+                gap: 18px;
+                width: 100%;
+            }
+
+            .section {
+                gap: 12px;
+            }
+
+            .section-label {
+                font-size: 0.68em;
+                letter-spacing: 0.16em;
+            }
+
+            .tile-link {
+                padding: 14px;
+                gap: 6px;
+            }
+
+            .tile-title {
+                font-size: 0.95em;
+            }
+
+            .tile-desc {
+                font-size: 0.8em;
+                max-width: 86%;
+            }
+
+            .tile-bg-icon {
+                width: 138px;
+                height: 138px;
+                font-size: 138px;
+                opacity: 0.8;
+            }
+        }
+
+        @media (max-width: 640px) {
+            :root {
+                --tile-row: 148px;
+                --tile-gap: 12px;
+            }
+
+            .glass-wall {
+                padding: 12px;
+                gap: 14px;
+            }
+
+            .page-header {
+                padding: 14px 12px 4px;
+            }
+
+            .tile {
+                border-radius: 16px;
+            }
+
+            .tile::after {
+                border-radius: 16px;
+            }
+
+            .tile-desc {
+                max-width: 84%;
+            }
+
+            .tile-bg-icon {
+                width: 124px;
+                height: 124px;
+                font-size: 124px;
+                transform: translate(-6%, -50%) rotate(-20deg);
+            }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -202,18 +332,22 @@
             <div class="section-label">Visual Library</div>
             <div class="section-grid">
                 <a class="tile tile-link" href="blueprints_view.html" target="tool-frame">
+                    <i class="tile-bg-icon fa-solid fa-cubes"></i>
                     <div class="tile-title">Blueprint Gallery</div>
                     <div class="tile-desc">Browse and use Unreal Engine blueprint snippets.</div>
                 </a>
                 <a class="tile tile-link" href="shaders_view.html" target="tool-frame">
+                    <i class="tile-bg-icon fa-solid fa-wand-magic-sparkles"></i>
                     <div class="tile-title">Shader Library</div>
                     <div class="tile-desc">Collection of shader examples and utilities.</div>
                 </a>
                 <a class="tile tile-link" href="hlsl_view.html" target="tool-frame">
+                    <i class="tile-bg-icon fa-solid fa-code"></i>
                     <div class="tile-title">HLSL Library</div>
                     <div class="tile-desc">HLSL code snippets for graphics programming.</div>
                 </a>
                 <a class="tile tile-link" href="snippets_view.html" target="tool-frame">
+                    <i class="tile-bg-icon fa-solid fa-file-code"></i>
                     <div class="tile-title">Snippets Library</div>
                     <div class="tile-desc">General code snippets and templates.</div>
                 </a>
@@ -224,26 +358,32 @@
             <div class="section-label">Data Tools</div>
             <div class="section-grid">
                 <a class="tile tile-link" href="UE_EnumGen.html" target="tool-frame">
+                    <i class="tile-bg-icon fa-solid fa-list-ol"></i>
                     <div class="tile-title">UE Enum Generator</div>
                     <div class="tile-desc">Generate Unreal Engine enum definitions.</div>
                 </a>
                 <a class="tile tile-link" href="UE_Converter_Pro.html" target="tool-frame">
+                    <i class="tile-bg-icon fa-solid fa-right-left"></i>
                     <div class="tile-title">Data Converter</div>
                     <div class="tile-desc">Convert and transform data formats.</div>
                 </a>
                 <a class="tile tile-link" href="CurveToCode_Pro.html" target="tool-frame">
+                    <i class="tile-bg-icon fa-solid fa-chart-line"></i>
                     <div class="tile-title">Curve Editor</div>
                     <div class="tile-desc">Edit curves and export to code.</div>
                 </a>
                 <a class="tile tile-link" href="progression_balancer.html" target="tool-frame">
+                    <i class="tile-bg-icon fa-solid fa-sliders"></i>
                     <div class="tile-title">Balance Progression Tool</div>
                     <div class="tile-desc">Balance and tune progression curves.</div>
                 </a>
                 <a class="tile tile-link" href="factory_architect.html" target="tool-frame">
+                    <i class="tile-bg-icon fa-solid fa-industry"></i>
                     <div class="tile-title">Factory Architect</div>
                     <div class="tile-desc">Design and configure factory systems.</div>
                 </a>
                 <a class="tile tile-link" href="QuestArchitect2.html" target="tool-frame">
+                    <i class="tile-bg-icon fa-solid fa-diagram-project"></i>
                     <div class="tile-title">Quest Architect</div>
                     <div class="tile-desc">Create and manage quest structures.</div>
                 </a>
@@ -254,14 +394,17 @@
             <div class="section-label">Generators</div>
             <div class="section-grid">
                 <a class="tile tile-link" href="math_plotter.html" target="tool-frame">
+                    <i class="tile-bg-icon fa-solid fa-square-root-variable"></i>
                     <div class="tile-title">Math Plotter</div>
                     <div class="tile-desc">Plot and visualize mathematical functions.</div>
                 </a>
                 <a class="tile tile-link" href="shader_playground.html" target="tool-frame">
+                    <i class="tile-bg-icon fa-solid fa-flask-vial"></i>
                     <div class="tile-title">HLSL Live Studio</div>
                     <div class="tile-desc">Live HLSL shader editing and preview.</div>
                 </a>
                 <a class="tile tile-link" href="noise_gen.html" target="tool-frame">
+                    <i class="tile-bg-icon fa-solid fa-image"></i>
                     <div class="tile-title">Texture Generator</div>
                     <div class="tile-desc">Generate procedural noise textures.</div>
                 </a>

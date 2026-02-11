@@ -49,6 +49,7 @@
                 inset 0 -12px 20px rgba(2, 6, 23, 0.28);
             backdrop-filter: blur(18px) saturate(1.2);
             -webkit-backdrop-filter: blur(18px) saturate(1.2);
+            cursor: pointer;
         }
 
         .category-title {
@@ -73,36 +74,113 @@
         }
 
         .nav-links a {
+            --item-accent: 125, 211, 252;
             display: block;
             padding: 10px 12px;
             color: #b8c2cf;
             text-decoration: none;
             transition: background 0.2s, color 0.2s, box-shadow 0.2s, border-color 0.2s;
             border: 1px solid transparent;
-            border-radius: 8px;
+            border-radius: 12px;
             font-size: 0.93em;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-links a::before {
+            content: '';
+            position: absolute;
+            inset: 4px;
+            border-radius: 10px;
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 55%),
+                linear-gradient(340deg, rgba(var(--item-accent), 0.16), rgba(var(--item-accent), 0) 60%);
+            box-shadow:
+                inset 0 0 10px rgba(255, 255, 255, 0.06),
+                inset 0 0 16px rgba(var(--item-accent), 0.08);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 12px;
+            background:
+                linear-gradient(135deg, rgba(2, 6, 23, 0.14), rgba(2, 6, 23, 0) 55%),
+                linear-gradient(315deg, rgba(2, 6, 23, 0.24), rgba(2, 6, 23, 0) 60%);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .nav-links a i {
+            width: 16px;
+            text-align: center;
+            color: rgba(var(--item-accent), 0.95);
+            transition: color 0.2s ease, text-shadow 0.2s ease;
         }
 
         .nav-links a:hover {
             background: rgba(30, 41, 59, 0.45);
             color: #e6f0ff;
-            border-color: rgba(148, 163, 184, 0.35);
+            border-color: rgba(var(--item-accent), 0.42);
             box-shadow:
                 0 10px 18px -12px rgba(2, 6, 23, 0.7),
                 inset 0 1px 0 rgba(255, 255, 255, 0.14),
-                inset 0 -10px 18px rgba(2, 6, 23, 0.25);
+                inset 0 -10px 18px rgba(2, 6, 23, 0.25),
+                0 0 0 1px rgba(var(--item-accent), 0.14);
+        }
+
+        .nav-links a:hover::before,
+        .nav-links a:hover::after {
+            opacity: 1;
+        }
+
+        .nav-links a:hover i {
+            color: rgba(var(--item-accent), 1);
+            text-shadow: 0 0 12px rgba(var(--item-accent), 0.45);
         }
 
         .nav-links a.active {
             color: #e6f0ff;
-            border-color: rgba(125, 211, 252, 0.5);
+            border-color: rgba(var(--item-accent), 0.55);
             background: rgba(30, 41, 59, 0.55);
             box-shadow:
                 0 10px 18px -12px rgba(2, 6, 23, 0.7),
                 inset 0 2px 4px rgba(255, 255, 255, 0.08),
-                inset 0 -14px 22px rgba(2, 6, 23, 0.45);
+                inset 0 -14px 22px rgba(2, 6, 23, 0.45),
+                0 0 0 1px rgba(var(--item-accent), 0.2);
             animation: nav-press 220ms ease;
         }
+
+        .nav-links a.active::before,
+        .nav-links a.active::after {
+            opacity: 1;
+        }
+
+        .nav-links a.active i {
+            color: rgba(var(--item-accent), 1);
+            text-shadow: 0 0 14px rgba(var(--item-accent), 0.5);
+        }
+
+        .nav-links a[href="blueprints_view.html"] { --item-accent: 134, 184, 216; }
+        .nav-links a[href="shaders_view.html"] { --item-accent: 217, 132, 96; }
+        .nav-links a[href="hlsl_view.html"] { --item-accent: 95, 163, 154; }
+        .nav-links a[href="snippets_view.html"] { --item-accent: 141, 130, 186; }
+        .nav-links a[href="UE_EnumGen.html"] { --item-accent: 125, 211, 252; }
+        .nav-links a[href="UE_Converter_Pro.html"] { --item-accent: 95, 163, 154; }
+        .nav-links a[href="CurveToCode_Pro.html"] { --item-accent: 134, 184, 216; }
+        .nav-links a[href="progression_balancer.html"] { --item-accent: 185, 132, 96; }
+        .nav-links a[href="factory_architect.html"] { --item-accent: 95, 163, 154; }
+        .nav-links a[href="QuestArchitect2.html"] { --item-accent: 141, 130, 186; }
+        .nav-links a[href="math_plotter.html"] { --item-accent: 125, 211, 252; }
+        .nav-links a[href="shader_playground.html"] { --item-accent: 141, 130, 186; }
+        .nav-links a[href="noise_gen.html"] { --item-accent: 95, 163, 154; }
+        .nav-links a[href="admin_add.html"] { --item-accent: 134, 184, 216; }
+        .nav-links a[href="admin_bug_reports.html"] { --item-accent: 185, 137, 137; }
 
         @keyframes nav-press {
             0% { transform: translateY(0); box-shadow: 0 0 0 rgba(0,0,0,0); }
@@ -122,6 +200,82 @@
             user-select: none;
         }
         .footer:hover { color: #fff; }
+
+        #loginBtn {
+            border: 1px solid rgba(125, 211, 252, 0.4);
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(125, 211, 252, 0.2), rgba(30, 41, 59, 0.56));
+            box-shadow:
+                0 12px 20px -14px rgba(2, 6, 23, 0.8),
+                inset 0 1px 0 rgba(255, 255, 255, 0.14),
+                inset 0 -10px 18px rgba(2, 6, 23, 0.28);
+            color: #dbe7f3;
+        }
+
+        #loginBtn:hover {
+            border-color: rgba(125, 211, 252, 0.62);
+            background: linear-gradient(135deg, rgba(125, 211, 252, 0.3), rgba(30, 41, 59, 0.62));
+            box-shadow:
+                0 12px 20px -14px rgba(2, 6, 23, 0.8),
+                inset 0 1px 0 rgba(255, 255, 255, 0.14),
+                inset 0 -10px 18px rgba(2, 6, 23, 0.28),
+                0 0 0 1px rgba(125, 211, 252, 0.25),
+                0 0 18px rgba(125, 211, 252, 0.2);
+        }
+
+        #loginBtn i {
+            color: #7dd3fc;
+            text-shadow: 0 0 10px rgba(125, 211, 252, 0.45);
+        }
+
+        #loginBtn.authenticated {
+            border-color: rgba(95, 163, 154, 0.52);
+            background: linear-gradient(135deg, rgba(95, 163, 154, 0.26), rgba(30, 41, 59, 0.56));
+        }
+
+        #loginBtn.authenticated:hover {
+            border-color: rgba(95, 163, 154, 0.68);
+            background: linear-gradient(135deg, rgba(95, 163, 154, 0.34), rgba(30, 41, 59, 0.62));
+            box-shadow:
+                0 12px 20px -14px rgba(2, 6, 23, 0.8),
+                inset 0 1px 0 rgba(255, 255, 255, 0.14),
+                inset 0 -10px 18px rgba(2, 6, 23, 0.28),
+                0 0 0 1px rgba(95, 163, 154, 0.26),
+                0 0 18px rgba(95, 163, 154, 0.24);
+        }
+
+        #loginBtn.authenticated i {
+            color: #8ce6d6;
+            text-shadow: 0 0 12px rgba(95, 163, 154, 0.5);
+        }
+
+        .footer.secondary {
+            margin-top: 0;
+            border-top: none;
+            border: 1px solid rgba(185, 137, 137, 0.42);
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(185, 137, 137, 0.24), rgba(30, 41, 59, 0.52));
+            box-shadow:
+                0 12px 20px -14px rgba(2, 6, 23, 0.8),
+                inset 0 1px 0 rgba(255, 255, 255, 0.14),
+                inset 0 -10px 18px rgba(2, 6, 23, 0.28);
+        }
+        .footer.secondary:hover {
+            color: #dbe7f3;
+            border-color: rgba(185, 137, 137, 0.62);
+            background: linear-gradient(135deg, rgba(185, 137, 137, 0.32), rgba(30, 41, 59, 0.58));
+            box-shadow:
+                0 12px 20px -14px rgba(2, 6, 23, 0.8),
+                inset 0 1px 0 rgba(255, 255, 255, 0.14),
+                inset 0 -10px 18px rgba(2, 6, 23, 0.28),
+                0 0 0 1px rgba(185, 137, 137, 0.25),
+                0 0 18px rgba(185, 137, 137, 0.2);
+        }
+
+        .footer.secondary i {
+            color: #f3c5a5;
+            text-shadow: 0 0 10px rgba(185, 137, 137, 0.45);
+        }
 
         /* --- ОСНОВНАЯ ЧАСТЬ --- */
         .main-content {
@@ -205,47 +359,372 @@
             display: none;
             margin-top: 5px;
         }
+
+        .modal-box.bug-report-box {
+            width: min(560px, 92vw);
+            text-align: left;
+            background: rgba(30, 41, 59, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            border-radius: 16px;
+            box-shadow:
+                0 18px 30px -12px rgba(2, 6, 23, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22),
+                inset 0 -10px 22px rgba(2, 6, 23, 0.32);
+        }
+
+        .bug-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .bug-grid .full {
+            grid-column: 1 / -1;
+        }
+
+        .bug-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .bug-field label {
+            font-size: 0.8rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #9aa4b2;
+        }
+
+        .modal-box.bug-report-box input,
+        .modal-box.bug-report-box select,
+        .modal-box.bug-report-box textarea {
+            width: 100%;
+            padding: 10px 12px;
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            color: #dbe7f3;
+            border-radius: 10px;
+            outline: none;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 42px;
+        }
+
+        .modal-box.bug-report-box textarea {
+            min-height: 92px;
+        }
+
+        .modal-box.bug-report-box input:focus,
+        .modal-box.bug-report-box select:focus,
+        .modal-box.bug-report-box textarea:focus {
+            border-color: rgba(125, 211, 252, 0.6);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        .bug-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 4px;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            color: #9aa4b2;
+            border-radius: 10px;
+            padding: 10px 12px;
+            cursor: pointer;
+        }
+
+        .btn-ghost:hover {
+            color: #dbe7f3;
+            border-color: rgba(148, 163, 184, 0.5);
+        }
+
+        .btn-primary.bug-submit {
+            margin-top: 0;
+            border-radius: 10px;
+            padding: 10px 14px;
+            background: #3b82f6;
+        }
+
+        .btn-primary.bug-submit:hover {
+            background: #2f6fda;
+        }
+
+        .ok-msg {
+            color: #7dd3fc;
+            font-size: 0.9em;
+            display: none;
+        }
+
+        .mobile-topbar,
+        .mobile-overlay {
+            display: none;
+        }
+
+        .mobile-topbar {
+            --mobile-topbar-h: 56px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 90;
+            height: var(--mobile-topbar-h);
+            background: rgba(20, 27, 38, 0.92);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+            backdrop-filter: blur(12px) saturate(1.1);
+            -webkit-backdrop-filter: blur(12px) saturate(1.1);
+            grid-template-columns: 40px 1fr auto;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+        }
+
+        .mobile-brand {
+            color: #dbe7f3;
+            font-size: 0.95em;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mobile-menu-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            background: rgba(30, 41, 59, 0.55);
+            color: #dbe7f3;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .mobile-login-btn {
+            min-width: 108px;
+            max-width: 52vw;
+            height: 36px;
+            border-radius: 10px;
+            border: 1px solid rgba(125, 211, 252, 0.45);
+            background: linear-gradient(135deg, rgba(125, 211, 252, 0.22), rgba(30, 41, 59, 0.62));
+            color: #dbe7f3;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 0 10px;
+            font-size: 0.82em;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            cursor: pointer;
+        }
+
+        .mobile-login-btn i {
+            color: #7dd3fc;
+        }
+
+        .mobile-login-btn.authenticated {
+            border-color: rgba(95, 163, 154, 0.52);
+            background: linear-gradient(135deg, rgba(95, 163, 154, 0.28), rgba(30, 41, 59, 0.62));
+        }
+
+        .mobile-login-btn.authenticated i {
+            color: #8ce6d6;
+        }
+
+        .mobile-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            background: rgba(2, 6, 23, 0.48);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        @media (max-width: 900px) {
+            body {
+                height: 100dvh;
+                overflow: hidden;
+                display: block;
+            }
+
+            .mobile-topbar {
+                display: grid;
+            }
+
+            .mobile-overlay {
+                display: block;
+            }
+
+            .sidebar {
+                position: fixed;
+                top: 56px;
+                left: 0;
+                width: min(88vw, 320px);
+                height: calc(100dvh - 56px);
+                z-index: 80;
+                border-right: 1px solid rgba(148, 163, 184, 0.15);
+                border-bottom: none;
+                padding: 10px;
+                gap: 8px;
+                overflow: hidden auto;
+                transform: translateX(-102%);
+                transition: transform 0.22s ease;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
+            }
+
+            .sidebar-header {
+                font-size: 1rem;
+                padding: 12px;
+            }
+
+            body.mobile-sidebar-open .sidebar {
+                transform: translateX(0);
+            }
+
+            body.mobile-sidebar-open .mobile-overlay {
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            body.mobile-sidebar-collapsed .mobile-menu-btn {
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            body.mobile-sidebar-open .mobile-menu-btn {
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            .category-title {
+                padding: 8px 6px 2px;
+                font-size: 0.66em;
+                letter-spacing: 0.14em;
+            }
+
+            .nav-links {
+                padding: 0 2px 4px;
+            }
+
+            .nav-links a {
+                padding: 9px 10px;
+                font-size: 0.86em;
+            }
+
+            #loginBtn {
+                display: none;
+            }
+
+            .main-content {
+                height: calc(100dvh - 56px);
+                margin-top: 56px;
+            }
+
+            .modal-box {
+                width: min(92vw, 420px);
+                padding: 18px;
+            }
+
+            .modal-box.bug-report-box {
+                width: min(94vw, 560px);
+            }
+
+            .bug-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .bug-grid .full {
+                grid-column: 1;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .footer,
+            .footer.secondary {
+                font-size: 0.84em;
+                padding: 10px 8px;
+            }
+
+            .mobile-brand {
+                font-size: 0.88em;
+            }
+
+            .bug-actions {
+                flex-direction: column-reverse;
+                gap: 8px;
+            }
+
+            .bug-actions .btn-ghost,
+            .bug-actions .bug-submit {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
+    <header class="mobile-topbar" id="mobileTopbar">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" type="button" onclick="openMobileSidebar()" aria-label="Open menu">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="mobile-brand" onclick="openWelcomeHome()"><i class="fa-solid fa-toolbox" style="margin-right:8px"></i>Common Tools</div>
+        <div class="mobile-login-btn" id="mobileLoginBtn" onclick="handleAuthClick()">
+            <i class="fa-solid fa-lock"></i><span>Login</span>
+        </div>
+    </header>
+    <div class="mobile-overlay" id="mobileOverlay" onclick="closeMobileSidebar()"></div>
 
     <aside class="sidebar">
-        <div class="sidebar-header">
-            <span>🟦 Common Tools</span>
+        <div class="sidebar-header" onclick="openWelcomeHome()">
+            <span><i class="fa-solid fa-toolbox" style="margin-right:8px"></i>Common Tools</span>
         </div>
 
         <div class="category-title">Visual Library</div>
         <ul class="nav-links">
-            <li><a href="blueprints_view.html" target="tool-frame">🧩 Blueprint Gallery</a></li>
-            <li><a href="shaders_view.html" target="tool-frame">🔮 Shader Library</a></li>
-            <li><a href="hlsl_view.html" target="tool-frame">💻 HLSL Library</a></li>
-            <li><a href="snippets_view.html" target="tool-frame">📜 Snippets Library</a></li>
+            <li><a href="blueprints_view.html" target="tool-frame"><i class="fa-solid fa-cubes" style="margin-right:8px"></i>Blueprint Gallery</a></li>
+            <li><a href="shaders_view.html" target="tool-frame"><i class="fa-solid fa-wand-magic-sparkles" style="margin-right:8px"></i>Shader Library</a></li>
+            <li><a href="hlsl_view.html" target="tool-frame"><i class="fa-solid fa-code" style="margin-right:8px"></i>HLSL Library</a></li>
+            <li><a href="snippets_view.html" target="tool-frame"><i class="fa-solid fa-file-code" style="margin-right:8px"></i>Snippets Library</a></li>
         </ul>
 
         <div class="category-title">Data Tools</div>
         <ul class="nav-links">
-            <li><a href="UE_EnumGen.html" target="tool-frame">💾 UE Enum Generator</a></li>
-            <li><a href="UE_Converter_Pro.html" target="tool-frame">🔄 Data Converter</a></li>
-            <li><a href="CurveToCode_Pro.html" target="tool-frame">📉 Curve Editor</a></li>
-            <li><a href="progression_balancer.html" target="tool-frame">📊 Balance Progression Tool</a></li>
-            <li><a href="factory_architect.html" target="tool-frame">🏭 Factory Architect</a></li>
-            <li><a href="QuestArchitect2.html" target="tool-frame"><i class="fa-solid fa-diagram-project"></i> Quest Architect</a></li>
+            <li><a href="UE_EnumGen.html" target="tool-frame"><i class="fa-solid fa-list-ol" style="margin-right:8px"></i>UE Enum Generator</a></li>
+            <li><a href="UE_Converter_Pro.html" target="tool-frame"><i class="fa-solid fa-right-left" style="margin-right:8px"></i>Data Converter</a></li>
+            <li><a href="CurveToCode_Pro.html" target="tool-frame"><i class="fa-solid fa-chart-line" style="margin-right:8px"></i>Curve Editor</a></li>
+            <li><a href="progression_balancer.html" target="tool-frame"><i class="fa-solid fa-sliders" style="margin-right:8px"></i>Balance Progression Tool</a></li>
+            <li><a href="factory_architect.html" target="tool-frame"><i class="fa-solid fa-industry" style="margin-right:8px"></i>Factory Architect</a></li>
+            <li><a href="QuestArchitect2.html" target="tool-frame"><i class="fa-solid fa-diagram-project" style="margin-right:8px"></i>Quest Architect</a></li>
         </ul>
 
         <div class="category-title" style="color: #6f98b2;">Generators</div>
         <ul class="nav-links">
-            <li><a href="math_plotter.html" target="tool-frame">📈 Math Plotter</a></li>
-            <li><a href="shader_playground.html" target="tool-frame">🎮 HLSL Live Studio</a></li>
-            <li><a href="noise_gen.html" target="tool-frame">🏁 Texture Generator</a></li>
+            <li><a href="math_plotter.html" target="tool-frame"><i class="fa-solid fa-square-root-variable" style="margin-right:8px"></i>Math Plotter</a></li>
+            <li><a href="shader_playground.html" target="tool-frame"><i class="fa-solid fa-flask-vial" style="margin-right:8px"></i>HLSL Live Studio</a></li>
+            <li><a href="noise_gen.html" target="tool-frame"><i class="fa-solid fa-image" style="margin-right:8px"></i>Texture Generator</a></li>
         </ul>
 
 <div class="category-title admin-group" style="color: #6f98b2;">Admin Zone</div>
 <ul class="nav-links admin-group">
-    <li><a href="admin_add.html" target="tool-frame">📝 Snippet Builder</a></li>
+    <li><a href="admin_add.html" target="tool-frame"><i class="fa-solid fa-pen-to-square" style="margin-right:8px"></i>Snippet Builder</a></li>
+    <li><a href="admin_bug_reports.html" target="tool-frame"><i class="fa-solid fa-bug" style="margin-right:8px"></i>Bug Reports</a></li>
 </ul>
 
         <div class="footer" id="loginBtn" onclick="handleAuthClick()">
-            <span id="statusIcon">🔒</span> Login
+            <i id="statusIcon" class="fa-solid fa-lock" style="margin-right:8px"></i> Login
+        </div>
+        <div class="footer secondary" id="bugReportBtn" onclick="openBugReportModal()">
+            <i class="fa-solid fa-bug" style="margin-right:8px"></i> Bug Report
         </div>
     </aside>
 
@@ -264,6 +743,67 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="bugReportModal">
+        <div class="modal-box bug-report-box">
+            <h3>Bug Report</h3>
+            <div class="bug-grid">
+                <div class="bug-field">
+                    <label for="bugTool">Tool</label>
+                    <select id="bugTool">
+                        <option value="welcome">Welcome</option>
+                        <option value="blueprints_view">Blueprint Gallery</option>
+                        <option value="shaders_view">Shader Library</option>
+                        <option value="hlsl_view">HLSL Library</option>
+                        <option value="snippets_view">Snippets Library</option>
+                        <option value="questarchitect2">Quest Architect</option>
+                        <option value="ue_enumgen">UE Enum Generator</option>
+                        <option value="ue_converter_pro">Data Converter</option>
+                        <option value="curve_editor">Curve Editor</option>
+                        <option value="math_plotter">Math Plotter</option>
+                        <option value="hlsl_live_studio">HLSL Live Studio</option>
+                        <option value="texture_generator">Texture Generator</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="bug-field">
+                    <label for="bugPage">Page URL</label>
+                    <input id="bugPage" type="text" readonly>
+                </div>
+                <div class="bug-field">
+                    <label for="bugSeverity">Severity</label>
+                    <select id="bugSeverity">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                        <option value="critical">Critical</option>
+                    </select>
+                </div>
+                <div class="bug-field full">
+                    <label for="bugDescription">Describe Bug</label>
+                    <textarea id="bugDescription" maxlength="4000" placeholder="What happened?"></textarea>
+                </div>
+                <div class="bug-field full">
+                    <label for="bugSteps">Steps to Reproduce (optional)</label>
+                    <textarea id="bugSteps" maxlength="4000" placeholder="1. ... 2. ... 3. ..."></textarea>
+                </div>
+                <div class="bug-field">
+                    <label for="bugExpected">Expected Result (optional)</label>
+                    <textarea id="bugExpected" maxlength="2000"></textarea>
+                </div>
+                <div class="bug-field">
+                    <label for="bugActual">Actual Result (optional)</label>
+                    <textarea id="bugActual" maxlength="2000"></textarea>
+                </div>
+            </div>
+            <div id="bugReportError" class="error-msg">Error</div>
+            <div id="bugReportOk" class="ok-msg">Report sent.</div>
+            <div class="bug-actions">
+                <button class="btn-ghost" onclick="closeBugReportModal()">Cancel</button>
+                <button class="btn-primary bug-submit" id="bugSubmitBtn" onclick="submitBugReport()">Send Report</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- 1. НАСТРОЙКИ SUPABASE ---
         var SUPABASE_URL = 'https://vmwwvwtsznxwoswzdzui.supabase.co'; 
@@ -274,6 +814,7 @@
         // --- 2. ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ ---
         window.onload = async function() {
             console.log("CommonToolHub: Script loaded");
+            initMobileLayout();
             setupSidebarActive();
 
             try {
@@ -289,6 +830,8 @@
                 
                 if (session) {
                     unlockUI(session.user);
+                } else {
+                    lockUI();
                 }
                 
                 _sbClient.auth.onAuthStateChange((event, session) => {
@@ -329,6 +872,49 @@
             const errBox = document.getElementById('loginError');
             if (modal) modal.style.display = 'none';
             if (errBox) errBox.style.display = 'none';
+        }
+
+        function openBugReportModal() {
+            const modal = document.getElementById('bugReportModal');
+            const pageInput = document.getElementById('bugPage');
+            const toolSelect = document.getElementById('bugTool');
+            const okBox = document.getElementById('bugReportOk');
+            const errBox = document.getElementById('bugReportError');
+
+            if (pageInput) pageInput.value = window.location.href;
+            if (toolSelect) toolSelect.value = detectCurrentTool();
+            if (okBox) okBox.style.display = 'none';
+            if (errBox) errBox.style.display = 'none';
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function closeBugReportModal() {
+            const modal = document.getElementById('bugReportModal');
+            const errBox = document.getElementById('bugReportError');
+            const okBox = document.getElementById('bugReportOk');
+            if (modal) modal.style.display = 'none';
+            if (errBox) errBox.style.display = 'none';
+            if (okBox) okBox.style.display = 'none';
+        }
+
+        function detectCurrentTool() {
+            const active = document.querySelector('.nav-links a.active');
+            const href = active ? active.getAttribute('href') : '';
+            const map = {
+                'welcome.html': 'welcome',
+                'blueprints_view.html': 'blueprints_view',
+                'shaders_view.html': 'shaders_view',
+                'hlsl_view.html': 'hlsl_view',
+                'snippets_view.html': 'snippets_view',
+                'QuestArchitect2.html': 'questarchitect2',
+                'UE_EnumGen.html': 'ue_enumgen',
+                'UE_Converter_Pro.html': 'ue_converter_pro',
+                'CurveToCode_Pro.html': 'curve_editor',
+                'math_plotter.html': 'math_plotter',
+                'shader_playground.html': 'hlsl_live_studio',
+                'noise_gen.html': 'texture_generator'
+            };
+            return map[href] || 'other';
         }
 
         // --- 4. ВХОД / ВЫХОД ---
@@ -376,6 +962,69 @@
             }
         }
 
+        async function submitBugReport() {
+            if (!_sbClient) return;
+
+            const desc = document.getElementById('bugDescription').value.trim();
+            const toolKey = document.getElementById('bugTool').value;
+            const pageUrl = document.getElementById('bugPage').value.trim();
+            const steps = document.getElementById('bugSteps').value.trim();
+            const expected = document.getElementById('bugExpected').value.trim();
+            const actual = document.getElementById('bugActual').value.trim();
+            const severity = document.getElementById('bugSeverity').value;
+            const errBox = document.getElementById('bugReportError');
+            const okBox = document.getElementById('bugReportOk');
+            const btn = document.getElementById('bugSubmitBtn');
+
+            errBox.style.display = 'none';
+            okBox.style.display = 'none';
+
+            if (desc.length < 10) {
+                errBox.innerText = 'Describe the bug in at least 10 characters.';
+                errBox.style.display = 'block';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = 'Sending...';
+
+            try {
+                const { data: { user } } = await _sbClient.auth.getUser();
+                const reporterId = user ? user.id : null;
+                const reporterType = user ? 'authenticated' : 'anon';
+
+                const payload = {
+                    reporter_id: reporterId,
+                    reporter_type: reporterType,
+                    tool_key: toolKey,
+                    bug_description: desc,
+                    steps_to_reproduce: steps || null,
+                    expected_result: expected || null,
+                    actual_result: actual || null,
+                    severity: severity || 'medium',
+                    page_url: pageUrl || null,
+                    user_agent: navigator.userAgent || null
+                };
+
+                const { error } = await _sbClient.from('bug_reports').insert(payload);
+                if (error) throw error;
+
+                document.getElementById('bugDescription').value = '';
+                document.getElementById('bugSteps').value = '';
+                document.getElementById('bugExpected').value = '';
+                document.getElementById('bugActual').value = '';
+                document.getElementById('bugSeverity').value = 'medium';
+                okBox.innerText = 'Report sent. Thank you.';
+                okBox.style.display = 'block';
+            } catch (err) {
+                errBox.innerText = err.message || 'Failed to send report.';
+                errBox.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Send Report';
+            }
+        }
+
         // --- 5. ОБНОВЛЕНИЕ ИНТЕРФЕЙСА ---
         function unlockUI(user) {
             console.log("User authorized:", user.email);
@@ -385,8 +1034,14 @@
             
             const btn = document.getElementById('loginBtn');
             if (btn) {
-                btn.innerHTML = `<span style="margin-right:8px">🟢</span> ${user.email}`;
-                btn.style.color = "#fff";
+                btn.classList.add('authenticated');
+                btn.innerHTML = `<i class="fa-solid fa-circle-check" style="margin-right:8px"></i> ${user.email}`;
+            }
+
+            const mobileBtn = document.getElementById('mobileLoginBtn');
+            if (mobileBtn) {
+                mobileBtn.classList.add('authenticated');
+                mobileBtn.innerHTML = `<i class="fa-solid fa-circle-check"></i><span>${user.email}</span>`;
             }
 
             broadcastAuthState(true, user?.email || null);
@@ -398,8 +1053,14 @@
             
             const btn = document.getElementById('loginBtn');
             if (btn) {
-                btn.innerHTML = '<span id="statusIcon" style="margin-right:8px">🔒</span> Login';
-                btn.style.color = "#9aa4b2";
+                btn.classList.remove('authenticated');
+                btn.innerHTML = '<i id="statusIcon" class="fa-solid fa-lock" style="margin-right:8px"></i> Login';
+            }
+
+            const mobileBtn = document.getElementById('mobileLoginBtn');
+            if (mobileBtn) {
+                mobileBtn.classList.remove('authenticated');
+                mobileBtn.innerHTML = '<i class="fa-solid fa-lock"></i><span>Login</span>';
             }
 
             broadcastAuthState(false, null);
@@ -409,6 +1070,64 @@
             const frame = document.getElementById('tool-frame');
             if (frame && frame.contentWindow) {
                 frame.contentWindow.postMessage({ type: 'ct_auth', isAuth, email }, '*');
+            }
+        }
+
+        function isMobileViewport() {
+            return window.matchMedia('(max-width: 900px)').matches;
+        }
+
+        function openMobileSidebar() {
+            if (!isMobileViewport()) return;
+            document.body.classList.add('mobile-sidebar-open');
+            document.body.classList.remove('mobile-sidebar-collapsed');
+        }
+
+        function closeMobileSidebar() {
+            if (!isMobileViewport()) return;
+            document.body.classList.remove('mobile-sidebar-open');
+            document.body.classList.add('mobile-sidebar-collapsed');
+        }
+
+        function initMobileLayout() {
+            const frame = document.getElementById('tool-frame');
+
+            function syncLayout() {
+                if (isMobileViewport()) {
+                    const hasState =
+                        document.body.classList.contains('mobile-sidebar-open') ||
+                        document.body.classList.contains('mobile-sidebar-collapsed');
+                    if (!hasState) {
+                        document.body.classList.add('mobile-sidebar-open');
+                        document.body.classList.remove('mobile-sidebar-collapsed');
+                    }
+                    if (frame) {
+                        const src = (frame.getAttribute('src') || '').toLowerCase();
+                        if (src === 'welcome.html') {
+                            frame.setAttribute('src', 'about:blank');
+                            frame.src = 'about:blank';
+                        }
+                    }
+                } else {
+                    document.body.classList.remove('mobile-sidebar-open', 'mobile-sidebar-collapsed');
+                }
+            }
+
+            syncLayout();
+            window.addEventListener('resize', syncLayout);
+        }
+
+        function openWelcomeHome() {
+            const frame = document.getElementById('tool-frame');
+            if (frame) {
+                frame.setAttribute('src', 'welcome.html');
+                frame.src = 'welcome.html';
+            }
+            document.querySelectorAll('.nav-links a').forEach(link => link.classList.remove('active'));
+            document.querySelectorAll('.category-title').forEach(title => title.classList.remove('active'));
+            localStorage.removeItem('ct_active_link');
+            if (isMobileViewport()) {
+                closeMobileSidebar();
             }
         }
 
@@ -434,7 +1153,12 @@
             }
 
             links.forEach(link => {
-                link.addEventListener('click', () => setActive(link));
+                link.addEventListener('click', () => {
+                    setActive(link);
+                    if (isMobileViewport()) {
+                        closeMobileSidebar();
+                    }
+                });
             });
 
             const stored = localStorage.getItem('ct_active_link');
@@ -452,12 +1176,17 @@
         }
 
         window.onclick = function(event) {
-            const modal = document.getElementById('loginModal');
-            if (event.target == modal) {
+            const loginModal = document.getElementById('loginModal');
+            const bugModal = document.getElementById('bugReportModal');
+            if (event.target == loginModal) {
                 closeModal();
+            }
+            if (event.target == bugModal) {
+                closeBugReportModal();
             }
         }
     </script>
 </body>
 </html>
+
 
