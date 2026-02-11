@@ -88,9 +88,25 @@
         .btn-copy:hover { filter: brightness(1.1); }
         .btn-copy:active { transform: translateY(1px); }
 
-        .frame-container { flex: 1; position: relative; background: #1a1f2b; }
+        .frame-container {
+            flex: 1;
+            position: relative;
+            background: #1a1f2b;
+            overflow: hidden;
+            --embed-scale: 1.42;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
         
-        iframe { width: 100%; height: 100%; border: none; display: none; }
+        iframe {
+            width: calc(100% / var(--embed-scale));
+            height: calc(100% / var(--embed-scale));
+            border: none;
+            display: none;
+            transform: scale(var(--embed-scale));
+            transform-origin: center center;
+        }
         .placeholder { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #64748b; font-size: 1.2em; }
     </style>
 </head>

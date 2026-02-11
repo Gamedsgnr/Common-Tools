@@ -6,6 +6,7 @@
     <title>Common Tools and Libs</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
     <style>
         /* Сброс стилей */
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -277,6 +278,60 @@
             text-shadow: 0 0 10px rgba(185, 137, 137, 0.45);
         }
 
+        .footer.tertiary {
+            margin-top: 0;
+            border-top: none;
+            border: 1px solid rgba(134, 184, 216, 0.4);
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(134, 184, 216, 0.2), rgba(30, 41, 59, 0.52));
+            box-shadow:
+                0 12px 20px -14px rgba(2, 6, 23, 0.8),
+                inset 0 1px 0 rgba(255, 255, 255, 0.14),
+                inset 0 -10px 18px rgba(2, 6, 23, 0.28);
+            animation: access-pulse 2.4s ease-in-out infinite;
+        }
+
+        .footer.tertiary:hover {
+            color: #dbe7f3;
+            border-color: rgba(134, 184, 216, 0.62);
+            background: linear-gradient(135deg, rgba(134, 184, 216, 0.3), rgba(30, 41, 59, 0.58));
+            box-shadow:
+                0 12px 20px -14px rgba(2, 6, 23, 0.8),
+                inset 0 1px 0 rgba(255, 255, 255, 0.14),
+                inset 0 -10px 18px rgba(2, 6, 23, 0.28),
+                0 0 0 1px rgba(134, 184, 216, 0.24),
+                0 0 18px rgba(134, 184, 216, 0.2);
+        }
+
+        .footer.tertiary i {
+            color: #9ed3f7;
+            text-shadow: 0 0 10px rgba(134, 184, 216, 0.4);
+        }
+
+        @keyframes access-pulse {
+            0% {
+                box-shadow:
+                    0 12px 20px -14px rgba(2, 6, 23, 0.8),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+                    inset 0 -10px 18px rgba(2, 6, 23, 0.28),
+                    0 0 0 0 rgba(134, 184, 216, 0.25);
+            }
+            60% {
+                box-shadow:
+                    0 12px 20px -14px rgba(2, 6, 23, 0.8),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+                    inset 0 -10px 18px rgba(2, 6, 23, 0.28),
+                    0 0 0 8px rgba(134, 184, 216, 0);
+            }
+            100% {
+                box-shadow:
+                    0 12px 20px -14px rgba(2, 6, 23, 0.8),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+                    inset 0 -10px 18px rgba(2, 6, 23, 0.28),
+                    0 0 0 0 rgba(134, 184, 216, 0);
+            }
+        }
+
         /* --- ОСНОВНАЯ ЧАСТЬ --- */
         .main-content {
             flex-grow: 1;
@@ -428,6 +483,18 @@
             margin-top: 4px;
         }
 
+        .bug-actions .btn-ghost,
+        .bug-actions .bug-submit {
+            min-height: 42px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        .bug-actions .bug-submit {
+            flex: 1 1 0;
+        }
+
         .btn-ghost {
             background: transparent;
             border: 1px solid rgba(148, 163, 184, 0.3);
@@ -457,6 +524,24 @@
             color: #7dd3fc;
             font-size: 0.9em;
             display: none;
+        }
+
+        .captcha-wrap {
+            margin-top: 4px;
+            display: none;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 68px;
+        }
+
+        .captcha-wrap.is-visible {
+            display: flex;
+        }
+
+        .captcha-note {
+            color: #9aa4b2;
+            font-size: 0.8em;
+            line-height: 1.35;
         }
 
         .mobile-topbar,
@@ -670,6 +755,12 @@
                 width: 100%;
             }
         }
+
+        @media (prefers-reduced-motion: reduce) {
+            .footer.tertiary {
+                animation: none;
+            }
+        }
     </style>
 </head>
 <body>
@@ -723,6 +814,9 @@
         <div class="footer" id="loginBtn" onclick="handleAuthClick()">
             <i id="statusIcon" class="fa-solid fa-lock" style="margin-right:8px"></i> Login
         </div>
+        <div class="footer tertiary" id="accessRequestBtn" onclick="openAccessRequestModal()">
+            <i class="fa-solid fa-envelope-open-text" style="margin-right:8px"></i> Access Request
+        </div>
         <div class="footer secondary" id="bugReportBtn" onclick="openBugReportModal()">
             <i class="fa-solid fa-bug" style="margin-right:8px"></i> Bug Report
         </div>
@@ -734,7 +828,7 @@
 
     <div class="modal-overlay" id="loginModal">
         <div class="modal-box">
-            <h3>Supabase Login</h3>
+            <h3>Login</h3>
             <input type="email" id="email" placeholder="Email">
             <input type="password" id="password" placeholder="Password">
             <button class="btn-primary" onclick="loginSupabase()">SIGN IN</button>
@@ -795,11 +889,48 @@
                     <textarea id="bugActual" maxlength="2000"></textarea>
                 </div>
             </div>
+            <div id="bugCaptchaWrap" class="captcha-wrap">
+                <div id="bugCaptcha"></div>
+            </div>
+            <div id="bugCaptchaNote" class="captcha-note" style="display:none;">Captcha is required for anonymous reports.</div>
             <div id="bugReportError" class="error-msg">Error</div>
             <div id="bugReportOk" class="ok-msg">Report sent.</div>
             <div class="bug-actions">
-                <button class="btn-ghost" onclick="closeBugReportModal()">Cancel</button>
+                <button class="btn-primary bug-submit" onclick="closeBugReportModal()">Cancel</button>
                 <button class="btn-primary bug-submit" id="bugSubmitBtn" onclick="submitBugReport()">Send Report</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="accessRequestModal">
+        <div class="modal-box bug-report-box">
+            <h3>Access Request</h3>
+            <p style="color:#9aa4b2; font-size:0.86em; line-height:1.45; margin-bottom:6px;">
+                Open registration is planned. Right now the platform is in active development, so I am granting access manually based on requests.
+            </p>
+            <p style="color:#9aa4b2; font-size:0.84em; line-height:1.45; margin-bottom:8px;">
+                Current access gives you early use of the tool set and feedback participation while features are still being refined.
+                Requests are also collected to measure real interest and prioritize the roadmap.
+            </p>
+            <div class="bug-grid">
+                <div class="bug-field full">
+                    <label for="requestEmail">Email</label>
+                    <input id="requestEmail" type="email" maxlength="255" placeholder="you@example.com">
+                </div>
+                <div class="bug-field full">
+                    <label for="requestAbout">About You / Your Use Case</label>
+                    <textarea id="requestAbout" maxlength="3000" placeholder="Tell me a bit about yourself and how you plan to use Common Tools."></textarea>
+                </div>
+            </div>
+            <div id="requestCaptchaWrap" class="captcha-wrap">
+                <div id="requestCaptcha"></div>
+            </div>
+            <div id="requestCaptchaNote" class="captcha-note" style="display:none;">Captcha is required for anonymous requests.</div>
+            <div id="requestError" class="error-msg">Error</div>
+            <div id="requestOk" class="ok-msg">Request sent.</div>
+            <div class="bug-actions">
+                <button class="btn-primary bug-submit" onclick="closeAccessRequestModal()">Cancel</button>
+                <button class="btn-primary bug-submit" id="requestSubmitBtn" onclick="submitAccessRequest()">Send Request</button>
             </div>
         </div>
     </div>
@@ -808,8 +939,13 @@
         // --- 1. НАСТРОЙКИ SUPABASE ---
         var SUPABASE_URL = 'https://vmwwvwtsznxwoswzdzui.supabase.co'; 
         var SUPABASE_KEY = 'sb_publishable_hfVfEOEyUxTAl9TCGQLQdA_2qpquHGk';
+        var TURNSTILE_SITE_KEY = '0x4AAAAAACaV158q5lWbH-_T';
         
         var _sbClient = null;
+        var _bugCaptchaWidgetId = null;
+        var _requestCaptchaWidgetId = null;
+        var _bugCaptchaToken = '';
+        var _requestCaptchaToken = '';
 
         // --- 2. ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ ---
         window.onload = async function() {
@@ -880,12 +1016,15 @@
             const toolSelect = document.getElementById('bugTool');
             const okBox = document.getElementById('bugReportOk');
             const errBox = document.getElementById('bugReportError');
+            const captchaNote = document.getElementById('bugCaptchaNote');
 
             if (pageInput) pageInput.value = window.location.href;
             if (toolSelect) toolSelect.value = detectCurrentTool();
             if (okBox) okBox.style.display = 'none';
             if (errBox) errBox.style.display = 'none';
+            if (captchaNote) captchaNote.style.display = 'none';
             if (modal) modal.style.display = 'flex';
+            ensureCaptchaForModal('bug');
         }
 
         function closeBugReportModal() {
@@ -895,6 +1034,29 @@
             if (modal) modal.style.display = 'none';
             if (errBox) errBox.style.display = 'none';
             if (okBox) okBox.style.display = 'none';
+        }
+
+        function openAccessRequestModal() {
+            const modal = document.getElementById('accessRequestModal');
+            const okBox = document.getElementById('requestOk');
+            const errBox = document.getElementById('requestError');
+            const captchaNote = document.getElementById('requestCaptchaNote');
+            if (okBox) okBox.style.display = 'none';
+            if (errBox) errBox.style.display = 'none';
+            if (captchaNote) captchaNote.style.display = 'none';
+            if (modal) modal.style.display = 'flex';
+            const emailInput = document.getElementById('requestEmail');
+            if (emailInput) emailInput.focus();
+            ensureCaptchaForModal('request');
+        }
+
+        function closeAccessRequestModal() {
+            const modal = document.getElementById('accessRequestModal');
+            const okBox = document.getElementById('requestOk');
+            const errBox = document.getElementById('requestError');
+            if (modal) modal.style.display = 'none';
+            if (okBox) okBox.style.display = 'none';
+            if (errBox) errBox.style.display = 'none';
         }
 
         function detectCurrentTool() {
@@ -915,6 +1077,72 @@
                 'noise_gen.html': 'texture_generator'
             };
             return map[href] || 'other';
+        }
+
+        async function isAnonymousUser() {
+            if (!_sbClient) return true;
+            try {
+                const { data: { user } } = await _sbClient.auth.getUser();
+                return !user;
+            } catch (_) {
+                return true;
+            }
+        }
+
+        function hasCaptchaConfigured() {
+            return typeof TURNSTILE_SITE_KEY === 'string' && TURNSTILE_SITE_KEY.trim().length > 0;
+        }
+
+        async function ensureCaptchaForModal(kind) {
+            const isAnon = await isAnonymousUser();
+            const wrapId = kind === 'bug' ? 'bugCaptchaWrap' : 'requestCaptchaWrap';
+            const widgetHostId = kind === 'bug' ? 'bugCaptcha' : 'requestCaptcha';
+            const noteId = kind === 'bug' ? 'bugCaptchaNote' : 'requestCaptchaNote';
+            const wrap = document.getElementById(wrapId);
+            const note = document.getElementById(noteId);
+            if (!wrap) return;
+
+            if (!isAnon) {
+                wrap.classList.remove('is-visible');
+                if (note) note.style.display = 'none';
+                return;
+            }
+
+            wrap.classList.add('is-visible');
+            if (!hasCaptchaConfigured() || typeof window.turnstile === 'undefined') {
+                if (note) {
+                    note.innerText = 'Captcha is not configured. Set TURNSTILE_SITE_KEY in index.html.';
+                    note.style.display = 'block';
+                }
+                return;
+            }
+
+            if (note) note.style.display = 'none';
+
+            if (kind === 'bug' && _bugCaptchaWidgetId === null) {
+                _bugCaptchaWidgetId = window.turnstile.render('#' + widgetHostId, {
+                    sitekey: TURNSTILE_SITE_KEY,
+                    callback: function(token) { _bugCaptchaToken = token || ''; },
+                    'expired-callback': function() { _bugCaptchaToken = ''; },
+                    'error-callback': function() { _bugCaptchaToken = ''; }
+                });
+                return;
+            }
+
+            if (kind === 'request' && _requestCaptchaWidgetId === null) {
+                _requestCaptchaWidgetId = window.turnstile.render('#' + widgetHostId, {
+                    sitekey: TURNSTILE_SITE_KEY,
+                    callback: function(token) { _requestCaptchaToken = token || ''; },
+                    'expired-callback': function() { _requestCaptchaToken = ''; },
+                    'error-callback': function() { _requestCaptchaToken = ''; }
+                });
+                return;
+            }
+
+            const widgetId = kind === 'bug' ? _bugCaptchaWidgetId : _requestCaptchaWidgetId;
+            if (widgetId !== null) {
+                window.turnstile.reset(widgetId);
+            }
         }
 
         // --- 4. ВХОД / ВЫХОД ---
@@ -975,6 +1203,7 @@
             const errBox = document.getElementById('bugReportError');
             const okBox = document.getElementById('bugReportOk');
             const btn = document.getElementById('bugSubmitBtn');
+            const captchaNote = document.getElementById('bugCaptchaNote');
 
             errBox.style.display = 'none';
             okBox.style.display = 'none';
@@ -985,17 +1214,27 @@
                 return;
             }
 
+            const isAnon = await isAnonymousUser();
+            if (isAnon) {
+                if (!hasCaptchaConfigured()) {
+                    errBox.innerText = 'Captcha is not configured.';
+                    errBox.style.display = 'block';
+                    if (captchaNote) captchaNote.style.display = 'block';
+                    return;
+                }
+                if (!_bugCaptchaToken) {
+                    errBox.innerText = 'Please complete captcha before sending.';
+                    errBox.style.display = 'block';
+                    if (captchaNote) captchaNote.style.display = 'block';
+                    return;
+                }
+            }
+
             btn.disabled = true;
             btn.innerText = 'Sending...';
 
             try {
-                const { data: { user } } = await _sbClient.auth.getUser();
-                const reporterId = user ? user.id : null;
-                const reporterType = user ? 'authenticated' : 'anon';
-
                 const payload = {
-                    reporter_id: reporterId,
-                    reporter_type: reporterType,
                     tool_key: toolKey,
                     bug_description: desc,
                     steps_to_reproduce: steps || null,
@@ -1006,14 +1245,25 @@
                     user_agent: navigator.userAgent || null
                 };
 
-                const { error } = await _sbClient.from('bug_reports').insert(payload);
+                const { data, error } = await _sbClient.functions.invoke('submit-public-form', {
+                    body: {
+                        form_type: 'bug_report',
+                        captcha_token: _bugCaptchaToken || null,
+                        payload: payload
+                    }
+                });
                 if (error) throw error;
+                if (data && data.error) throw new Error(data.error);
 
                 document.getElementById('bugDescription').value = '';
                 document.getElementById('bugSteps').value = '';
                 document.getElementById('bugExpected').value = '';
                 document.getElementById('bugActual').value = '';
                 document.getElementById('bugSeverity').value = 'medium';
+                _bugCaptchaToken = '';
+                if (typeof window.turnstile !== 'undefined' && _bugCaptchaWidgetId !== null) {
+                    window.turnstile.reset(_bugCaptchaWidgetId);
+                }
                 okBox.innerText = 'Report sent. Thank you.';
                 okBox.style.display = 'block';
             } catch (err) {
@@ -1131,6 +1381,100 @@
             }
         }
 
+        async function submitAccessRequest() {
+            if (!_sbClient) {
+                const errBox = document.getElementById('requestError');
+                if (errBox) {
+                    errBox.innerText = 'Supabase client not initialized.';
+                    errBox.style.display = 'block';
+                }
+                return;
+            }
+
+            const email = (document.getElementById('requestEmail').value || '').trim().toLowerCase();
+            const about = (document.getElementById('requestAbout').value || '').trim();
+            const errBox = document.getElementById('requestError');
+            const okBox = document.getElementById('requestOk');
+            const btn = document.getElementById('requestSubmitBtn');
+            const captchaNote = document.getElementById('requestCaptchaNote');
+
+            if (errBox) errBox.style.display = 'none';
+            if (okBox) okBox.style.display = 'none';
+
+            if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                errBox.innerText = 'Please enter a valid email.';
+                errBox.style.display = 'block';
+                return;
+            }
+
+            if (about.length < 15) {
+                errBox.innerText = 'Please add at least 15 characters about yourself/use case.';
+                errBox.style.display = 'block';
+                return;
+            }
+
+            const isAnon = await isAnonymousUser();
+            if (isAnon) {
+                if (!hasCaptchaConfigured()) {
+                    errBox.innerText = 'Captcha is not configured.';
+                    errBox.style.display = 'block';
+                    if (captchaNote) captchaNote.style.display = 'block';
+                    return;
+                }
+                if (!_requestCaptchaToken) {
+                    errBox.innerText = 'Please complete captcha before sending.';
+                    errBox.style.display = 'block';
+                    if (captchaNote) captchaNote.style.display = 'block';
+                    return;
+                }
+            }
+
+            btn.disabled = true;
+            btn.innerText = 'Sending...';
+
+            try {
+                const { data, error } = await _sbClient.functions.invoke('submit-public-form', {
+                    body: {
+                        form_type: 'access_request',
+                        captcha_token: _requestCaptchaToken || null,
+                        payload: {
+                            email: email,
+                            about: about,
+                            page_url: window.location.href || null,
+                            user_agent: navigator.userAgent || null
+                        }
+                    }
+                });
+                if (error) throw error;
+                if (data && data.error) throw new Error(data.error);
+
+                let action = 'saved';
+                if (data && data.action) {
+                    action = data.action;
+                }
+
+                document.getElementById('requestAbout').value = '';
+                _requestCaptchaToken = '';
+                if (typeof window.turnstile !== 'undefined' && _requestCaptchaWidgetId !== null) {
+                    window.turnstile.reset(_requestCaptchaWidgetId);
+                }
+                if (action === 'appended') {
+                    okBox.innerText = 'Existing request found. Your new text was appended.';
+                } else if (action === 'blocked_duplicate') {
+                    okBox.innerText = 'No changes saved: same text was already submitted.';
+                } else {
+                    okBox.innerText = 'Request saved. Next submissions with this email will update the same request instead of creating a new row.';
+                }
+                okBox.style.display = 'block';
+            } catch (err) {
+                errBox.innerText = err.message || 'Failed to send request.';
+                errBox.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Send Request';
+            }
+        }
+
         function setupSidebarActive() {
             const links = Array.from(document.querySelectorAll('.nav-links a'));
             const titles = Array.from(document.querySelectorAll('.category-title'));
@@ -1178,11 +1522,15 @@
         window.onclick = function(event) {
             const loginModal = document.getElementById('loginModal');
             const bugModal = document.getElementById('bugReportModal');
+            const requestModal = document.getElementById('accessRequestModal');
             if (event.target == loginModal) {
                 closeModal();
             }
             if (event.target == bugModal) {
                 closeBugReportModal();
+            }
+            if (event.target == requestModal) {
+                closeAccessRequestModal();
             }
         }
     </script>
