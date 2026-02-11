@@ -11,6 +11,16 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
+        :root {
+            --glass-bg: #1a1f2b;
+            --glass-panel: rgba(30, 41, 59, 0.45);
+            --glass-border: rgba(148, 163, 184, 0.28);
+            --glass-text: #dbe7f3;
+            --glass-muted: #9aa4b2;
+            --glass-accent: #7dd3fc;
+            --glass-accent-strong: #3b82f6;
+        }
+
         body { 
             font-family: 'Inter', sans-serif; 
             background-color: #141821; 
@@ -93,6 +103,140 @@
             z-index: 50;
         }
 
+        .node-wrapper.is-group {
+            z-index: 2 !important;
+            border-style: solid;
+            border-color: var(--group-border, rgba(148, 163, 184, 0.36));
+            background: rgba(30, 41, 59, 0.126);
+            box-shadow:
+                0 16px 28px -16px rgba(2, 6, 23, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22),
+                inset 0 -10px 22px rgba(2, 6, 23, 0.3);
+            backdrop-filter: blur(14px) saturate(1.15);
+            -webkit-backdrop-filter: blur(14px) saturate(1.15);
+        }
+
+        .node-wrapper.is-group::before {
+            inset: auto;
+            top: 6px;
+            left: 12px;
+            width: min(88%, 1120px);
+            height: min(64%, 408px);
+            border-radius: 12px;
+            background:
+                radial-gradient(
+                    128% 112% at -34% 14%,
+                    rgba(255, 255, 255, 0.15) 0%,
+                    var(--group-highlight-tint, rgba(148, 163, 184, 0.055)) 34%,
+                    rgba(255, 255, 255, 0.025) 56%,
+                    rgba(255, 255, 255, 0) 76%
+                ),
+                radial-gradient(
+                    74% 70% at 10% 20%,
+                    rgba(255, 255, 255, 0.085) 0%,
+                    rgba(255, 255, 255, 0) 74%
+                );
+            box-shadow: none;
+            opacity: 0.68;
+            filter: blur(8px);
+        }
+
+        .node-wrapper.is-group::after {
+            display: none;
+        }
+
+        .node-wrapper.is-group.selected {
+            z-index: 3 !important;
+            border-color: var(--group-border-strong, rgba(148, 163, 184, 0.62));
+            box-shadow:
+                0 0 0 2px rgba(125, 211, 252, 0.24),
+                0 16px 28px -16px rgba(2, 6, 23, 0.74),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22),
+                inset 0 -10px 22px rgba(2, 6, 23, 0.3);
+        }
+
+        .node-wrapper.is-group .node-header {
+            background: transparent !important;
+            border-bottom: none;
+            padding: 8px 10px 2px;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .node-wrapper.is-group .node-header i {
+            color: #dbe7f3;
+            opacity: 0.82;
+        }
+
+        .node-wrapper.is-group .node-header-name {
+            color: #dbe7f3;
+            max-width: 235px;
+        }
+
+        .node-wrapper.is-group .node-header-name.node-header-name-btn:hover {
+            border-color: rgba(219, 231, 243, 0.36);
+            background: rgba(15, 23, 42, 0.22);
+        }
+
+        .node-wrapper.is-group > .p-3 {
+            padding: 0;
+        }
+
+        .doc-node-note {
+            width: 100%;
+            min-height: 84px;
+            border-radius: 8px;
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            background: rgba(15, 23, 42, 0.5);
+            color: #dbe7f3;
+            padding: 8px;
+            font-size: 12px;
+            resize: vertical;
+        }
+
+        .doc-node-size {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .doc-node-size input {
+            width: 100%;
+            border-radius: 6px;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            background: rgba(15, 23, 42, 0.55);
+            color: #dbe7f3;
+            font-size: 11px;
+            padding: 4px 6px;
+        }
+
+        .doc-node-caption {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #9aa4b2;
+            margin-bottom: 4px;
+        }
+
+        .group-resize-handle {
+            position: absolute;
+            z-index: 9;
+            width: 18px;
+            height: 18px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+        }
+
+        .group-resize-tl { top: -9px; left: -9px; cursor: nwse-resize; }
+        .group-resize-tr { top: -9px; right: -9px; cursor: nesw-resize; }
+        .group-resize-bl { bottom: -9px; left: -9px; cursor: nesw-resize; }
+        .group-resize-br { bottom: -9px; right: -9px; cursor: nwse-resize; }
+        .group-resize-t { top: -7px; left: 16px; right: 16px; width: auto; height: 14px; cursor: ns-resize; border-radius: 6px; }
+        .group-resize-b { bottom: -7px; left: 16px; right: 16px; width: auto; height: 14px; cursor: ns-resize; border-radius: 6px; }
+        .group-resize-l { left: -7px; top: 16px; bottom: 16px; width: 14px; height: auto; cursor: ew-resize; border-radius: 6px; }
+        .group-resize-r { right: -7px; top: 16px; bottom: 16px; width: 14px; height: auto; cursor: ew-resize; border-radius: 6px; }
+
         /* Node Headers */
         .node-header {
             padding: 10px 12px;
@@ -105,11 +249,54 @@
         }
         .node-header:active { cursor: grabbing; }
 
+        .node-header-name {
+            min-width: 0;
+            max-width: 210px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-align: left;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            padding: 2px 6px;
+            background: transparent;
+            color: #ffffff;
+            line-height: 1.2;
+        }
+
+        .node-header-name.node-header-name-btn {
+            cursor: text;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+        }
+
+        .node-header-name.node-header-name-btn:hover {
+            border-color: rgba(255, 255, 255, 0.35);
+            background: rgba(15, 23, 42, 0.2);
+        }
+
+        .node-header-name-input {
+            min-width: 0;
+            width: 210px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            padding: 2px 6px;
+            background: rgba(15, 23, 42, 0.72);
+            color: #ffffff;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(125, 211, 252, 0.18);
+        }
+
         .type-start { background: linear-gradient(135deg, #059669, #047857); }
         .type-dialog { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
         .type-action { background: linear-gradient(135deg, #9333ea, #7e22ce); }
         .type-condition { background: linear-gradient(135deg, #d97706, #b45309); }
         .type-switcher { background: linear-gradient(135deg, #0ea5e9, #0284c7); }
+        .type-link_state { background: linear-gradient(135deg, #dc2626, #7f1d1d); }
+        .type-link_entry { background: linear-gradient(135deg, #ef4444, #991b1b); }
+        .type-comment { background: linear-gradient(135deg, #d97706, #92400e); }
 
         /* Sockets */
         .socket {
@@ -195,6 +382,768 @@
             pointer-events: none;
             z-index: 30;
         }
+
+        .node-context-menu {
+            position: absolute;
+            width: 248px;
+            z-index: 90;
+            padding: 12px;
+            border-radius: 16px;
+            background: var(--glass-panel);
+            border: 1px solid var(--glass-border);
+            box-shadow:
+                0 18px 30px -12px rgba(2, 6, 23, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22),
+                inset 0 -10px 22px rgba(2, 6, 23, 0.32);
+            backdrop-filter: blur(18px) saturate(1.2);
+            -webkit-backdrop-filter: blur(18px) saturate(1.2);
+            overflow: hidden;
+        }
+
+        .node-context-menu::before {
+            content: '';
+            position: absolute;
+            inset: 4px;
+            border-radius: 12px;
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 55%),
+                linear-gradient(340deg, rgba(125, 211, 252, 0.08), rgba(125, 211, 252, 0) 60%);
+            box-shadow:
+                inset 0 0 10px rgba(255, 255, 255, 0.08),
+                inset 0 0 18px rgba(125, 211, 252, 0.06);
+            opacity: 0.9;
+            pointer-events: none;
+        }
+
+        .node-context-menu::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 16px;
+            background:
+                linear-gradient(135deg, rgba(2, 6, 23, 0.18), rgba(2, 6, 23, 0) 55%),
+                linear-gradient(315deg, rgba(2, 6, 23, 0.25), rgba(2, 6, 23, 0) 60%);
+            pointer-events: none;
+        }
+
+        .node-context-menu > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .node-context-menu-title {
+            font-size: 11px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: var(--glass-muted);
+            margin-bottom: 8px;
+            padding: 2px 4px;
+        }
+
+        .node-context-menu-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .node-context-item {
+            --tone-bg: rgba(15, 23, 42, 0.55);
+            --tone-bg-hover: rgba(30, 41, 59, 0.65);
+            --tone-border: var(--glass-border);
+            --tone-border-hover: rgba(148, 163, 184, 0.42);
+            --tone-icon: #cbd5e1;
+            --tone-icon-hover: #f1f5f9;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid var(--tone-border);
+            background: var(--tone-bg);
+            color: var(--glass-text);
+            text-align: left;
+            transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+        }
+
+        .node-context-item::before,
+        .node-context-item::after {
+            content: '';
+            position: absolute;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .node-context-item::before {
+            inset: 4px;
+            border-radius: 10px;
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 55%),
+                linear-gradient(340deg, rgba(134, 184, 216, 0.12), rgba(134, 184, 216, 0) 60%);
+            box-shadow:
+                inset 0 0 10px rgba(255, 255, 255, 0.08),
+                inset 0 0 18px rgba(134, 184, 216, 0.06);
+        }
+
+        .node-context-item::after {
+            inset: 0;
+            border-radius: 12px;
+            background:
+                linear-gradient(135deg, rgba(2, 6, 23, 0.12), rgba(2, 6, 23, 0) 55%),
+                linear-gradient(315deg, rgba(2, 6, 23, 0.18), rgba(2, 6, 23, 0) 60%);
+        }
+
+        .node-context-item:hover,
+        .node-context-item:focus-visible {
+            background: var(--tone-bg-hover);
+            border-color: var(--tone-border-hover);
+            box-shadow:
+                0 14px 20px -12px rgba(2, 6, 23, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22),
+                inset 0 -10px 22px rgba(2, 6, 23, 0.32);
+            transform: translateY(-1px);
+            outline: none;
+        }
+
+        .node-context-item:hover::before,
+        .node-context-item:hover::after,
+        .node-context-item:focus-visible::before,
+        .node-context-item:focus-visible::after {
+            opacity: 0.95;
+        }
+
+        .node-context-item[data-tone='dialog'] {
+            --tone-bg: rgba(37, 99, 235, 0.2);
+            --tone-bg-hover: rgba(37, 99, 235, 0.28);
+            --tone-border: rgba(96, 165, 250, 0.5);
+            --tone-border-hover: rgba(96, 165, 250, 0.78);
+            --tone-icon: #93c5fd;
+            --tone-icon-hover: #dbeafe;
+        }
+
+        .node-context-item[data-tone='action'] {
+            --tone-bg: rgba(147, 51, 234, 0.2);
+            --tone-bg-hover: rgba(147, 51, 234, 0.28);
+            --tone-border: rgba(192, 132, 252, 0.5);
+            --tone-border-hover: rgba(192, 132, 252, 0.78);
+            --tone-icon: #d8b4fe;
+            --tone-icon-hover: #f3e8ff;
+        }
+
+        .node-context-item[data-tone='condition'] {
+            --tone-bg: rgba(202, 138, 4, 0.2);
+            --tone-bg-hover: rgba(202, 138, 4, 0.28);
+            --tone-border: rgba(250, 204, 21, 0.52);
+            --tone-border-hover: rgba(250, 204, 21, 0.8);
+            --tone-icon: #fcd34d;
+            --tone-icon-hover: #fef3c7;
+        }
+
+        .node-context-item[data-tone='switcher'] {
+            --tone-bg: rgba(2, 132, 199, 0.2);
+            --tone-bg-hover: rgba(2, 132, 199, 0.28);
+            --tone-border: rgba(56, 189, 248, 0.52);
+            --tone-border-hover: rgba(56, 189, 248, 0.8);
+            --tone-icon: #7dd3fc;
+            --tone-icon-hover: #e0f2fe;
+        }
+
+        .node-context-item[data-tone='link'] {
+            --tone-bg: rgba(220, 38, 38, 0.2);
+            --tone-bg-hover: rgba(220, 38, 38, 0.3);
+            --tone-border: rgba(248, 113, 113, 0.56);
+            --tone-border-hover: rgba(252, 165, 165, 0.84);
+            --tone-icon: #fca5a5;
+            --tone-icon-hover: #fee2e2;
+        }
+
+        .node-context-item[data-tone='dialog']::before {
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 55%),
+                linear-gradient(340deg, rgba(125, 211, 252, 0.16), rgba(125, 211, 252, 0) 60%);
+        }
+
+        .node-context-item[data-tone='action']::before {
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 55%),
+                linear-gradient(340deg, rgba(169, 153, 214, 0.18), rgba(169, 153, 214, 0) 60%);
+        }
+
+        .node-context-item[data-tone='condition']::before {
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 55%),
+                linear-gradient(340deg, rgba(217, 160, 122, 0.2), rgba(217, 160, 122, 0) 60%);
+        }
+
+        .node-context-item[data-tone='switcher']::before {
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 55%),
+                linear-gradient(340deg, rgba(124, 202, 191, 0.2), rgba(124, 202, 191, 0) 60%);
+        }
+
+        .node-context-item[data-tone='link']::before {
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 55%),
+                linear-gradient(340deg, rgba(248, 113, 113, 0.24), rgba(248, 113, 113, 0) 60%);
+        }
+
+        .node-context-item > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .node-context-item-icon {
+            width: 24px;
+            text-align: center;
+            color: var(--tone-icon);
+            font-size: 14px;
+            flex-shrink: 0;
+            transition: color 0.2s ease;
+        }
+
+        .node-context-item:hover .node-context-item-icon,
+        .node-context-item:focus-visible .node-context-item-icon {
+            color: var(--tone-icon-hover);
+        }
+
+        .node-context-item-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .node-context-item-label {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--glass-text);
+        }
+
+        .node-context-item-desc {
+            font-size: 11px;
+            color: var(--glass-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .node-context-menu-hint {
+            margin-top: 10px;
+            font-size: 10px;
+            color: var(--glass-muted);
+            text-align: right;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .hierarchy-shell {
+            position: absolute;
+            left: 10px;
+            top: 42px;
+            z-index: 70;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .hierarchy-toggle {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            background: rgba(30, 41, 59, 0.75);
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            color: #dbe7f3;
+            box-shadow:
+                0 14px 20px -12px rgba(2, 6, 23, 0.72),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22),
+                inset 0 -10px 22px rgba(2, 6, 23, 0.32);
+            backdrop-filter: blur(14px) saturate(1.15);
+            -webkit-backdrop-filter: blur(14px) saturate(1.15);
+            transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+        }
+
+        .hierarchy-toggle:hover {
+            color: #fff;
+            border-color: rgba(125, 211, 252, 0.62);
+            transform: translateY(-1px);
+        }
+
+        .hierarchy-panel {
+            width: clamp(320px, 34vw, 560px);
+            max-height: min(68vh, 760px);
+            padding: 10px;
+            border-radius: 16px;
+            background: rgba(30, 41, 59, 0.45);
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            box-shadow:
+                0 18px 30px -12px rgba(2, 6, 23, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22),
+                inset 0 -10px 22px rgba(2, 6, 23, 0.32);
+            backdrop-filter: blur(18px) saturate(1.2);
+            -webkit-backdrop-filter: blur(18px) saturate(1.2);
+            overflow: hidden;
+        }
+
+        .hierarchy-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-weight: 700;
+            color: #9aa4b2;
+            margin: 2px 2px 8px;
+        }
+
+        .hierarchy-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            margin: 0 2px 8px;
+        }
+
+        .hierarchy-search {
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.36);
+            background: rgba(15, 23, 42, 0.58);
+            color: #dbe7f3;
+            padding: 7px 10px;
+            font-size: 12px;
+            outline: none;
+        }
+
+        .hierarchy-search:focus {
+            border-color: rgba(125, 211, 252, 0.65);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+        }
+
+        .hierarchy-filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .hierarchy-filter-btn {
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.34);
+            background: rgba(15, 23, 42, 0.52);
+            color: #9aa4b2;
+            font-size: 10px;
+            padding: 3px 8px;
+            line-height: 1;
+            transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+        }
+
+        .hierarchy-filter-btn:hover {
+            color: #dbe7f3;
+            border-color: rgba(125, 211, 252, 0.58);
+        }
+
+        .hierarchy-filter-btn.active {
+            color: #dbe7f3;
+            border-color: rgba(125, 211, 252, 0.7);
+            background: rgba(30, 64, 175, 0.3);
+        }
+
+        .hierarchy-body {
+            max-height: calc(min(68vh, 760px) - 160px);
+            overflow: auto;
+            padding-right: 0;
+        }
+
+        .hierarchy-empty {
+            font-size: 11px;
+            color: #9aa4b2;
+            padding: 10px;
+            border: 1px dashed rgba(148, 163, 184, 0.3);
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .hierarchy-row {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 30px;
+            border-radius: 10px;
+            border: 1px solid transparent;
+            background: transparent;
+            color: #dbe7f3;
+            font-size: 11px;
+            text-align: left;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+            margin-bottom: 3px;
+            padding: 3px 6px 3px 4px;
+            min-width: 0;
+            flex-wrap: wrap;
+            row-gap: 4px;
+        }
+
+        .hierarchy-row:hover {
+            background: rgba(59, 130, 246, 0.14);
+            border-color: rgba(96, 165, 250, 0.4);
+        }
+
+        .hierarchy-row.is-ref {
+            color: #9aa4b2;
+        }
+
+        .hierarchy-row.is-cycle {
+            color: #fda4af;
+        }
+
+        .hierarchy-tree {
+            display: flex;
+            align-items: stretch;
+            height: 20px;
+            flex: 0 0 auto;
+        }
+
+        .hierarchy-guide {
+            position: relative;
+            width: 14px;
+            flex: 0 0 14px;
+        }
+
+        .hierarchy-guide.line::before,
+        .hierarchy-guide.branch::before,
+        .hierarchy-guide.branch::after {
+            content: '';
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .hierarchy-guide.line::before {
+            left: 6px;
+            top: -2px;
+            bottom: -2px;
+            border-left: 1px solid rgba(148, 163, 184, 0.38);
+        }
+
+        .hierarchy-guide.branch::before {
+            left: 6px;
+            top: -2px;
+            bottom: calc(50% - 1px);
+            border-left: 1px solid rgba(148, 163, 184, 0.48);
+        }
+
+        .hierarchy-guide.branch.branch-continue::before {
+            bottom: -2px;
+        }
+
+        .hierarchy-guide.branch::after {
+            left: 6px;
+            top: calc(50% - 1px);
+            width: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.48);
+        }
+
+        .hierarchy-socket {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: #7dd3fc;
+            opacity: 0.95;
+            border: 1px solid rgba(125, 211, 252, 0.32);
+            border-radius: 6px;
+            padding: 1px 5px;
+            background: rgba(2, 132, 199, 0.12);
+            white-space: nowrap;
+        }
+
+        .hierarchy-pill {
+            font-size: 11px;
+            line-height: 1.2;
+            padding: 5px 10px;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            text-transform: none;
+            letter-spacing: 0.01em;
+            font-weight: 700;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            max-width: 100%;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+        }
+
+        .hierarchy-pill.tone-start {
+            background: rgba(5, 150, 105, 0.24);
+            border-color: rgba(16, 185, 129, 0.55);
+            color: #a7f3d0;
+        }
+
+        .hierarchy-pill.tone-dialog {
+            background: rgba(37, 99, 235, 0.24);
+            border-color: rgba(96, 165, 250, 0.55);
+            color: #bfdbfe;
+        }
+
+        .hierarchy-pill.tone-action {
+            background: rgba(147, 51, 234, 0.24);
+            border-color: rgba(192, 132, 252, 0.55);
+            color: #e9d5ff;
+        }
+
+        .hierarchy-pill.tone-condition {
+            background: rgba(217, 119, 6, 0.24);
+            border-color: rgba(251, 191, 36, 0.55);
+            color: #fef3c7;
+        }
+
+        .hierarchy-pill.tone-switcher {
+            background: rgba(14, 165, 233, 0.24);
+            border-color: rgba(56, 189, 248, 0.55);
+            color: #bae6fd;
+        }
+
+        .hierarchy-pill.tone-link_state {
+            background: rgba(220, 38, 38, 0.24);
+            border-color: rgba(248, 113, 113, 0.55);
+            color: #fecaca;
+        }
+
+        .hierarchy-pill.tone-link_entry {
+            background: rgba(239, 68, 68, 0.24);
+            border-color: rgba(252, 165, 165, 0.55);
+            color: #fee2e2;
+        }
+
+        .hierarchy-pill.tone-comment {
+            background: rgba(217, 119, 6, 0.22);
+            border-color: rgba(251, 191, 36, 0.54);
+            color: #fde68a;
+        }
+
+        .hierarchy-pill.tone-group {
+            background: rgba(148, 163, 184, 0.22);
+            border-color: rgba(148, 163, 184, 0.56);
+            color: #dbe7f3;
+        }
+
+        .hierarchy-pill.tone-unknown {
+            background: rgba(71, 85, 105, 0.28);
+            border-color: rgba(148, 163, 184, 0.45);
+            color: #dbe7f3;
+        }
+
+        .hierarchy-meta {
+            font-size: 10px;
+            color: #9aa4b2;
+            white-space: nowrap;
+        }
+
+        .hierarchy-text {
+            overflow: visible;
+            text-overflow: clip;
+            white-space: normal;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .warnings-shell {
+            position: absolute;
+            right: 12px;
+            top: 42px;
+            z-index: 72;
+            width: min(430px, 44vw);
+            pointer-events: auto;
+        }
+
+        .warnings-panel {
+            border-radius: 16px;
+            background: rgba(30, 41, 59, 0.45);
+            border: 1px solid rgba(251, 146, 60, 0.58);
+            box-shadow:
+                0 18px 30px -12px rgba(2, 6, 23, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22),
+                inset 0 -10px 22px rgba(2, 6, 23, 0.32);
+            backdrop-filter: blur(18px) saturate(1.2);
+            -webkit-backdrop-filter: blur(18px) saturate(1.2);
+            overflow: hidden;
+        }
+
+        .warnings-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px 8px;
+            font-size: 10px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: #fdba74;
+            border-bottom: 1px solid rgba(251, 146, 60, 0.24);
+        }
+
+        .warnings-body {
+            max-height: min(38vh, 320px);
+            overflow: auto;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .warning-item {
+            width: 100%;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.32);
+            background: rgba(15, 23, 42, 0.42);
+            color: #dbe7f3;
+            text-align: left;
+            font-size: 11px;
+            line-height: 1.35;
+            padding: 7px 9px;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+        }
+
+        .warning-item:hover {
+            border-color: rgba(251, 146, 60, 0.66);
+            background: rgba(30, 41, 59, 0.58);
+        }
+
+        .warning-item.level-critical {
+            border-color: rgba(251, 146, 60, 0.66);
+            color: #ffedd5;
+            background: rgba(154, 52, 18, 0.2);
+        }
+
+        .warning-item.level-warning {
+            border-color: rgba(251, 191, 36, 0.44);
+            color: #fde68a;
+            background: rgba(120, 53, 15, 0.16);
+        }
+
+        .warning-icon {
+            font-size: 12px;
+            margin-top: 1px;
+            opacity: 0.95;
+        }
+
+        .warning-item.level-critical .warning-icon {
+            color: #fb923c;
+        }
+
+        .warning-item.level-warning .warning-icon {
+            color: #fbbf24;
+        }
+
+        .bottom-tools-shell {
+            position: absolute;
+            left: 12px;
+            bottom: 12px;
+            z-index: 45;
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+
+        .hotkeys-panel {
+            max-width: 420px;
+
+            color: #cbd5e1;
+            background: rgba(15, 23, 42, 0.74);
+            border: 1px solid rgba(148, 163, 184, 0.34);
+            border-radius: 10px;
+            padding: 8px 10px;
+            font-size: 10px;
+        }
+
+        .hotkeys-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .hotkeys-doc-toggle {
+            border-radius: 8px;
+            border: 1px solid rgba(148, 163, 184, 0.34);
+            background: rgba(15, 23, 42, 0.52);
+            color: #9aa4b2;
+            font-size: 10px;
+            padding: 2px 7px;
+            transition: border-color 0.2s ease, color 0.2s ease;
+        }
+
+        .hotkeys-doc-toggle:hover,
+        .hotkeys-doc-toggle.active {
+            color: #dbe7f3;
+            border-color: rgba(125, 211, 252, 0.62);
+        }
+
+        .autosave-state {
+            margin-top: 6px;
+            font-size: 10px;
+            color: #94a3b8;
+        }
+
+        .tool-docs-panel {
+            width: min(460px, 48vw);
+            max-height: min(46vh, 440px);
+            border-radius: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.34);
+            background: rgba(15, 23, 42, 0.86);
+            box-shadow:
+                0 18px 30px -12px rgba(2, 6, 23, 0.72),
+                inset 0 1px 0 rgba(255, 255, 255, 0.16);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tool-docs-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.24);
+            font-size: 11px;
+            color: #dbe7f3;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+        }
+
+        .tool-docs-body {
+            overflow: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            font-size: 11px;
+            color: #cbd5e1;
+            line-height: 1.45;
+        }
+
+        .tool-docs-section {
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-radius: 10px;
+            padding: 8px;
+            background: rgba(15, 23, 42, 0.36);
+        }
+
+        .tool-docs-section h4 {
+            margin: 0 0 6px;
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #93c5fd;
+        }
+
+        .tool-docs-line {
+            font-size: 11px;
+            color: #cbd5e1;
+            margin-bottom: 2px;
+        }
     </style>
 </head>
 <body>
@@ -246,7 +1195,7 @@
                               stroke="#64748b" stroke-width="3" fill="none"
                               class="connection-path"
                               :class="{'!stroke-blue-500 !stroke-[4px]': selectedConnId === conn.id}"
-                              @click.stop="selectConnection(conn.id)" />
+                              @click.stop="onConnectionClick(conn.id, $event)" />
                         
                         <path v-if="dragLine"
                               :d="dragLine.path"
@@ -256,20 +1205,45 @@
 
                     <div v-for="node in nodes" :key="node.id"
                          class="node-wrapper"
-                         :class="{ 'selected': selectedNodeIds.includes(node.id) }"
-                         :style="{ transform: `translate(${node.x}px, ${node.y}px)` }"
+                         :class="{ 'selected': selectedNodeIds.includes(node.id), 'is-group': node.type === 'group' }"
+                         :style="getNodeStyle(node)"
                          :data-node-id="node.id"
                          @mousedown.stop="onNodeMouseDown(node, $event)">
                         
-                        <div class="node-header" :class="'type-' + node.type" @mousedown.stop="onNodeMouseDown(node, $event)">
-                            <div class="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
-                                <i :class="getNodeIcon(node.type)"></i> {{ node.type }}
+                        <div class="node-header"
+                             :class="node.type === 'group' ? '' : ('type-' + node.type)"
+                             :style="getNodeHeaderStyle(node)"
+                             @mousedown.stop="onNodeMouseDown(node, $event)">
+                            <div class="flex items-center gap-2 min-w-0 text-xs font-bold text-white tracking-wide"
+                                 :style="getNodeHeaderContentStyle(node)">
+                                <i :class="getNodeIcon(node.type)"></i>
+                                <button v-if="isNodeNameEditable(node.type) && editingNodeNameId !== node.id"
+                                        type="button"
+                                        class="node-header-name node-header-name-btn"
+                                        @mousedown.stop
+                                        @click.stop="startNodeNameEdit(node)"
+                                        title="Rename node">
+                                    {{ getNodeDisplayName(node) }}
+                                </button>
+                                <span v-else-if="editingNodeNameId !== node.id" class="node-header-name">
+                                    {{ getNodeDisplayName(node) }}
+                                </span>
+                                <input v-else
+                                       :data-node-name-input="node.id"
+                                       v-model="nodeNameDraft"
+                                       class="node-header-name-input"
+                                       @mousedown.stop
+                                       @keydown.enter.prevent="commitNodeNameEdit(node)"
+                                       @keydown.esc.prevent="cancelNodeNameEdit"
+                                       @blur="commitNodeNameEdit(node)" />
                             </div>
-                            <button v-if="node.type !== 'start'" @click.stop="deleteNode(node.id)" class="text-white/40 hover:text-white">
-                                <i class="fa-solid fa-times"></i>
-                            </button>
+                            <div class="flex items-center gap-2">
+                                <button v-if="node.type !== 'start' && node.type !== 'group'" @click.stop="deleteNode(node.id)" class="text-white/40 hover:text-white">
+                                    <i class="fa-solid fa-times"></i>
+                                </button>
+                            </div>
                             
-                            <div v-if="node.type !== 'start'" 
+                            <div v-if="canHaveInputSocket(node)" 
                                  class="socket socket-in hover:border-blue-400 bg-slate-900"
                                  :class="{ 'socket-occupied': isSocketOccupied(node.id, 'in') }"
                                  :data-node-id="node.id"
@@ -513,9 +1487,157 @@
                                 </div>
                             </div>
 
+                            <div v-if="node.type === 'link_state'">
+                                <div class="bg-red-900/20 p-2 rounded border border-red-500/25 mb-2 space-y-2">
+                                    <div class="flex items-center gap-2">
+                                        <select v-model="node.data.entryId" @mousedown.stop @change="onLinkStateTargetChange(node)"
+                                                class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-red-200">
+                                            <option :value="null">Link Entry...</option>
+                                            <option v-for="entry in linkEntryOptions" :key="entry.id" :value="entry.id">{{ entry.name }}</option>
+                                        </select>
+                                        <button @click.stop="startLinkPicker(node.id)"
+                                                class="w-7 h-7 rounded border transition"
+                                                :class="linkPicker.active && linkPicker.sourceStateId === node.id ? 'text-red-100 border-red-300/70 bg-red-500/20' : 'text-red-300/80 border-red-500/30 hover:text-red-100 hover:border-red-300/70'"
+                                                title="Pick Link Entry">
+                                            <i class="fa-solid fa-eye-dropper text-[11px]"></i>
+                                        </button>
+                                        <button @click.stop="jumpToLinkEntry(node)"
+                                                :disabled="!getLinkEntryForState(node)"
+                                                class="w-7 h-7 rounded border transition disabled:opacity-35 disabled:cursor-not-allowed"
+                                                :class="getLinkEntryForState(node) ? 'text-red-300/80 border-red-500/30 hover:text-red-100 hover:border-red-300/70' : 'text-slate-500 border-slate-700'"
+                                                title="Jump to Link Entry">
+                                            <i class="fa-solid fa-up-right-from-square text-[11px]"></i>
+                                        </button>
+                                    </div>
+                                    <div v-if="!linkEntryOptions.length" class="text-[10px] text-red-300/70">
+                                        No Link Entry nodes yet
+                                    </div>
+                                    <div v-if="linkPicker.active && linkPicker.sourceStateId === node.id" class="text-[10px] text-red-200/80">
+                                        Pick mode: click a Link Entry node
+                                    </div>
+                                </div>
+                                <div class="text-[10px] text-red-300/80 uppercase tracking-wide px-1">
+                                    Jump node (input only)
+                                </div>
+                            </div>
+
+                            <div v-if="node.type === 'link_entry'">
+                                <div class="bg-red-950/35 p-2 rounded border border-red-500/25 mb-2 text-[10px] text-red-200/80 uppercase tracking-wide">
+                                    Output only. Rename in node header.
+                                </div>
+                                <div class="socket socket-out hover:border-red-400"
+                                     :class="{ 'socket-occupied': isSocketOccupied(node.id, 'default') }"
+                                     :data-node-id="node.id"
+                                     data-socket-id="default"
+                                     @mousedown.stop.prevent="startDragLine(node.id, 'default', $event)"></div>
+                            </div>
+
+                            <div v-if="node.type === 'comment'" class="space-y-2">
+                                <div class="doc-node-caption">Comment</div>
+                                <textarea v-model="node.data.text" @mousedown.stop class="doc-node-note" placeholder="Document decisions, TODOs, assumptions..."></textarea>
+                            </div>
+
                         </div>
+
+                        <div v-if="node.type === 'group'" class="group-resize-handle group-resize-t" @mousedown.stop.prevent="startGroupResize(node, 't', $event)"></div>
+                        <div v-if="node.type === 'group'" class="group-resize-handle group-resize-b" @mousedown.stop.prevent="startGroupResize(node, 'b', $event)"></div>
+                        <div v-if="node.type === 'group'" class="group-resize-handle group-resize-l" @mousedown.stop.prevent="startGroupResize(node, 'l', $event)"></div>
+                        <div v-if="node.type === 'group'" class="group-resize-handle group-resize-r" @mousedown.stop.prevent="startGroupResize(node, 'r', $event)"></div>
+                        <div v-if="node.type === 'group'" class="group-resize-handle group-resize-tl" @mousedown.stop.prevent="startGroupResize(node, 'tl', $event)"></div>
+                        <div v-if="node.type === 'group'" class="group-resize-handle group-resize-tr" @mousedown.stop.prevent="startGroupResize(node, 'tr', $event)"></div>
+                        <div v-if="node.type === 'group'" class="group-resize-handle group-resize-bl" @mousedown.stop.prevent="startGroupResize(node, 'bl', $event)"></div>
+                        <div v-if="node.type === 'group'" class="group-resize-handle group-resize-br" @mousedown.stop.prevent="startGroupResize(node, 'br', $event)"></div>
                     </div>
 
+                </div>
+
+                <div v-if="nodeConnectMenu.visible"
+                     class="node-context-menu"
+                     :style="{ left: nodeConnectMenu.x + 'px', top: nodeConnectMenu.y + 'px' }"
+                     @mousedown.stop
+                     @click.stop>
+                    <div class="node-context-menu-title">Create and connect</div>
+                    <div class="node-context-menu-list">
+                        <button v-for="item in connectableNodeOptions"
+                                :key="item.type"
+                                type="button"
+                                class="node-context-item"
+                                :data-tone="item.tone"
+                                @click="createNodeFromContext(item.type)">
+                            <i :class="['node-context-item-icon', item.icon]"></i>
+                            <span class="node-context-item-text">
+                                <span class="node-context-item-label">{{ item.label }}</span>
+                                <span class="node-context-item-desc">{{ item.desc }}</span>
+                            </span>
+                        </button>
+                    </div>
+                    <div class="node-context-menu-hint">Esc to cancel</div>
+                </div>
+
+                <div class="hierarchy-shell" @mousedown.stop>
+                    <button class="hierarchy-toggle" @click.stop="toggleHierarchyPanel" :title="hierarchyPanelOpen ? 'Hide hierarchy' : 'Show hierarchy'">
+                        <i class="fa-solid fa-sitemap"></i>
+                    </button>
+                    <div v-if="hierarchyPanelOpen" class="hierarchy-panel">
+                        <div class="hierarchy-title">Graph Hierarchy</div>
+                        <div class="hierarchy-controls">
+                            <input v-model="hierarchySearch.query" class="hierarchy-search" placeholder="Search node names, text, values..." />
+                            <div class="hierarchy-filter-row">
+                                <button type="button" class="hierarchy-filter-btn" :class="{ active: !hierarchySearch.warningsOnly }" @click="hierarchySearch.warningsOnly = false">All</button>
+                                <button type="button" class="hierarchy-filter-btn" :class="{ active: hierarchySearch.warningsOnly }" @click="hierarchySearch.warningsOnly = !hierarchySearch.warningsOnly">Warnings</button>
+                                <button type="button" class="hierarchy-filter-btn" @click="clearHierarchyFilters">Reset</button>
+                            </div>
+                            <div class="hierarchy-filter-row">
+                                <button v-for="f in hierarchyTypeFilters"
+                                        :key="f.type"
+                                        type="button"
+                                        class="hierarchy-filter-btn"
+                                        :class="{ active: hierarchySearch.include[f.type] !== false }"
+                                        @click="toggleHierarchyTypeFilter(f.type)">
+                                    {{ f.label }} ({{ f.count }})
+                                </button>
+                            </div>
+                        </div>
+                        <div class="hierarchy-body">
+                            <div v-if="!filteredHierarchyRows.length" class="hierarchy-empty">No matching nodes</div>
+                            <button v-for="row in filteredHierarchyRows"
+                                    :key="row.key"
+                                    class="hierarchy-row"
+                                    :class="{ 'is-ref': row.kind === 'ref', 'is-cycle': row.kind === 'cycle' }"
+                                    @click="jumpToNode(row.nodeId)">
+                                <span class="hierarchy-tree" v-if="row.depth > 0">
+                                    <span v-for="(guide, guideIdx) in row.guides"
+                                          :key="row.key + '_g_' + guideIdx"
+                                          class="hierarchy-guide"
+                                          :class="guideIdx === row.guides.length - 1
+                                                ? ['branch', guide ? 'branch-continue' : '']
+                                                : (guide ? 'line' : '')"></span>
+                                </span>
+                                <span v-if="row.socket" class="hierarchy-socket">{{ row.socket }}</span>
+                                <span class="hierarchy-pill" :class="'tone-' + row.tone">{{ row.name }}</span>
+                                <span v-if="row.meta" class="hierarchy-meta">{{ row.meta }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="graphWarnings.length" class="warnings-shell" @mousedown.stop>
+                    <div class="warnings-panel">
+                        <div class="warnings-title">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            Graph Warnings ({{ graphWarnings.length }})
+                        </div>
+                        <div class="warnings-body">
+                            <button v-for="warn in graphWarnings"
+                                    :key="warn.id"
+                                    class="warning-item"
+                                    :class="'level-' + warn.level"
+                                    @click="warn.nodeId ? jumpToNode(warn.nodeId) : null">
+                                <i class="warning-icon" :class="warn.level === 'critical' ? 'fa-solid fa-triangle-exclamation' : 'fa-solid fa-circle-exclamation'"></i>
+                                <span>{{ warn.text }}</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-50">
@@ -538,6 +1660,26 @@
                         <button @click="addNode('switcher')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-sky-600/20 hover:text-sky-400 text-slate-400 transition group">
                             <i class="fa-solid fa-shuffle text-2xl mb-1 group-hover:scale-110 transition"></i>
                             <span class="text-[10px] font-bold">SWITCH</span>
+                        </button>
+                        <div class="w-px h-10 bg-slate-700"></div>
+                        <button @click="addNode('link_state')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-red-600/20 hover:text-red-300 text-slate-400 transition group">
+                            <i class="fa-solid fa-link text-2xl mb-1 group-hover:scale-110 transition"></i>
+                            <span class="text-[10px] font-bold">LINK ST</span>
+                        </button>
+                        <div class="w-px h-10 bg-slate-700"></div>
+                        <button @click="addNode('link_entry')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-red-700/20 hover:text-red-200 text-slate-400 transition group">
+                            <i class="fa-solid fa-right-to-bracket text-2xl mb-1 group-hover:scale-110 transition"></i>
+                            <span class="text-[10px] font-bold">LINK IN</span>
+                        </button>
+                        <div class="w-px h-10 bg-slate-700"></div>
+                        <button @click="addNode('comment')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-amber-600/20 hover:text-amber-300 text-slate-400 transition group">
+                            <i class="fa-solid fa-note-sticky text-2xl mb-1 group-hover:scale-110 transition"></i>
+                            <span class="text-[10px] font-bold">NOTE</span>
+                        </button>
+                        <div class="w-px h-10 bg-slate-700"></div>
+                        <button @click="addNode('group')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-indigo-600/20 hover:text-indigo-300 text-slate-400 transition group">
+                            <i class="fa-solid fa-vector-square text-2xl mb-1 group-hover:scale-110 transition"></i>
+                            <span class="text-[10px] font-bold">GROUP</span>
                         </button>
                         <div class="w-px h-10 bg-slate-700"></div>
                         <button @click="resetView" title="Reset Camera" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-slate-700 text-slate-500 hover:text-white transition">
@@ -701,6 +1843,68 @@
                                 </div>
                             </div>
 
+                            <div v-if="selectedNode.type === 'link_state'" class="space-y-4">
+                                <label class="text-xs text-slate-500 block">Link Target</label>
+                                <div class="flex items-center gap-2">
+                                    <select v-model="selectedNode.data.entryId" @change="onLinkStateTargetChange(selectedNode)" class="flex-1 bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-red-100">
+                                        <option :value="null">Select Link Entry...</option>
+                                        <option v-for="entry in linkEntryOptions" :key="entry.id" :value="entry.id">{{ entry.name }}</option>
+                                    </select>
+                                    <button @click="startLinkPicker(selectedNode.id)"
+                                            class="w-9 h-9 rounded border transition"
+                                            :class="linkPicker.active && linkPicker.sourceStateId === selectedNode.id ? 'text-red-100 border-red-300/70 bg-red-500/20' : 'text-red-300/80 border-red-500/30 hover:text-red-100 hover:border-red-300/70'"
+                                            title="Pick Link Entry">
+                                        <i class="fa-solid fa-eye-dropper text-sm"></i>
+                                    </button>
+                                    <button @click="jumpToLinkEntry(selectedNode)"
+                                            :disabled="!getLinkEntryForState(selectedNode)"
+                                            class="w-9 h-9 rounded border transition disabled:opacity-35 disabled:cursor-not-allowed"
+                                            :class="getLinkEntryForState(selectedNode) ? 'text-red-300/80 border-red-500/30 hover:text-red-100 hover:border-red-300/70' : 'text-slate-500 border-slate-700'"
+                                            title="Jump to Link Entry">
+                                        <i class="fa-solid fa-up-right-from-square text-sm"></i>
+                                    </button>
+                                </div>
+                                <div v-if="!linkEntryOptions.length" class="text-xs text-slate-500 border border-dashed border-slate-700 rounded p-3 text-center">
+                                    Add at least one Link Entry node.
+                                </div>
+                                <div v-if="linkPicker.active && linkPicker.sourceStateId === selectedNode.id" class="text-xs text-red-300/80">
+                                    Pick mode is active. Click a Link Entry node on canvas.
+                                </div>
+                            </div>
+
+                            <div v-if="selectedNode.type === 'link_entry'" class="space-y-4">
+                                <label class="text-xs text-slate-500 block">Entry Name</label>
+                                <input v-model="selectedNode.data.title" @input="onLinkEntryTitleInput(selectedNode)" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-red-100" placeholder="Link name...">
+                                <div class="text-xs text-slate-500">Used by Link State select and shown in node header.</div>
+                            </div>
+
+                            <div v-if="selectedNode.type === 'comment'" class="space-y-4">
+                                <label class="text-xs text-slate-500 block">Comment Text</label>
+                                <textarea v-model="selectedNode.data.text" rows="8" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-amber-100 focus:border-amber-500 outline-none resize-y"></textarea>
+                            </div>
+
+                            <div v-if="selectedNode.type === 'group'" class="space-y-4">
+                                <label class="text-xs text-slate-500 block">Group Tint</label>
+                                <div class="flex flex-wrap gap-2">
+                                    <button v-for="color in groupColorPalette"
+                                            :key="'group-color-' + color"
+                                            type="button"
+                                            class="w-7 h-7 rounded border-2 transition"
+                                            :class="normalizeGroupColor(selectedNode.data.color) === color ? 'border-slate-200 scale-105' : 'border-slate-700 hover:border-slate-500'"
+                                            :style="{ background: color }"
+                                            @click="setGroupColor(selectedNode, color)"></button>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <input type="color" :value="normalizeGroupColor(selectedNode.data.color)" @input="setGroupColor(selectedNode, $event.target.value)" class="w-10 h-10 p-0 border border-slate-700 rounded bg-slate-950 cursor-pointer">
+                                    <span class="text-xs text-slate-500">Drag any edge or corner to resize.</span>
+                                </div>
+                                <label class="flex items-center gap-2 text-xs text-slate-300">
+                                    <input type="checkbox" v-model="selectedNode.data.zoomTitleLock" class="accent-sky-500">
+                                    <span>Keep group title readable on zoom out</span>
+                                </label>
+                                <div class="text-xs text-slate-500">Inside group: {{ getGroupMemberCount(selectedNode) }} node(s)</div>
+                            </div>
+
                         </div>
                         <div v-else class="h-full flex flex-col items-center justify-center text-slate-600 opacity-50">
                             <i class="fa-solid fa-computer-mouse text-4xl mb-2"></i>
@@ -803,11 +2007,30 @@
             </aside>
         </div>
 
-        <div class="absolute left-4 bottom-4 z-40 text-[10px] text-slate-300 bg-slate-900/70 border border-slate-700 rounded px-3 py-2 space-y-1 pointer-events-none">
-            <div class="font-bold uppercase text-[9px] text-slate-400">Hotkeys</div>
-            <div v-for="(h, i) in hotkeyHints" :key="i" class="flex items-center gap-2">
-                <span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-200 font-mono">{{ h.keys }}</span>
-                <span class="text-slate-300">{{ h.label }}</span>
+        <div class="bottom-tools-shell" @mousedown.stop>
+            <div class="hotkeys-panel">
+                <div class="hotkeys-head">
+                    <div class="font-bold uppercase text-[9px] text-slate-400">Hotkeys</div>
+                    <button type="button" class="hotkeys-doc-toggle" :class="{ active: helpPanelOpen }" @click="helpPanelOpen = !helpPanelOpen">Docs</button>
+                </div>
+                <div v-for="(h, i) in hotkeyHints" :key="i" class="flex items-center gap-2">
+                    <span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-200 font-mono">{{ h.keys }}</span>
+                    <span class="text-slate-300">{{ h.label }}</span>
+                </div>
+                <div class="autosave-state">Autosave: {{ autosaveStatusText }}</div>
+            </div>
+
+            <div v-if="helpPanelOpen" class="tool-docs-panel">
+                <div class="tool-docs-head">
+                    <span>Tool Documentation</span>
+                    <button type="button" class="hotkeys-doc-toggle" @click="helpPanelOpen = false">Close</button>
+                </div>
+                <div class="tool-docs-body">
+                    <div v-for="section in helpSections" :key="section.id" class="tool-docs-section">
+                        <h4>{{ section.title }}</h4>
+                        <div v-for="(line, idx) in section.lines" :key="section.id + '_' + idx" class="tool-docs-line">{{ line }}</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -922,7 +2145,7 @@
         const SUPABASE_URL = 'https://vmwwvwtsznxwoswzdzui.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_hfVfEOEyUxTAl9TCGQLQdA_2qpquHGk';
 
-        const { createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } = Vue;
+        const { createApp, ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } = Vue;
 
         createApp({
             setup() {
@@ -969,6 +2192,7 @@
                 
                 // Interaction State
                 const draggingNode = ref(null); // { node, startX, startY }
+                const resizingGroup = ref(null); // { nodeId, edge, startMouseX, startMouseY, startX, startY, startWidth, startHeight }
                 const dragLine = ref(null); // { fromNode, fromSocket, path }
                 const isPanning = ref(false);
                 const lastMouse = reactive({ x: 0, y: 0 });
@@ -989,8 +2213,131 @@
                 const runtimeVars = ref({});
                 const gameLogRef = ref(null);
 
+                const AUTOSAVE_STORAGE_KEY = 'quest_architect_autosave_v1';
+
                 const selectionBox = reactive({ active: false, x: 0, y: 0, w: 0, h: 0, startX: 0, startY: 0, shift: false, baseIds: [] });
                 const createKey = ref(null);
+                const editingNodeNameId = ref(null);
+                const nodeNameDraft = ref('');
+                const helpPanelOpen = ref(false);
+                const hierarchySearch = reactive({
+                    query: '',
+                    warningsOnly: false,
+                    include: {
+                        start: true,
+                        dialog: true,
+                        action: true,
+                        condition: true,
+                        switcher: true,
+                        link_state: true,
+                        link_entry: true,
+                        comment: true,
+                        group: true
+                    }
+                });
+                const autosave = reactive({
+                    lastSavedAt: 0,
+                    lastRestoredAt: 0,
+                    status: 'idle'
+                });
+                let autosaveTimer = null;
+                const autosaveLocked = ref(false);
+
+                const GROUP_DEFAULT_COLOR = '#94a3b8';
+                const groupColorPalette = Object.freeze([
+                    '#94a3b8',
+                    '#7dd3fc',
+                    '#38bdf8',
+                    '#60a5fa',
+                    '#34d399',
+                    '#f59e0b',
+                    '#f97316',
+                    '#f43f5e',
+                    '#a78bfa',
+                    '#94a3b8'
+                ]);
+
+                const helpSections = Object.freeze([
+                    {
+                        id: 'editing',
+                        title: 'Editing Basics',
+                        lines: [
+                            'Drag nodes by header. Shift+Click toggles selection. Shift+Drag creates box selection.',
+                            'Alt+Drag duplicates selected node/group. Del/Backspace removes selection.',
+                            'Drag from output sockets to create links. Alt+Click a line removes that connection.',
+                            'Press G with selected nodes to create a Group area by their bounds.'
+                        ]
+                    },
+                    {
+                        id: 'linking',
+                        title: 'Link State / Link Entry',
+                        lines: [
+                            'Link State has input only and jumps to selected Link Entry.',
+                            'Use eyedropper to pick target directly on canvas. Use jump button to focus target.',
+                            'Link Entry name is editable in header and used by Link State selectors.'
+                        ]
+                    },
+                    {
+                        id: 'docs',
+                        title: 'Documentation Nodes',
+                        lines: [
+                            'Comment nodes store plain notes and are excluded from runtime flow.',
+                            'Group nodes create tinted glass regions with editable title on top edge.',
+                            'Use corner drag handles to resize groups.',
+                            'Use docs nodes to describe intent, ownership, TODOs, or review comments inside the graph.'
+                        ]
+                    },
+                    {
+                        id: 'hierarchy',
+                        title: 'Hierarchy Search & Filters',
+                        lines: [
+                            'Search matches node names and internal content (dialog lines, options, values, notes).',
+                            'Use type chips to hide/show categories. Warnings filter focuses nodes with validation issues.',
+                            'Click any hierarchy row or warning item to jump camera to the related node.'
+                        ]
+                    },
+                    {
+                        id: 'safety',
+                        title: 'Safety & Persistence',
+                        lines: [
+                            'Session autosaves to local browser storage after graph changes.',
+                            'After crash/reload the latest autosave is restored automatically.',
+                            'Warnings panel highlights duplicate names, broken links, missing branches, and unreachable flow.'
+                        ]
+                    }
+                ]);
+
+                const editableNodeTypes = new Set(['dialog', 'action', 'condition', 'switcher', 'link_entry', 'comment', 'group']);
+                const docNodeTypes = new Set(['comment', 'group']);
+                const nonConnectableTargetTypes = new Set(['start', 'link_entry', 'comment', 'group']);
+
+                const nodeTypeLabels = Object.freeze({
+                    start: 'Start',
+                    dialog: 'Dialog',
+                    action: 'Action',
+                    condition: 'Condition',
+                    switcher: 'Switch',
+                    link_state: 'Link State',
+                    link_entry: 'Link Entry',
+                    comment: 'Comment',
+                    group: 'Group'
+                });
+                const connectableNodeOptions = Object.freeze([
+                    { type: 'dialog', label: 'Dialog', desc: 'Line and choices for the player', icon: 'fa-solid fa-comment-dots', tone: 'dialog' },
+                    { type: 'action', label: 'Action', desc: 'Mutate quest variables', icon: 'fa-solid fa-bolt', tone: 'action' },
+                    { type: 'condition', label: 'Condition', desc: 'Branch by variable check', icon: 'fa-solid fa-code-branch', tone: 'condition' },
+                    { type: 'switcher', label: 'Switcher', desc: 'Route by cases and default', icon: 'fa-solid fa-shuffle', tone: 'switcher' },
+                    { type: 'link_state', label: 'Link State', desc: 'Jump to selected Link Entry', icon: 'fa-solid fa-link', tone: 'link' }
+                ]);
+                const nodeConnectMenu = reactive({
+                    visible: false,
+                    x: 0,
+                    y: 0,
+                    worldX: 0,
+                    worldY: 0,
+                    fromNodeId: null,
+                    fromSocketId: null
+                });
 
                 const canvasContainer = ref(null);
                 const loadInput = ref(null);
@@ -1012,9 +2359,241 @@
                     return { x: sx - rect.left, y: sy - rect.top };
                 };
 
+                const getNodeTypeLabel = (type) => nodeTypeLabels[type] || String(type || 'Node');
+                const isDocNodeType = (type) => docNodeTypes.has(type);
+                const canConnectToNode = (node) => !!node && !nonConnectableTargetTypes.has(node.type);
+                const canHaveInputSocket = (node) => canConnectToNode(node);
+                const clampGroupWidth = (v) => Math.max(220, Math.min(2200, Number(v) || 360));
+                const clampGroupHeight = (v) => Math.max(120, Math.min(1800, Number(v) || 190));
+                const normalizeGroupColor = (value) => {
+                    const clean = String(value == null ? '' : value).trim();
+                    return /^#[0-9a-fA-F]{6}$/.test(clean) ? clean.toLowerCase() : GROUP_DEFAULT_COLOR;
+                };
+                const hexToRgb = (hex) => {
+                    const clean = normalizeGroupColor(hex);
+                    return {
+                        r: parseInt(clean.slice(1, 3), 16),
+                        g: parseInt(clean.slice(3, 5), 16),
+                        b: parseInt(clean.slice(5, 7), 16)
+                    };
+                };
+                const rgbaFromHex = (hex, alpha) => {
+                    const rgb = hexToRgb(hex);
+                    const a = Math.max(0, Math.min(1, Number(alpha) || 0));
+                    return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${a})`;
+                };
+                const setGroupColor = (node, color) => {
+                    if (!node || node.type !== 'group' || !node.data) return;
+                    node.data.color = normalizeGroupColor(color);
+                };
+                const getNodeHeaderStyle = (node) => {
+                    if (!node || node.type !== 'group') return null;
+                    const currentScale = Math.max(0.2, Math.min(3, Number(scale.value) || 1));
+                    if (currentScale >= 0.9) return null;
+                    const lift = Math.min(36, Math.max(0, (1 / currentScale - 1) * 15));
+                    return {
+                        transform: `translateY(-${lift}px)`,
+                        position: 'relative',
+                        zIndex: 11
+                    };
+                };
+                const getNodeHeaderContentStyle = (node) => {
+                    if (!node || node.type !== 'group' || !node.data?.zoomTitleLock) return null;
+                    const currentScale = Math.max(0.2, Math.min(3, Number(scale.value) || 1));
+                    const factor = Math.max(1, Math.min(5, 1 / currentScale));
+                    return {
+                        transformOrigin: 'left center',
+                        transform: `scale(${factor})`
+                    };
+                };
+
+                const getNodeStyle = (node) => {
+                    const style = {
+                        transform: `translate(${node.x}px, ${node.y}px)`
+                    };
+                    const normalizedType = node?.type === 'frame' ? 'group' : node?.type;
+                    if (node && normalizedType === 'group') {
+                        const width = clampGroupWidth(node.data?.width);
+                        const height = clampGroupHeight(node.data?.height);
+                        const color = normalizeGroupColor(node.data?.color);
+                        style.width = `${width}px`;
+                        style.minHeight = `${height}px`;
+                        style['--group-highlight-tint'] = rgbaFromHex(color, 0.045);
+                        style['--group-border'] = rgbaFromHex(color, 0.4);
+                        style['--group-border-strong'] = rgbaFromHex(color, 0.66);
+                    }
+                    return style;
+                };
+
                 const getNodeIcon = (type) => {
-                    const map = { start: 'fa-play', dialog: 'fa-comment', action: 'fa-bolt', condition: 'fa-code-branch', switcher: 'fa-shuffle' };
+                    const map = {
+                        start: 'fa-play',
+                        dialog: 'fa-comment',
+                        action: 'fa-bolt',
+                        condition: 'fa-code-branch',
+                        switcher: 'fa-shuffle',
+                        link_state: 'fa-link',
+                        link_entry: 'fa-right-to-bracket',
+                        comment: 'fa-note-sticky',
+                        group: 'fa-vector-square'
+                    };
                     return 'fa-solid ' + (map[type] || 'fa-circle');
+                };
+
+                const isNodeNameEditable = (type) => editableNodeTypes.has(type);
+
+                const getNodeDisplayName = (node) => {
+                    if (!node) return 'Node';
+                    const fallback = getNodeTypeLabel(node.type);
+                    if (!node.data || typeof node.data !== 'object') return fallback;
+                    if (node.type === 'link_entry') {
+                        const value = (node.data.title != null ? node.data.title : node.data.name);
+                        const clean = value == null ? '' : String(value).trim();
+                        return clean || fallback;
+                    }
+                    const clean = node.data.title == null ? '' : String(node.data.title).trim();
+                    return clean || fallback;
+                };
+
+                const getHierarchyNodeName = (node) => {
+                    if (!node) return 'Missing node';
+                    if (node.type === 'start') return 'Start';
+                    if (isNodeNameEditable(node.type) || node.type === 'link_state') return getNodeDisplayName(node);
+                    return getNodeTypeLabel(node.type);
+                };
+
+                const getHierarchyNodeMeta = (node, kind = 'node') => {
+                    if (!node) return kind === 'node' ? '' : kind;
+                    let meta = '';
+                    if (node.type === 'link_state') {
+                        const target = getLinkEntryForState(node);
+                        meta = target ? `-> ${getNodeDisplayName(target)}` : 'target missing';
+                    }
+                    if (kind === 'cycle') {
+                        meta = meta ? `${meta} | cycle` : 'cycle';
+                    }
+                    if (kind === 'ref') {
+                        meta = meta ? `${meta} | ref` : 'ref';
+                    }
+                    return meta;
+                };
+
+                const getHierarchyTone = (type) => {
+                    if (nodeTypeLabels[type]) return type;
+                    return 'unknown';
+                };
+
+                const getNodeWorldBounds = (node) => {
+                    if (!node) return null;
+                    if (canvasContainer.value) {
+                        const el = canvasContainer.value.querySelector(`.node-wrapper[data-node-id="${node.id}"]`);
+                        if (el) {
+                            const r = el.getBoundingClientRect();
+                            const p1 = toWorld(r.left, r.top);
+                            const p2 = toWorld(r.right, r.bottom);
+                            return {
+                                x: p1.x,
+                                y: p1.y,
+                                width: Math.max(10, p2.x - p1.x),
+                                height: Math.max(10, p2.y - p1.y)
+                            };
+                        }
+                    }
+
+                    if (node.type === 'group' || node.type === 'frame') {
+                        return {
+                            x: node.x,
+                            y: node.y,
+                            width: clampGroupWidth(node.data?.width),
+                            height: clampGroupHeight(node.data?.height)
+                        };
+                    }
+                    return { x: node.x, y: node.y, width: 300, height: 170 };
+                };
+
+                const getGroupMemberNodes = (groupNode) => {
+                    if (!groupNode || groupNode.type !== 'group') return [];
+                    const g = getNodeWorldBounds(groupNode);
+                    if (!g) return [];
+                    const gx2 = g.x + g.width;
+                    const gy2 = g.y + g.height;
+                    return nodes.value.filter(n => {
+                        if (!n || n.id === groupNode.id || n.type === 'group') return false;
+                        const b = getNodeWorldBounds(n);
+                        if (!b) return false;
+                        const cx = b.x + b.width / 2;
+                        const cy = b.y + b.height / 2;
+                        return cx >= g.x && cx <= gx2 && cy >= g.y && cy <= gy2;
+                    });
+                };
+
+                const getGroupMemberCount = (groupNode) => getGroupMemberNodes(groupNode).length;
+
+                const getNextGroupTitle = () => {
+                    const used = new Set(
+                        nodes.value
+                            .filter(n => n.type === 'group')
+                            .map(n => String(n.data?.title == null ? '' : n.data.title).trim().toLowerCase())
+                            .filter(Boolean)
+                    );
+                    let i = 1;
+                    while (used.has(`group ${i}`)) i += 1;
+                    return `Group ${i}`;
+                };
+
+                const normalizeSearch = (value) => String(value == null ? '' : value)
+                    .toLowerCase()
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                const tokenizeSearch = (value) => normalizeSearch(value)
+                    .split(' ')
+                    .map(s => s.trim())
+                    .filter(Boolean);
+
+                const getNodeSearchText = (node) => {
+                    if (!node) return '';
+                    const parts = [
+                        node.id,
+                        node.type,
+                        getNodeDisplayName(node),
+                        node.data?.title,
+                        node.data?.name,
+                        node.data?.text,
+                        node.data?.note,
+                        node.data?.entryName
+                    ];
+
+                    if (node.type === 'dialog') {
+                        if (Array.isArray(node.data?.choices)) {
+                            node.data.choices.forEach(c => parts.push(c?.text));
+                        }
+                        parts.push(getCharacterName(node.data?.speakerId));
+                    }
+                    if (node.type === 'action' && Array.isArray(node.data?.ops)) {
+                        node.data.ops.forEach(op => {
+                            parts.push(getVarName(op?.varId));
+                            parts.push(op?.op);
+                            parts.push(op?.val);
+                        });
+                    }
+                    if (node.type === 'condition') {
+                        parts.push(getVarName(node.data?.varId));
+                        parts.push(node.data?.op);
+                        parts.push(node.data?.val);
+                    }
+                    if (node.type === 'switcher') {
+                        parts.push(getVarName(node.data?.varId));
+                        if (Array.isArray(node.data?.cases)) {
+                            node.data.cases.forEach(c => parts.push(c?.value));
+                        }
+                    }
+                    if (node.type === 'link_state') {
+                        const target = getLinkEntryForState(node);
+                        if (target) parts.push(getNodeDisplayName(target));
+                    }
+
+                    return normalizeSearch(parts.filter(Boolean).join(' '));
                 };
 
                 const hotkeyHints = computed(() => {
@@ -1022,7 +2601,9 @@
                         { keys: 'C + Click', label: 'Create Condition node' },
                         { keys: 'S + Click', label: 'Create Switcher node' },
                         { keys: 'A + Click', label: 'Create Action node' },
-                        { keys: 'D + Click', label: 'Create Dialog node' }
+                        { keys: 'D + Click', label: 'Create Dialog node' },
+                        { keys: 'Alt + Click line', label: 'Delete connection' },
+                        { keys: 'G', label: 'Group selected nodes' }
                     ];
                     const selection = selectedNodeIds.value.length;
                     if (selection === 1) {
@@ -1045,6 +2626,509 @@
                         { keys: 'Shift + Click', label: 'Toggle selection' }
                     ]);
                 });
+
+                const linkEntryOptions = computed(() => {
+                    return nodes.value
+                        .filter(n => n.type === 'link_entry')
+                        .map(n => {
+                            const clean = normalizeEntryName(n.data?.name || n.data?.title);
+                            return {
+                                id: n.id,
+                                name: clean || `Entry ${n.id.slice(-4)}`
+                            };
+                        })
+                        .sort((a, b) => a.name.localeCompare(b.name));
+                });
+
+                const linkPicker = reactive({ active: false, sourceStateId: null });
+                const hierarchyPanelOpen = ref(false);
+
+                const getLinkEntryForState = (stateNode) => {
+                    if (!stateNode || stateNode.type !== 'link_state') return null;
+                    const byId = stateNode.data?.entryId
+                        ? nodes.value.find(n => n.id === stateNode.data.entryId && n.type === 'link_entry')
+                        : null;
+                    if (byId) return byId;
+
+                    // Backward compatibility: old projects referenced Link Entry by name.
+                    const oldName = normalizeEntryName(stateNode.data?.entryName);
+                    if (!oldName) return null;
+                    const byName = nodes.value.find(n => n.type === 'link_entry' && normalizeEntryName(n.data?.name || n.data?.title) === oldName);
+                    if (byName) {
+                        stateNode.data.entryId = byName.id;
+                        return byName;
+                    }
+                    return null;
+                };
+
+                const assignLinkEntryToState = (stateNode, entryNode) => {
+                    if (!stateNode || stateNode.type !== 'link_state') return;
+                    if (!entryNode || entryNode.type !== 'link_entry') {
+                        stateNode.data.entryId = null;
+                        stateNode.data.entryName = '';
+                        return;
+                    }
+                    stateNode.data.entryId = entryNode.id;
+                    stateNode.data.entryName = normalizeEntryName(entryNode.data?.name || entryNode.data?.title);
+                };
+
+                const onLinkStateTargetChange = (stateNode) => {
+                    const entry = stateNode && stateNode.type === 'link_state'
+                        ? nodes.value.find(n => n.id === stateNode.data?.entryId && n.type === 'link_entry')
+                        : null;
+                    if (!stateNode || stateNode.type !== 'link_state') return;
+                    if (!entry) {
+                        stateNode.data.entryId = null;
+                        stateNode.data.entryName = '';
+                        return;
+                    }
+                    stateNode.data.entryName = normalizeEntryName(entry.data?.name || entry.data?.title);
+                };
+
+                const onLinkEntryNameInput = (entryNode) => {
+                    if (!entryNode || entryNode.type !== 'link_entry') return;
+                    const rawName = normalizeEntryName(entryNode.data?.name);
+                    entryNode.data.name = rawName;
+                    entryNode.data.title = rawName;
+                    nodes.value.forEach(n => {
+                        if (n.type !== 'link_state') return;
+                        if (n.data?.entryId === entryNode.id) {
+                            n.data.entryName = rawName;
+                        }
+                    });
+                    if (editingNodeNameId.value === entryNode.id) {
+                        nodeNameDraft.value = rawName;
+                    }
+                };
+
+                const onLinkEntryTitleInput = (entryNode) => {
+                    if (!entryNode || entryNode.type !== 'link_entry') return;
+                    const clean = normalizeEntryName(entryNode.data?.title);
+                    entryNode.data.title = clean;
+                    entryNode.data.name = clean;
+                    onLinkEntryNameInput(entryNode);
+                };
+
+                const startNodeNameEdit = (node) => {
+                    if (!node || !isNodeNameEditable(node.type)) return;
+                    nodeNameDraft.value = getNodeDisplayName(node);
+                    editingNodeNameId.value = node.id;
+                    nextTick(() => {
+                        const input = canvasContainer.value?.querySelector(`input[data-node-name-input="${node.id}"]`);
+                        if (!input) return;
+                        input.focus();
+                        input.select();
+                    });
+                };
+
+                const commitNodeNameEdit = (node) => {
+                    if (!node || editingNodeNameId.value !== node.id) return;
+                    const clean = String(nodeNameDraft.value == null ? '' : nodeNameDraft.value).trim();
+                    if (node.type === 'link_entry') {
+                        const nextName = clean || getNextLinkEntryName();
+                        node.data.name = nextName;
+                        onLinkEntryNameInput(node);
+                    } else {
+                        node.data.title = clean || getNodeTypeLabel(node.type);
+                    }
+                    editingNodeNameId.value = null;
+                    nodeNameDraft.value = '';
+                };
+
+                const cancelNodeNameEdit = () => {
+                    editingNodeNameId.value = null;
+                    nodeNameDraft.value = '';
+                };
+
+                const cancelLinkPicker = () => {
+                    linkPicker.active = false;
+                    linkPicker.sourceStateId = null;
+                };
+
+                const startLinkPicker = (stateNodeId) => {
+                    closeNodeConnectMenu();
+                    if (!stateNodeId) return;
+                    linkPicker.active = true;
+                    linkPicker.sourceStateId = stateNodeId;
+                };
+
+                const jumpToNode = (nodeId, shouldSelect = true) => {
+                    const node = nodes.value.find(n => n.id === nodeId);
+                    if (!node || !canvasContainer.value) return;
+
+                    const rect = canvasContainer.value.getBoundingClientRect();
+                    const targetX = node.x + 150;
+                    const targetY = node.y + 70;
+                    pan.x = rect.width / 2 - targetX * scale.value;
+                    pan.y = rect.height / 2 - targetY * scale.value;
+
+                    if (shouldSelect) {
+                        selectedNodeId.value = node.id;
+                        selectedNodeIds.value = [node.id];
+                        selectedConnId.value = null;
+                        tab.value = 'props';
+                    }
+                    schedulePathUpdate();
+                };
+
+                const jumpToLinkEntry = (stateNode) => {
+                    const entry = getLinkEntryForState(stateNode);
+                    if (!entry) return;
+                    jumpToNode(entry.id);
+                };
+
+                const getHierarchySocketText = (fromNode, socket, outIndex) => {
+                    if (!fromNode) return null;
+                    const raw = String(socket || 'default');
+
+                    if (fromNode.type === 'condition') {
+                        if (raw === 'true') return 'out_T';
+                        if (raw === 'false') return 'out_F';
+                        return `out_${outIndex + 1}`;
+                    }
+
+                    if (raw === 'default') return 'out';
+
+                    if (fromNode.type === 'dialog' && raw.startsWith('choice-')) {
+                        const idx = Number(raw.slice(7));
+                        return Number.isFinite(idx) ? `out_${idx + 1}` : `out_${outIndex + 1}`;
+                    }
+
+                    if (fromNode.type === 'switcher') return `out_${outIndex + 1}`;
+
+                    return `out_${outIndex + 1}`;
+                };
+
+                const hierarchyRows = computed(() => {
+                    const rows = [];
+                    const nodeMap = new Map(nodes.value.map(n => [n.id, n]));
+                    const outgoing = new Map();
+                    const incoming = new Map();
+
+                    connections.value.forEach(c => {
+                        if (!outgoing.has(c.from)) outgoing.set(c.from, []);
+                        outgoing.get(c.from).push(c);
+                        incoming.set(c.to, (incoming.get(c.to) || 0) + 1);
+                    });
+
+                    const visited = new Set();
+                    const rootIds = [];
+                    nodes.value.filter(n => n.type === 'start').forEach(n => rootIds.push(n.id));
+                    nodes.value.forEach(n => {
+                        if (n.type === 'start') return;
+                        if (!incoming.get(n.id)) rootIds.push(n.id);
+                    });
+
+                    const pushRow = (kind, node, depth, socket, key, guides) => {
+                        rows.push({
+                            key,
+                            nodeId: node ? node.id : null,
+                            nodeType: node ? node.type : null,
+                            depth,
+                            guides: guides.slice(),
+                            socket,
+                            tone: node ? getHierarchyTone(node.type) : 'unknown',
+                            name: getHierarchyNodeName(node),
+                            meta: getHierarchyNodeMeta(node, kind),
+                            searchText: node ? getNodeSearchText(node) : '',
+                            kind
+                        });
+                    };
+
+                    const walk = (nodeId, depth, socket, stack, guides) => {
+                        const node = nodeMap.get(nodeId);
+                        if (!node) return;
+
+                        if (stack.has(nodeId)) {
+                            pushRow('cycle', node, depth, socket, `cycle_${nodeId}_${depth}_${socket || ''}`, guides);
+                            return;
+                        }
+
+                        if (visited.has(nodeId)) {
+                            pushRow('ref', node, depth, socket, `ref_${nodeId}_${depth}_${socket || ''}`, guides);
+                            return;
+                        }
+
+                        visited.add(nodeId);
+                        pushRow('node', node, depth, socket, `node_${nodeId}`, guides);
+
+                        const nextStack = new Set(stack);
+                        nextStack.add(nodeId);
+                        const next = (outgoing.get(nodeId) || []).slice().sort((a, b) => String(a.fromSocket || '').localeCompare(String(b.fromSocket || '')));
+                        next.forEach((conn, idx) => {
+                            const childGuides = guides.slice();
+                            childGuides.push(idx < next.length - 1);
+                            const socketLabel = getHierarchySocketText(node, conn.fromSocket || 'default', idx);
+                            walk(conn.to, depth + 1, socketLabel, nextStack, childGuides);
+                        });
+                    };
+
+                    rootIds.forEach(rootId => walk(rootId, 0, null, new Set(), []));
+                    nodes.value.forEach(n => {
+                        if (!visited.has(n.id)) walk(n.id, 0, null, new Set(), []);
+                    });
+
+                    return rows;
+                });
+
+                const graphWarnings = computed(() => {
+                    const warnings = [];
+                    const pushWarn = (level, text, nodeId = null, code = null) => {
+                        warnings.push({
+                            id: code || `${level}_${warnings.length}_${nodeId || 'global'}`,
+                            level,
+                            text,
+                            nodeId
+                        });
+                    };
+
+                    const outgoing = new Map();
+                    const incoming = new Map();
+                    connections.value.forEach(c => {
+                        if (!outgoing.has(c.from)) outgoing.set(c.from, []);
+                        outgoing.get(c.from).push(c);
+                        incoming.set(c.to, (incoming.get(c.to) || 0) + 1);
+                    });
+
+                    const startNodes = nodes.value.filter(n => n.type === 'start');
+                    if (!startNodes.length) {
+                        pushWarn('critical', 'Missing Start node. Scenario will not launch.', null, 'start_missing');
+                    }
+                    if (startNodes.length > 1) {
+                        pushWarn('critical', `Multiple Start nodes (${startNodes.length}). Keep only one entry point.`, startNodes[0].id, 'start_multiple');
+                    }
+                    startNodes.forEach(n => {
+                        const hasOut = (outgoing.get(n.id) || []).some(c => (c.fromSocket || 'default') === 'default');
+                        if (!hasOut) {
+                            pushWarn('critical', 'Start node has no outgoing link.', n.id, `start_out_${n.id}`);
+                        }
+                    });
+
+                    const entryGroups = new Map();
+                    nodes.value.filter(n => n.type === 'link_entry').forEach(n => {
+                        const name = normalizeEntryName(n.data?.name || n.data?.title);
+                        if (!name) {
+                            pushWarn('critical', 'Link Entry has empty name. Link State targeting becomes ambiguous.', n.id, `entry_empty_${n.id}`);
+                            return;
+                        }
+                        const key = name.toLowerCase();
+                        if (!entryGroups.has(key)) entryGroups.set(key, { label: name, nodes: [] });
+                        entryGroups.get(key).nodes.push(n);
+                    });
+                    entryGroups.forEach((entry, key) => {
+                        if (entry.nodes.length > 1) {
+                            pushWarn('critical', `Duplicate Link Entry name "${entry.label}" (${entry.nodes.length}x).`, entry.nodes[0].id, `entry_dup_${key}`);
+                        }
+                    });
+
+                    nodes.value.filter(n => n.type === 'link_state').forEach(n => {
+                        const target = getLinkEntryForState(n);
+                        if (!target) {
+                            pushWarn('critical', `Link State "${getNodeDisplayName(n)}" has no valid Link Entry target.`, n.id, `state_target_${n.id}`);
+                        }
+                    });
+
+                    nodes.value.filter(n => n.type === 'condition').forEach(n => {
+                        const outs = outgoing.get(n.id) || [];
+                        const hasTrue = outs.some(c => c.fromSocket === 'true');
+                        const hasFalse = outs.some(c => c.fromSocket === 'false');
+                        if (!n.data?.varId) {
+                            pushWarn('warning', `Condition "${getNodeDisplayName(n)}" has no variable selected.`, n.id, `cond_var_${n.id}`);
+                        }
+                        if (!hasTrue || !hasFalse) {
+                            pushWarn('warning', `Condition "${getNodeDisplayName(n)}" should have both True and False outputs connected.`, n.id, `cond_out_${n.id}`);
+                        }
+                    });
+
+                    nodes.value.filter(n => n.type === 'switcher').forEach(n => {
+                        const outs = outgoing.get(n.id) || [];
+                        const hasDefault = outs.some(c => (c.fromSocket || 'default') === 'default');
+                        if (!n.data?.varId) {
+                            pushWarn('warning', `Switch "${getNodeDisplayName(n)}" has no variable selected.`, n.id, `switch_var_${n.id}`);
+                        }
+                        if (!hasDefault) {
+                            pushWarn('warning', `Switch "${getNodeDisplayName(n)}" has no default output.`, n.id, `switch_default_${n.id}`);
+                        }
+                    });
+
+                    nodes.value.filter(n => n.type === 'dialog').forEach(n => {
+                        const outs = outgoing.get(n.id) || [];
+                        const choices = Array.isArray(n.data?.choices) ? n.data.choices : [];
+                        if (!choices.length) return;
+                        const missing = choices.filter((_, idx) => !outs.some(c => c.fromSocket === `choice-${idx}`)).length;
+                        if (missing > 0) {
+                            pushWarn('warning', `Dialog "${getNodeDisplayName(n)}" has ${missing} reply outputs without links.`, n.id, `dialog_out_${n.id}`);
+                        }
+                    });
+
+                    nodes.value.filter(n => n.type === 'link_entry').forEach(n => {
+                        const hasOut = (outgoing.get(n.id) || []).some(c => (c.fromSocket || 'default') === 'default');
+                        if (!hasOut) {
+                            pushWarn('warning', `Link Entry "${getNodeDisplayName(n)}" has no outgoing link.`, n.id, `entry_out_${n.id}`);
+                        }
+                    });
+
+                    const varNameGroups = new Map();
+                    variables.value.forEach(v => {
+                        const clean = String(v?.name == null ? '' : v.name).trim().toLowerCase();
+                        if (!clean) return;
+                        if (!varNameGroups.has(clean)) varNameGroups.set(clean, 0);
+                        varNameGroups.set(clean, varNameGroups.get(clean) + 1);
+                    });
+                    varNameGroups.forEach((count, name) => {
+                        if (count > 1) {
+                            pushWarn('warning', `Variable name "${name}" is duplicated (${count}x).`, null, `var_dup_${name}`);
+                        }
+                    });
+
+                    if (startNodes.length) {
+                        const visited = new Set();
+                        const nodeById = new Map(nodes.value.map(n => [n.id, n]));
+                        const queue = startNodes.map(n => n.id);
+                        while (queue.length) {
+                            const current = queue.shift();
+                            if (visited.has(current)) continue;
+                            visited.add(current);
+
+                            (outgoing.get(current) || []).forEach(conn => {
+                                if (!visited.has(conn.to)) queue.push(conn.to);
+                            });
+
+                            const currentNode = nodeById.get(current);
+                            if (currentNode && currentNode.type === 'link_state') {
+                                const targetEntry = getLinkEntryForState(currentNode);
+                                if (targetEntry && !visited.has(targetEntry.id)) {
+                                    queue.push(targetEntry.id);
+                                }
+                            }
+                        }
+                        const unreachable = nodes.value.filter(n => n.type !== 'start' && !isDocNodeType(n.type) && !visited.has(n.id));
+                        if (unreachable.length) {
+                            pushWarn('warning', `Unreachable nodes detected: ${unreachable.length}.`, unreachable[0].id, 'unreachable_nodes');
+                        }
+                    }
+
+                    return warnings.slice(0, 14);
+                });
+
+                const warningNodeIdSet = computed(() => new Set(
+                    graphWarnings.value
+                        .map(w => w.nodeId)
+                        .filter(Boolean)
+                ));
+
+                const hierarchyTypeFilters = computed(() => {
+                    const counts = new Map();
+                    nodes.value.forEach(n => {
+                        counts.set(n.type, (counts.get(n.type) || 0) + 1);
+                    });
+                    return Array.from(counts.entries())
+                        .sort((a, b) => getNodeTypeLabel(a[0]).localeCompare(getNodeTypeLabel(b[0])))
+                        .map(([type, count]) => ({ type, label: getNodeTypeLabel(type), count }));
+                });
+
+                const toggleHierarchyTypeFilter = (type) => {
+                    hierarchySearch.include[type] = !(hierarchySearch.include[type] !== false);
+                };
+
+                const clearHierarchyFilters = () => {
+                    hierarchySearch.query = '';
+                    hierarchySearch.warningsOnly = false;
+                    Object.keys(hierarchySearch.include).forEach(type => {
+                        hierarchySearch.include[type] = true;
+                    });
+                };
+
+                const filteredHierarchyRows = computed(() => {
+                    const tokens = tokenizeSearch(hierarchySearch.query);
+                    const warningsOnly = hierarchySearch.warningsOnly;
+                    const warningSet = warningNodeIdSet.value;
+                    return hierarchyRows.value.filter(row => {
+                        if (!row || !row.nodeType) return false;
+                        if (hierarchySearch.include[row.nodeType] === false) return false;
+                        if (warningsOnly && (!row.nodeId || !warningSet.has(row.nodeId))) return false;
+                        if (!tokens.length) return true;
+                        const hay = row.searchText || '';
+                        return tokens.every(t => hay.includes(t));
+                    });
+                });
+
+                const autosaveStatusText = computed(() => {
+                    if (autosave.status === 'error') return 'error';
+                    if (!autosave.lastSavedAt) return 'not saved yet';
+                    const time = new Date(autosave.lastSavedAt).toLocaleTimeString();
+                    if (autosave.status === 'pending') return `saving... (${time})`;
+                    if (autosave.status === 'restored') return `restored ${time}`;
+                    return `saved ${time}`;
+                });
+
+                const toggleHierarchyPanel = () => {
+                    hierarchyPanelOpen.value = !hierarchyPanelOpen.value;
+                };
+
+                const closeNodeConnectMenu = () => {
+                    nodeConnectMenu.visible = false;
+                    nodeConnectMenu.fromNodeId = null;
+                    nodeConnectMenu.fromSocketId = null;
+                };
+
+                const openNodeConnectMenu = (clientX, clientY, fromNodeId, fromSocketId) => {
+                    if (!canvasContainer.value || !fromNodeId || !fromSocketId) return;
+                    const rect = canvasContainer.value.getBoundingClientRect();
+                    const menuWidth = 248;
+                    const menuHeight = 332;
+                    const margin = 12;
+                    const localX = clientX - rect.left;
+                    const localY = clientY - rect.top;
+                    const maxX = Math.max(margin, rect.width - menuWidth - margin);
+                    const maxY = Math.max(margin, rect.height - menuHeight - margin);
+                    const world = toWorld(clientX, clientY);
+
+                    nodeConnectMenu.x = Math.min(Math.max(localX, margin), maxX);
+                    nodeConnectMenu.y = Math.min(Math.max(localY, margin), maxY);
+                    nodeConnectMenu.worldX = world.x;
+                    nodeConnectMenu.worldY = world.y;
+                    nodeConnectMenu.fromNodeId = fromNodeId;
+                    nodeConnectMenu.fromSocketId = fromSocketId;
+                    nodeConnectMenu.visible = true;
+                };
+
+                const createConnection = (fromNodeId, fromSocketId, toNodeId, toSocketId = 'in') => {
+                    if (!fromNodeId || !fromSocketId || !toNodeId || fromNodeId === toNodeId) return false;
+                    const toNode = nodes.value.find(n => n.id === toNodeId);
+                    if (!canConnectToNode(toNode)) return false;
+
+                    connections.value = connections.value.filter(c =>
+                        !(c.from === fromNodeId && c.fromSocket === fromSocketId)
+                    );
+
+                    connections.value.push({
+                        id: genId('conn'),
+                        from: fromNodeId,
+                        fromSocket: fromSocketId,
+                        to: toNodeId,
+                        toSocket: toSocketId,
+                        path: ''
+                    });
+                    schedulePathUpdate();
+                    return true;
+                };
+
+                const createNodeFromContext = (type) => {
+                    if (!nodeConnectMenu.visible || !nodeConnectMenu.fromNodeId || !nodeConnectMenu.fromSocketId) {
+                        closeNodeConnectMenu();
+                        return;
+                    }
+
+                    const node = spawnNode(type, nodeConnectMenu.worldX - 150, nodeConnectMenu.worldY - 50);
+                    createConnection(nodeConnectMenu.fromNodeId, nodeConnectMenu.fromSocketId, node.id, 'in');
+
+                    selectedNodeId.value = node.id;
+                    selectedNodeIds.value = [node.id];
+                    selectedConnId.value = null;
+                    tab.value = 'props';
+                    closeNodeConnectMenu();
+                };
 
                 // Approximate socket positions relative to node (Fixed geometry approach)
                 const getSocketPos = (nodeId, socketType) => {
@@ -1076,13 +3160,18 @@
                 };
 
                 const onCanvasMouseDown = (e) => {
+                    closeNodeConnectMenu();
+                    if (linkPicker.active) {
+                        if (e.button === 0) cancelLinkPicker();
+                        return;
+                    }
                     if (e.button === 1) {
                         startPan(e);
                         return;
                     }
                     if (e.button !== 0) return;
 
-                    // If clicking on node/socket/button — do not start panning
+                    // If clicking on node/socket/button ï¿½ do not start panning
                     if (e.target.closest('.node-wrapper') || e.target.closest('.socket') || e.target.closest('button')) {
                         return;
                     }
@@ -1144,16 +3233,53 @@
                     selectedNodeId.value = node.id;
                     selectedConnId.value = null;
                     tab.value = 'props';
-                    
+
                     const selected = selectedNodeIds.value.map(id => nodes.value.find(n => n.id === id)).filter(Boolean);
-                    draggingNode.value = selected.length > 1
-                        ? { nodes: selected }
+                    const dragSet = new Map();
+                    selected.forEach(n => dragSet.set(n.id, n));
+                    selected.filter(n => n.type === 'group').forEach(groupNode => {
+                        getGroupMemberNodes(groupNode).forEach(member => {
+                            if (!dragSet.has(member.id)) dragSet.set(member.id, member);
+                        });
+                    });
+                    const dragNodes = Array.from(dragSet.values());
+
+                    draggingNode.value = dragNodes.length > 1
+                        ? { nodes: dragNodes }
                         : { node: node };
                     lastMouse.x = e.clientX;
                     lastMouse.y = e.clientY;
                 };
 
+                const startGroupResize = (groupNode, edge, e) => {
+                    if (!groupNode || groupNode.type !== 'group') return;
+                    if (e.button !== 0) return;
+                    resizingGroup.value = {
+                        nodeId: groupNode.id,
+                        edge,
+                        startMouseX: e.clientX,
+                        startMouseY: e.clientY,
+                        startX: Number(groupNode.x) || 0,
+                        startY: Number(groupNode.y) || 0,
+                        startWidth: clampGroupWidth(groupNode.data?.width),
+                        startHeight: clampGroupHeight(groupNode.data?.height)
+                    };
+                };
+
                 const onNodeMouseDown = (node, e) => {
+                    closeNodeConnectMenu();
+                    if (linkPicker.active) {
+                        const sourceState = nodes.value.find(n => n.id === linkPicker.sourceStateId);
+                        if (node.type === 'link_entry' && sourceState && sourceState.type === 'link_state') {
+                            assignLinkEntryToState(sourceState, node);
+                            selectedNodeId.value = sourceState.id;
+                            selectedNodeIds.value = [sourceState.id];
+                            selectedConnId.value = null;
+                            tab.value = 'props';
+                        }
+                        cancelLinkPicker();
+                        return;
+                    }
                     if (e.button === 1) {
                         startPan(e);
                         return;
@@ -1187,6 +3313,7 @@
                 };
 
                 const startDragLine = (nodeId, socketId, e) => {
+                    closeNodeConnectMenu();
                     const startPos = getSocketPos(nodeId, socketId);
                     const fallbackPos = toWorld(e.clientX, e.clientY);
                     const validStart = (startPos.x || startPos.y) ? startPos : fallbackPos;
@@ -1205,6 +3332,46 @@
                     lastWorldMouse.x = worldPos.x;
                     lastWorldMouse.y = worldPos.y;
                     lastWorldMouse.valid = true;
+
+                    if (resizingGroup.value) {
+                        const state = resizingGroup.value;
+                        const groupNode = nodes.value.find(n => n.id === state.nodeId && n.type === 'group');
+                        if (groupNode && groupNode.data) {
+                            const dx = (e.clientX - state.startMouseX) / scale.value;
+                            const dy = (e.clientY - state.startMouseY) / scale.value;
+                            let rawWidth = state.startWidth;
+                            let rawHeight = state.startHeight;
+
+                            const growsRight = state.edge === 'r' || state.edge === 'tr' || state.edge === 'br';
+                            const growsLeft = state.edge === 'l' || state.edge === 'tl' || state.edge === 'bl';
+                            const growsBottom = state.edge === 'b' || state.edge === 'bl' || state.edge === 'br';
+                            const growsTop = state.edge === 't' || state.edge === 'tl' || state.edge === 'tr';
+
+                            if (growsRight) rawWidth = state.startWidth + dx;
+                            if (growsLeft) rawWidth = state.startWidth - dx;
+                            if (growsBottom) rawHeight = state.startHeight + dy;
+                            if (growsTop) rawHeight = state.startHeight - dy;
+
+                            const width = clampGroupWidth(rawWidth);
+                            const height = clampGroupHeight(rawHeight);
+
+                            if (growsLeft) {
+                                groupNode.x = state.startX + (state.startWidth - width);
+                            } else {
+                                groupNode.x = state.startX;
+                            }
+
+                            if (growsTop) {
+                                groupNode.y = state.startY + (state.startHeight - height);
+                            } else {
+                                groupNode.y = state.startY;
+                            }
+
+                            groupNode.data.width = width;
+                            groupNode.data.height = height;
+                        }
+                        return;
+                    }
 
                     // 0. Selection box
                     if (selectionBox.active) {
@@ -1289,17 +3456,68 @@
                     }
                 };
 
-                const onGlobalMouseUp = () => {
+                const onGlobalMouseUp = (e) => {
                     isPanning.value = false;
                     draggingNode.value = null;
+                    if (resizingGroup.value) {
+                        resizingGroup.value = null;
+                    }
+                    const releasedDrag = dragLine.value
+                        ? { from: dragLine.value.from, socket: dragLine.value.socket }
+                        : null;
                     dragLine.value = null;
                     selectionBox.active = false;
+
+                    if (!releasedDrag) {
+                        if (nodeConnectMenu.visible) {
+                            const insideMenu = e?.target && typeof e.target.closest === 'function' && e.target.closest('.node-context-menu');
+                            if (!insideMenu) closeNodeConnectMenu();
+                        }
+                        return;
+                    }
+
+                    if (!e || e.button !== 0 || !canvasContainer.value) return;
+
+                    const rect = canvasContainer.value.getBoundingClientRect();
+                    const insideCanvas = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+                    if (!insideCanvas) return;
+
+                    if (e.target && typeof e.target.closest === 'function') {
+                        if (e.target.closest('.socket')) return;
+                        if (e.target.closest('.node-wrapper')) return;
+                        if (e.target.closest('.glass-panel')) return;
+                        if (e.target.closest('button')) return;
+                    }
+
+                    openNodeConnectMenu(e.clientX, e.clientY, releasedDrag.from, releasedDrag.socket);
                 };
 
                 const onGlobalKeyDown = (e) => {
+                    if (e.key === 'Escape') {
+                        if (editingNodeNameId.value) {
+                            cancelNodeNameEdit();
+                            return;
+                        }
+                        if (nodeConnectMenu.visible) {
+                            closeNodeConnectMenu();
+                            return;
+                        }
+                        if (linkPicker.active) {
+                            cancelLinkPicker();
+                            return;
+                        }
+                    }
+
                     if (isEditingElement()) return;
                     const key = e.key.toLowerCase();
                     const isCmd = e.ctrlKey || e.metaKey;
+                    if (!isCmd && e.code === 'KeyG') {
+                        if (selectedNodeIds.value.length) {
+                            const created = createGroupFromSelection();
+                            if (created) e.preventDefault();
+                        }
+                        return;
+                    }
                     if (['KeyC', 'KeyS', 'KeyA', 'KeyD'].includes(e.code)) {
                         const map = { KeyC: 'condition', KeyS: 'switcher', KeyA: 'action', KeyD: 'dialog' };
                         createKey.value = map[e.code];
@@ -1343,30 +3561,10 @@
                 };
 
                 const onSocketMouseUp = (targetNodeId, targetSocket) => {
-                    if (dragLine.value) {
-                        // Prevent self-loop
-                        if (dragLine.value.from === targetNodeId) {
-                            dragLine.value = null;
-                            return;
-                        }
-
-                        // Only one connection allowed from a single output socket.
-                        connections.value = connections.value.filter(c =>
-                            !(c.from === dragLine.value.from && c.fromSocket === dragLine.value.socket)
-                        );
-
-                        connections.value.push({
-                            id: Date.now().toString(),
-                            from: dragLine.value.from,
-                            fromSocket: dragLine.value.socket,
-                            to: targetNodeId,
-                            toSocket: targetSocket,
-                            path: ''
-                        });
-                        
-                        dragLine.value = null;
-                        schedulePathUpdate();
-                    }
+                    closeNodeConnectMenu();
+                    if (!dragLine.value) return;
+                    createConnection(dragLine.value.from, dragLine.value.socket, targetNodeId, targetSocket);
+                    dragLine.value = null;
                 };
 
                 // --- RENDERING LINES ---
@@ -1404,11 +3602,33 @@
                     value: ''
                 });
 
+                const normalizeEntryName = (name) => (name == null ? '' : String(name).trim());
+
+                const getNextLinkEntryName = () => {
+                    const used = new Set(
+                        nodes.value
+                            .filter(n => n.type === 'link_entry')
+                            .map(n => normalizeEntryName(n.data?.name || n.data?.title))
+                            .filter(Boolean)
+                    );
+                    let i = 1;
+                    while (used.has(`Link_${i}`)) i += 1;
+                    return `Link_${i}`;
+                };
+
                 const defaultNodeData = (type) => {
-                    if (type === 'dialog') return { speakerId: null, text: '', choices: [] };
-                    if (type === 'action') return { ops: [createActionOp()] };
-                    if (type === 'condition') return { varId: null, op: 'eq', val: 0 };
-                    if (type === 'switcher') return { varId: null, cases: [createSwitchCase()] };
+                    if (type === 'dialog') return { title: getNodeTypeLabel('dialog'), speakerId: null, text: '', choices: [] };
+                    if (type === 'action') return { title: getNodeTypeLabel('action'), ops: [createActionOp()] };
+                    if (type === 'condition') return { title: getNodeTypeLabel('condition'), varId: null, op: 'eq', val: 0 };
+                    if (type === 'switcher') return { title: getNodeTypeLabel('switcher'), varId: null, cases: [createSwitchCase()] };
+                    if (type === 'link_state') return { title: getNodeTypeLabel('link_state'), entryId: null, entryName: '' };
+                    if (type === 'link_entry') {
+                        const name = getNextLinkEntryName();
+                        return { name, title: name };
+                    }
+                    if (type === 'comment') return { title: getNodeTypeLabel('comment'), text: '' };
+                    if (type === 'group') return { title: getNextGroupTitle(), color: GROUP_DEFAULT_COLOR, width: 360, height: 190, zoomTitleLock: false };
+                    if (type === 'frame') return { title: getNextGroupTitle(), color: GROUP_DEFAULT_COLOR, width: 420, height: 220, zoomTitleLock: false };
                     return {};
                 };
 
@@ -1418,16 +3638,19 @@
                         if (!Array.isArray(cloned.choices)) cloned.choices = [];
                         if (!('speakerId' in cloned)) cloned.speakerId = null;
                         if (!('text' in cloned)) cloned.text = '';
+                        if (!('title' in cloned) || !String(cloned.title).trim()) cloned.title = getNodeTypeLabel('dialog');
                     }
                     if (type === 'action') {
                         if (!Array.isArray(cloned.ops)) cloned.ops = [];
                         cloned.ops = cloned.ops.map(op => ({ ...op, id: genId('op') }));
                         if (!cloned.ops.length) cloned.ops = [createActionOp()];
+                        if (!('title' in cloned) || !String(cloned.title).trim()) cloned.title = getNodeTypeLabel('action');
                     }
                     if (type === 'condition') {
                         if (!('varId' in cloned)) cloned.varId = null;
                         if (!('op' in cloned)) cloned.op = 'eq';
                         if (!('val' in cloned)) cloned.val = 0;
+                        if (!('title' in cloned) || !String(cloned.title).trim()) cloned.title = getNodeTypeLabel('condition');
                     }
                     if (type === 'switcher') {
                         if (!Array.isArray(cloned.cases)) cloned.cases = [];
@@ -1438,6 +3661,28 @@
                         }));
                         if (!cloned.cases.length) cloned.cases = [createSwitchCase()];
                         if (!('varId' in cloned)) cloned.varId = null;
+                        if (!('title' in cloned) || !String(cloned.title).trim()) cloned.title = getNodeTypeLabel('switcher');
+                    }
+                    if (type === 'link_state') {
+                        if (!('entryId' in cloned)) cloned.entryId = null;
+                        if (!('entryName' in cloned)) cloned.entryName = '';
+                        cloned.entryName = normalizeEntryName(cloned.entryName);
+                        if (!('title' in cloned) || !String(cloned.title).trim()) cloned.title = getNodeTypeLabel('link_state');
+                    }
+                    if (type === 'link_entry') {
+                        cloned.name = getNextLinkEntryName();
+                        cloned.title = cloned.name;
+                    }
+                    if (type === 'comment') {
+                        if (!('title' in cloned) || !String(cloned.title).trim()) cloned.title = getNodeTypeLabel('comment');
+                        if (!('text' in cloned)) cloned.text = '';
+                    }
+                    if (type === 'group' || type === 'frame') {
+                        if (!('title' in cloned) || !String(cloned.title).trim()) cloned.title = getNextGroupTitle();
+                        cloned.color = normalizeGroupColor(cloned.color);
+                        cloned.width = clampGroupWidth(cloned.width);
+                        cloned.height = clampGroupHeight(cloned.height);
+                        cloned.zoomTitleLock = Boolean(cloned.zoomTitleLock);
                     }
                     return cloned;
                 };
@@ -1532,17 +3777,83 @@
                     return spawnNode(base.type, x, y, data);
                 };
 
+                const createGroupFromSelection = () => {
+                    const selected = selectedNodeIds.value
+                        .map(id => nodes.value.find(n => n.id === id))
+                        .filter(n => n && n.type !== 'group');
+                    if (!selected.length) return null;
+
+                    let minX = Infinity;
+                    let minY = Infinity;
+                    let maxX = -Infinity;
+                    let maxY = -Infinity;
+
+                    selected.forEach(node => {
+                        const b = getNodeWorldBounds(node);
+                        if (!b) return;
+                        minX = Math.min(minX, b.x);
+                        minY = Math.min(minY, b.y);
+                        maxX = Math.max(maxX, b.x + b.width);
+                        maxY = Math.max(maxY, b.y + b.height);
+                    });
+
+                    if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+                        return null;
+                    }
+
+                    const pad = 36;
+                    const data = defaultNodeData('group');
+                    data.title = getNextGroupTitle();
+                    data.width = clampGroupWidth(maxX - minX + pad * 2);
+                    data.height = clampGroupHeight(maxY - minY + pad * 2);
+                    const group = spawnNode('group', minX - pad, minY - pad, data);
+                    selectedNodeIds.value = [group.id];
+                    selectedNodeId.value = group.id;
+                    selectedConnId.value = null;
+                    tab.value = 'props';
+                    return group;
+                };
+
                 const addNode = (type) => {
+                    closeNodeConnectMenu();
                     const rect = canvasContainer.value.getBoundingClientRect();
                     // Center of visible screen converted to world coords
                     const center = toWorld(rect.width/2 + rect.left, rect.height/2 + rect.top);
-                    
+
+                    if (type === 'group' || type === 'frame') {
+                        const data = defaultNodeData(type === 'frame' ? 'group' : type);
+                        const width = clampGroupWidth(data.width);
+                        const height = clampGroupHeight(data.height);
+                        spawnNode('group', center.x - width / 2, center.y - height / 2, data);
+                        return;
+                    }
+
                     spawnNode(type, center.x - 150, center.y - 50);
                 };
 
                 const deleteNode = (id) => {
                     const target = nodes.value.find(n => n.id === id);
                     if (target && target.type === 'start') return;
+
+                    if (editingNodeNameId.value === id) {
+                        cancelNodeNameEdit();
+                    }
+
+                    if (target && target.type === 'link_entry') {
+                        const removedName = normalizeEntryName(target.data?.name || target.data?.title);
+                        nodes.value.forEach(n => {
+                            if (n.type !== 'link_state') return;
+                            if (n.data?.entryId === target.id) {
+                                n.data.entryId = null;
+                                n.data.entryName = '';
+                                return;
+                            }
+                            if (removedName && normalizeEntryName(n.data?.entryName) === removedName) {
+                                n.data.entryName = '';
+                            }
+                        });
+                    }
+
                     nodes.value = nodes.value.filter(n => n.id !== id);
                     connections.value = connections.value.filter(c => c.from !== id && c.to !== id);
                     if (selectedNodeId.value === id) selectedNodeId.value = null;
@@ -1557,6 +3868,20 @@
                     tab.value = 'props';
                 };
                 const selectConnection = (id) => { selectedConnId.value = id; selectedNodeId.value = null; };
+
+                const deleteConnection = (id) => {
+                    connections.value = connections.value.filter(c => c.id !== id);
+                    if (selectedConnId.value === id) selectedConnId.value = null;
+                    schedulePathUpdate();
+                };
+
+                const onConnectionClick = (id, e) => {
+                    if (e?.altKey) {
+                        deleteConnection(id);
+                        return;
+                    }
+                    selectConnection(id);
+                };
 
                 // --- LOGIC: Variables ---
                 const addVariable = () => {
@@ -1916,6 +4241,20 @@
                         
                         traverse(node.id, res ? 'true' : 'false');
                     }
+                    else if (node.type === 'link_state') {
+                        const entryNode = getLinkEntryForState(node);
+                        if (!entryNode) {
+                            gameFinished.value = true;
+                            return;
+                        }
+                        processNode(entryNode);
+                    }
+                    else if (node.type === 'link_entry') {
+                        traverse(node.id, 'default');
+                    }
+                    else if (isDocNodeType(node.type)) {
+                        traverse(node.id, 'default');
+                    }
                     // Dialog stops and waits for UI
                 };
 
@@ -1955,6 +4294,51 @@
                     scale: scale.value
                 });
 
+                const saveAutosaveNow = () => {
+                    if (autosaveLocked.value) return;
+                    try {
+                        const snapshot = {
+                            savedAt: Date.now(),
+                            data: buildProjectPayload()
+                        };
+                        localStorage.setItem(AUTOSAVE_STORAGE_KEY, JSON.stringify(snapshot));
+                        autosave.lastSavedAt = snapshot.savedAt;
+                        autosave.status = 'saved';
+                    } catch (err) {
+                        autosave.status = 'error';
+                    }
+                };
+
+                const scheduleAutosave = () => {
+                    if (autosaveLocked.value) return;
+                    if (autosave.lastRestoredAt && Date.now() - autosave.lastRestoredAt < 1200) return;
+                    autosave.status = 'pending';
+                    if (autosaveTimer) clearTimeout(autosaveTimer);
+                    autosaveTimer = setTimeout(() => {
+                        saveAutosaveNow();
+                    }, 700);
+                };
+
+                const restoreAutosave = () => {
+                    try {
+                        const raw = localStorage.getItem(AUTOSAVE_STORAGE_KEY);
+                        if (!raw) return false;
+                        const parsed = JSON.parse(raw);
+                        if (!parsed || !parsed.data || !Array.isArray(parsed.data.nodes)) return false;
+                        autosaveLocked.value = true;
+                        applyProjectData(parsed.data);
+                        autosaveLocked.value = false;
+                        autosave.lastSavedAt = Number(parsed.savedAt) || Date.now();
+                        autosave.lastRestoredAt = Date.now();
+                        autosave.status = 'restored';
+                        return true;
+                    } catch (err) {
+                        autosaveLocked.value = false;
+                        autosave.status = 'error';
+                        return false;
+                    }
+                };
+
                 const applyProjectData = (data) => {
                     nodes.value = Array.isArray(data.nodes) ? data.nodes : [];
                     connections.value = Array.isArray(data.connections) ? data.connections : [];
@@ -1967,11 +4351,22 @@
 
                     // Normalize loaded data
                     variables.value.forEach(v => updateVariableType(v));
+                    const usedEntryNames = new Set();
+                    const nextLoadedEntryName = () => {
+                        let i = 1;
+                        while (usedEntryNames.has(`Link_${i}`)) i += 1;
+                        return `Link_${i}`;
+                    };
+
                     nodes.value.forEach(n => {
+                        if (!n.data || typeof n.data !== 'object') n.data = {};
+                        if (n.type === 'frame') n.type = 'group';
+
                         if (n.type === 'action') {
                             if (!Array.isArray(n.data?.ops)) n.data.ops = [];
                             n.data.ops = n.data.ops.map(op => ({ ...op, id: op.id || genId('op') }));
                             if (!n.data.ops.length) n.data.ops = [createActionOp()];
+                            if (!('title' in n.data) || !String(n.data.title).trim()) n.data.title = getNodeTypeLabel('action');
                         }
                         if (n.type === 'switcher') {
                             if (!Array.isArray(n.data?.cases)) n.data.cases = [];
@@ -1981,20 +4376,76 @@
                                 socketId: c.socketId || genId('socket')
                             }));
                             if (!n.data.cases.length) n.data.cases = [createSwitchCase()];
+                            if (!('title' in n.data) || !String(n.data.title).trim()) n.data.title = getNodeTypeLabel('switcher');
                         }
                         if (n.type === 'dialog') {
                             if (!Array.isArray(n.data?.choices)) n.data.choices = [];
+                            if (!('speakerId' in n.data)) n.data.speakerId = null;
+                            if (!('text' in n.data)) n.data.text = '';
+                            if (!('title' in n.data) || !String(n.data.title).trim()) n.data.title = getNodeTypeLabel('dialog');
                         }
                         if (n.type === 'condition') {
+                            if (!('varId' in n.data)) n.data.varId = null;
                             if (!('op' in n.data)) n.data.op = 'eq';
                             if (!('val' in n.data)) n.data.val = 0;
+                            if (!('title' in n.data) || !String(n.data.title).trim()) n.data.title = getNodeTypeLabel('condition');
                         }
+                        if (n.type === 'link_state') {
+                            if (!('entryId' in n.data)) n.data.entryId = null;
+                            if (!('entryName' in n.data)) n.data.entryName = '';
+                            if (!('title' in n.data) || !String(n.data.title).trim()) n.data.title = getNodeTypeLabel('link_state');
+                            n.data.entryName = normalizeEntryName(n.data.entryName);
+                        }
+                        if (n.type === 'link_entry') {
+                            if (!('name' in n.data)) n.data.name = '';
+                            if (!('title' in n.data)) n.data.title = '';
+                            let name = normalizeEntryName(n.data.title || n.data.name);
+                            if (!name) name = nextLoadedEntryName();
+                            while (usedEntryNames.has(name)) {
+                                name = nextLoadedEntryName();
+                            }
+                            usedEntryNames.add(name);
+                            n.data.name = name;
+                            n.data.title = name;
+                        }
+                        if (n.type === 'comment') {
+                            if (!('title' in n.data) || !String(n.data.title).trim()) n.data.title = getNodeTypeLabel('comment');
+                            if (!('text' in n.data)) n.data.text = '';
+                        }
+                        if (n.type === 'group') {
+                            if (!('title' in n.data) || !String(n.data.title).trim()) n.data.title = getNextGroupTitle();
+                            n.data.color = normalizeGroupColor(n.data.color);
+                            n.data.width = clampGroupWidth(n.data.width);
+                            n.data.height = clampGroupHeight(n.data.height);
+                            n.data.zoomTitleLock = Boolean(n.data.zoomTitleLock);
+                        }
+                    });
+
+                    nodes.value.forEach(n => {
+                        if (n.type !== 'link_state') return;
+                        const hasValidId = n.data.entryId && nodes.value.find(x => x.id === n.data.entryId && x.type === 'link_entry');
+                        if (hasValidId) return;
+                        const legacyName = normalizeEntryName(n.data.entryName);
+                        if (!legacyName) {
+                            n.data.entryId = null;
+                            return;
+                        }
+                        const found = nodes.value.find(x => x.type === 'link_entry' && normalizeEntryName(x.data?.name || x.data?.title) === legacyName);
+                        n.data.entryId = found ? found.id : null;
                     });
 
                     selectedNodeId.value = null;
                     selectedConnId.value = null;
                     schedulePathUpdate();
                 };
+
+                watch(
+                    [nodes, connections, variables, characters, () => pan.x, () => pan.y, scale, currentProjectTitle],
+                    () => {
+                        scheduleAutosave();
+                    },
+                    { deep: true }
+                );
 
                 const saveProject = () => {
                     const payload = buildProjectPayload();
@@ -2153,10 +4604,13 @@
                 onMounted(() => {
                     syncAuthFromSession();
                     resetView();
-                    // Demo Data
-                    const startId = 'start';
-                    nodes.value.push({ id: startId, type: 'start', x: 100, y: 100, data: {} });
-                    schedulePathUpdate();
+
+                    const restored = restoreAutosave();
+                    if (!restored) {
+                        const startId = 'start';
+                        nodes.value.push({ id: startId, type: 'start', x: 100, y: 100, data: {} });
+                        schedulePathUpdate();
+                    }
 
                     // Global listeners: drag/pan/line keep working even if cursor leaves the canvas
                     window.addEventListener('mousemove', onGlobalMouseMove);
@@ -2169,6 +4623,11 @@
                 });
 
                 onBeforeUnmount(() => {
+                    if (autosaveTimer) {
+                        clearTimeout(autosaveTimer);
+                        autosaveTimer = null;
+                        saveAutosaveNow();
+                    }
                     window.removeEventListener('mousemove', onGlobalMouseMove);
                     window.removeEventListener('mouseup', onGlobalMouseUp);
                     window.removeEventListener('keydown', onGlobalKeyDown);
@@ -2185,17 +4644,29 @@
                     tab, isPlayMode, gameLog, activeNode, gameFinished,
                     dragLine,
                     selectionBox, hotkeyHints,
+                    helpPanelOpen, helpSections, autosaveStatusText,
+                    editingNodeNameId, nodeNameDraft,
+                    hierarchySearch, hierarchyTypeFilters, filteredHierarchyRows,
+                    groupColorPalette,
+                    linkEntryOptions,
+                    linkPicker, hierarchyPanelOpen, hierarchyRows, graphWarnings,
+                    nodeConnectMenu, connectableNodeOptions,
                     
                     handleWheel, onCanvasMouseDown, startPan, onNodeMouseDown, startDragNode, startDragLine,
+                    startGroupResize,
                     onGlobalMouseMove, onGlobalMouseUp, onSocketMouseUp,
-                    addNode, deleteNode, selectNode, selectConnection,
+                    createNodeFromContext,
+                    addNode, deleteNode, selectNode, selectConnection, onConnectionClick,
+                    onLinkStateTargetChange, onLinkEntryNameInput, onLinkEntryTitleInput, startLinkPicker, jumpToLinkEntry, getLinkEntryForState, jumpToNode, toggleHierarchyPanel,
+                    toggleHierarchyTypeFilter, clearHierarchyFilters,
+                    startNodeNameEdit, commitNodeNameEdit, cancelNodeNameEdit, isNodeNameEditable, getNodeDisplayName,
                     addVariable, updateVariableType, removeVariable, getVariableTypeClass, getVariableTypeLabel, getVarType, getVarOptions,
                     addEnumOption, removeEnumOption,
                     addActionOp, removeActionOp, onActionVarChange,
                     addSwitcherCase, removeSwitcherCase, onSwitcherVarChange,
                     addCharacter, removeCharacter, getCharacterName, getRuntimeDisplay,
-                    isSocketOccupied,
-                    getVarName, getConditionText, getNodeIcon,
+                    isSocketOccupied, canHaveInputSocket, getNodeStyle, getNodeHeaderStyle, getNodeHeaderContentStyle, setGroupColor, normalizeGroupColor, getGroupMemberCount,
+                    getVarName, getConditionText, getNodeIcon, getNodeTypeLabel,
                     resetView, runScenario, makeChoice,
                     saveProject, loadProject, triggerLoad,
                     openCloudModal, saveToCloud, loadFromCloud, deleteFromCloud
@@ -2205,4 +4676,3 @@
     </script>
 </body>
 </html>
-
