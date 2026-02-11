@@ -885,16 +885,39 @@
                 </div>
                 <div class="autosave-state">Autosave: {{ autosaveStatusText }}</div>
             </div>
+        </div>
 
-            <div v-if="helpPanelOpen" class="tool-docs-panel">
+        <div v-if="helpPanelOpen" class="tool-docs-overlay" @mousedown.self="helpPanelOpen = false">
+            <div class="tool-docs-modal" @mousedown.stop>
                 <div class="tool-docs-head">
-                    <span>Tool Documentation</span>
+                    <div class="tool-docs-head-main">
+                        <div class="tool-docs-title">Quest Architect Documentation</div>
+                        <div class="tool-docs-subtitle">Node reference, workflow, hotkeys, and safety notes</div>
+                    </div>
                     <button type="button" class="hotkeys-doc-toggle" @click="helpPanelOpen = false">Close</button>
                 </div>
-                <div class="tool-docs-body">
-                    <div v-for="section in helpSections" :key="section.id" class="tool-docs-section">
-                        <h4>{{ section.title }}</h4>
-                        <div v-for="(line, idx) in section.lines" :key="section.id + '_' + idx" class="tool-docs-line">{{ line }}</div>
+                <div class="tool-docs-content">
+                    <div class="tool-docs-scroll">
+                        <div v-for="section in helpSections" :key="section.id" class="tool-docs-section">
+                            <h4>{{ section.title }}</h4>
+                            <div v-for="(line, idx) in section.lines" :key="section.id + '_' + idx" class="tool-docs-line" v-html="formatDocText(line)"></div>
+                        </div>
+                    </div>
+                    <div class="tool-docs-scroll">
+                        <div class="tool-docs-section">
+                            <h4>Node Reference</h4>
+                            <div class="node-doc-grid">
+                                <div v-for="item in nodeDocs" :key="item.type" class="node-doc-card" :class="'tone-' + item.type">
+                                    <div class="node-doc-head">
+                                        <i :class="getNodeIcon(item.type)"></i>
+                                        <span>{{ item.label }}</span>
+                                    </div>
+                                    <div class="node-doc-io" v-html="formatDocText(item.io)"></div>
+                                    <div class="node-doc-role" v-html="formatDocText(item.role)"></div>
+                                    <div class="node-doc-usage" v-html="formatDocText(item.usage)"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -97,6 +97,13 @@ createApp({
             status: 'idle'
         });
         let autosaveTimer = null;
+        let pathUpdateRaf = null;
+        let mouseMoveRaf = null;
+        const pendingPathNodeIds = new Set();
+        let pendingPathFullUpdate = false;
+        const pendingMouseMove = { has: false, clientX: 0, clientY: 0 };
+        const nodeElementCache = new Map();
+        const socketElementCache = new Map();
         const autosaveLocked = ref(false);
 
         const GROUP_DEFAULT_COLOR = '#94a3b8';
@@ -118,48 +125,128 @@ createApp({
                 id: 'editing',
                 title: 'Editing Basics',
                 lines: [
-                    'Drag nodes by header. Shift+Click toggles selection. Shift+Drag creates box selection.',
-                    'Alt+Drag duplicates selected node/group. Del/Backspace removes selection.',
-                    'Drag from output sockets to create links. Alt+Click a line removes that connection.',
-                    'Press G with selected nodes to create a Group area by their bounds.'
+                    'Drag nodes by header. `Shift+Click` toggles selection. `Shift+Drag` creates box selection.',
+                    '`Alt+Drag` duplicates selected node/group. `Del/Backspace` removes selected nodes.',
+                    'Drag from output sockets to create links. `Alt+Click` on a line removes that connection.',
+                    'Press `G` with selected nodes to wrap them into one **Group** by bounds.',
+                    'Hold `G` and click empty canvas to spawn a new **Group** at cursor.'
                 ]
             },
             {
                 id: 'linking',
                 title: 'Link State / Link Entry',
                 lines: [
-                    'Link State has input only and jumps to selected Link Entry.',
-                    'Use eyedropper to pick target directly on canvas. Use jump button to focus target.',
-                    'Link Entry name is editable in header and used by Link State selectors.'
+                    '**Link State** has input only and jumps to selected **Link Entry**.',
+                    'Use dropdown, eyedropper, or direct node click while picker is active to select target.',
+                    'Use `Jump` button to focus selected **Link Entry** on canvas.',
+                    '**Link Entry** name is editable in header and used by **Link State** selectors.'
                 ]
             },
             {
                 id: 'docs',
                 title: 'Documentation Nodes',
                 lines: [
-                    'Comment nodes store plain notes and are excluded from runtime flow.',
-                    'Group nodes create tinted glass regions with editable title on top edge.',
-                    'Use corner drag handles to resize groups.',
-                    'Use docs nodes to describe intent, ownership, TODOs, or review comments inside the graph.'
+                    '**Comment** nodes store plain notes and are excluded from runtime flow.',
+                    '**Group** nodes create tinted glass regions with editable title on top edge.',
+                    '`Group resize` supports edges and corners. **Group** has no runtime behavior.',
+                    'Use **Group** title as section comment for intent, ownership, TODOs, and design decisions.'
                 ]
             },
             {
                 id: 'hierarchy',
                 title: 'Hierarchy Search & Filters',
                 lines: [
-                    'Search matches node names and internal content (dialog lines, options, values, notes).',
-                    'Use type chips to hide/show categories. Warnings filter focuses nodes with validation issues.',
-                    'Click any hierarchy row or warning item to jump camera to the related node.'
+                    'Search matches node names and internal content: dialog text, choices, action values, notes.',
+                    'Search uses `token contains` matching (substrings), not strict exact phrase.',
+                    '`Type chips` hide/show categories. `Warnings filter` focuses nodes with validation issues.',
+                    'Click hierarchy rows or warning items to jump camera to related node.'
                 ]
             },
             {
                 id: 'safety',
                 title: 'Safety & Persistence',
                 lines: [
-                    'Session autosaves to local browser storage after graph changes.',
+                    'Session `Autosave` stores data to local browser storage after graph changes.',
                     'After crash/reload the latest autosave is restored automatically.',
-                    'Warnings panel highlights duplicate names, broken links, missing branches, and unreachable flow.'
+                    '`Warnings panel` highlights duplicate names, broken links, missing branches, unreachable flow.',
+                    '**Link Entry** referenced by **Link State** chain is treated as reachable in warnings analysis.'
                 ]
+            },
+            {
+                id: 'workflow',
+                title: 'Recommended Workflow',
+                lines: [
+                    '1) Start from **Start** node and rough branches with **Dialog/Condition/Switch**.',
+                    '2) Add **Action** nodes for variable updates and check values in **Condition**.',
+                    '3) Use **Link Entry** as reusable destination and **Link State** as jump.',
+                    '4) Add **Group/Comment** for documentation, then validate warnings and run scenario.'
+                ]
+            }
+        ]);
+
+        const nodeDocs = Object.freeze([
+            {
+                type: 'start',
+                label: 'Start',
+                io: '`In: none` | `Out: default`',
+                role: 'Entry point of runtime traversal. Exactly one flow should begin here.',
+                usage: 'Connect **Start** -> first **Dialog/Action/Condition** node.'
+            },
+            {
+                type: 'dialog',
+                label: 'Dialog',
+                io: '`In: one` | `Out: choice-1..N`',
+                role: 'Represents NPC line and player choices.',
+                usage: 'Set speaker, text, add replies; each reply creates a separate output branch.'
+            },
+            {
+                type: 'action',
+                label: 'Action',
+                io: '`In: one` | `Out: default`',
+                role: 'Mutates quest variables.',
+                usage: 'Add operations (`set/add/sub/mul/div`). For `bool/string/enum` use assignment.'
+            },
+            {
+                type: 'condition',
+                label: 'Condition',
+                io: '`In: one` | `Out: true / false`',
+                role: 'Branches flow based on variable comparison.',
+                usage: 'Pick variable, operator, value; connect both `true` and `false` outputs.'
+            },
+            {
+                type: 'switcher',
+                label: 'Switch',
+                io: '`In: one` | `Out: case-1..N + default`',
+                role: 'Routes by many discrete values.',
+                usage: 'Add cases for expected values; use `default` for fallback branch.'
+            },
+            {
+                type: 'link_entry',
+                label: 'Link Entry',
+                io: '`In: none` | `Out: default`',
+                role: 'Named reusable entry destination in graph.',
+                usage: 'Rename header to meaningful anchor name; connect output to continuation path.'
+            },
+            {
+                type: 'link_state',
+                label: 'Link State',
+                io: '`In: one` | `Out: none`',
+                role: 'Jump node that transfers runtime to selected Link Entry.',
+                usage: 'Choose **Link Entry** via dropdown or eyedropper; use `Jump` to verify target.'
+            },
+            {
+                type: 'comment',
+                label: 'Comment',
+                io: '`In: none` | `Out: none`',
+                role: 'Pure documentation note node.',
+                usage: 'Store design notes, TODOs, explanations; ignored by runtime.'
+            },
+            {
+                type: 'group',
+                label: 'Group',
+                io: '`In: none` | `Out: none`',
+                role: 'Visual container for structuring and documenting graph regions.',
+                usage: 'Create from selection by `G` or spawn with `G+Click`. Resize by edges/corners, tint in properties.'
             }
         ]);
 
@@ -215,6 +302,49 @@ createApp({
             return { x: sx - rect.left, y: sy - rect.top };
         };
 
+        const escapeHtml = (value) => String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
+        const formatDocText = (value) => {
+            const safe = escapeHtml(value);
+            return safe
+                .replace(/\*\*([^*]+)\*\*/g, '<span class="doc-key">$1</span>')
+                .replace(/`([^`]+)`/g, '<span class="doc-kbd">$1</span>');
+        };
+
+        const queueFrame = (fn) => window.requestAnimationFrame(fn);
+        const cancelFrame = (handle) => window.cancelAnimationFrame(handle);
+
+        const clearDomCaches = () => {
+            nodeElementCache.clear();
+            socketElementCache.clear();
+        };
+
+        const getNodeElement = (nodeId) => {
+            if (!canvasContainer.value) return null;
+            const cached = nodeElementCache.get(nodeId);
+            if (cached && cached.isConnected) return cached;
+            const el = canvasContainer.value.querySelector(`.node-wrapper[data-node-id="${nodeId}"]`);
+            if (el) nodeElementCache.set(nodeId, el);
+            else nodeElementCache.delete(nodeId);
+            return el;
+        };
+
+        const getSocketElement = (nodeId, socketType) => {
+            if (!canvasContainer.value) return null;
+            const key = `${nodeId}:${socketType}`;
+            const cached = socketElementCache.get(key);
+            if (cached && cached.isConnected) return cached;
+            const el = canvasContainer.value.querySelector(`[data-node-id="${nodeId}"][data-socket-id="${socketType}"]`);
+            if (el) socketElementCache.set(key, el);
+            else socketElementCache.delete(key);
+            return el;
+        };
+
         const getNodeTypeLabel = (type) => nodeTypeLabels[type] || String(type || 'Node');
         const isDocNodeType = (type) => docNodeTypes.has(type);
         const canConnectToNode = (node) => !!node && !nonConnectableTargetTypes.has(node.type);
@@ -246,7 +376,7 @@ createApp({
             if (!node || node.type !== 'group') return null;
             const currentScale = Math.max(0.2, Math.min(3, Number(scale.value) || 1));
             if (currentScale >= 0.9) return null;
-            const lift = Math.min(36, Math.max(0, (1 / currentScale - 1) * 15));
+            const lift = Math.min(72, Math.max(0, (1 / currentScale - 1) * 32));
             return {
                 transform: `translateY(-${lift}px)`,
                 position: 'relative',
@@ -342,7 +472,7 @@ createApp({
         const getNodeWorldBounds = (node) => {
             if (!node) return null;
             if (canvasContainer.value) {
-                const el = canvasContainer.value.querySelector(`.node-wrapper[data-node-id="${node.id}"]`);
+                const el = getNodeElement(node.id);
                 if (el) {
                     const r = el.getBoundingClientRect();
                     const p1 = toWorld(r.left, r.top);
@@ -458,6 +588,7 @@ createApp({
                 { keys: 'S + Click', label: 'Create Switcher node' },
                 { keys: 'A + Click', label: 'Create Action node' },
                 { keys: 'D + Click', label: 'Create Dialog node' },
+                { keys: 'G + Click', label: 'Create Group node' },
                 { keys: 'Alt + Click line', label: 'Delete connection' },
                 { keys: 'G', label: 'Group selected nodes' }
             ];
@@ -624,7 +755,6 @@ createApp({
                 selectedConnId.value = null;
                 tab.value = 'props';
             }
-            schedulePathUpdate();
         };
 
         const jumpToLinkEntry = (stateNode) => {
@@ -966,7 +1096,7 @@ createApp({
                 toSocket: toSocketId,
                 path: ''
             });
-            schedulePathUpdate();
+            schedulePathUpdate([fromNodeId, toNodeId]);
             return true;
         };
 
@@ -991,7 +1121,7 @@ createApp({
             if (!canvasContainer.value) return { x: 0, y: 0 };
 
             // Read real socket coordinates from DOM so lines always align with UI
-            const socket = canvasContainer.value.querySelector(`[data-node-id="${nodeId}"][data-socket-id="${socketType}"]`);
+            const socket = getSocketElement(nodeId, socketType);
             if (!socket) return { x: 0, y: 0 };
 
             const socketRect = socket.getBoundingClientRect();
@@ -1034,7 +1164,14 @@ createApp({
 
             if (createKey.value) {
                 const world = toWorld(e.clientX, e.clientY);
-                spawnNode(createKey.value, world.x - 150, world.y - 50);
+                if (createKey.value === 'group') {
+                    const data = defaultNodeData('group');
+                    const width = clampGroupWidth(data.width);
+                    const height = clampGroupHeight(data.height);
+                    spawnNode('group', world.x - width / 2, world.y - height / 2, data);
+                } else {
+                    spawnNode(createKey.value, world.x - 150, world.y - 50);
+                }
                 selectedNodeIds.value = [nodes.value[nodes.value.length - 1].id];
                 selectedNodeId.value = selectedNodeIds.value[0];
                 selectedConnId.value = null;
@@ -1099,10 +1236,11 @@ createApp({
                 });
             });
             const dragNodes = Array.from(dragSet.values());
+            const dragNodeIds = dragNodes.map(n => n.id);
 
             draggingNode.value = dragNodes.length > 1
-                ? { nodes: dragNodes }
-                : { node: node };
+                ? { nodes: dragNodes, nodeIds: dragNodeIds }
+                : { node: node, nodeIds: [node.id] };
             lastMouse.x = e.clientX;
             lastMouse.y = e.clientY;
         };
@@ -1183,8 +1321,8 @@ createApp({
             };
         };
 
-        const onGlobalMouseMove = (e) => {
-            const worldPos = toWorld(e.clientX, e.clientY);
+        const processGlobalMouseMove = (clientX, clientY) => {
+            const worldPos = toWorld(clientX, clientY);
             lastWorldMouse.x = worldPos.x;
             lastWorldMouse.y = worldPos.y;
             lastWorldMouse.valid = true;
@@ -1193,8 +1331,8 @@ createApp({
                 const state = resizingGroup.value;
                 const groupNode = nodes.value.find(n => n.id === state.nodeId && n.type === 'group');
                 if (groupNode && groupNode.data) {
-                    const dx = (e.clientX - state.startMouseX) / scale.value;
-                    const dy = (e.clientY - state.startMouseY) / scale.value;
+                    const dx = (clientX - state.startMouseX) / scale.value;
+                    const dy = (clientY - state.startMouseY) / scale.value;
                     let rawWidth = state.startWidth;
                     let rawHeight = state.startHeight;
 
@@ -1231,7 +1369,7 @@ createApp({
 
             // 0. Selection box
             if (selectionBox.active) {
-                const local = toLocal(e.clientX, e.clientY);
+                const local = toLocal(clientX, clientY);
                 const x = Math.min(selectionBox.startX, local.x);
                 const y = Math.min(selectionBox.startY, local.y);
                 const w = Math.abs(selectionBox.startX - local.x);
@@ -1251,7 +1389,7 @@ createApp({
 
                 const hits = [];
                 nodes.value.forEach(n => {
-                    const el = canvasContainer.value.querySelector(`.node-wrapper[data-node-id="${n.id}"]`);
+                    const el = getNodeElement(n.id);
                     if (!el) return;
                     const r = el.getBoundingClientRect();
                     const intersect = !(r.right < selRect.left || r.left > selRect.right || r.bottom < selRect.top || r.top > selRect.bottom);
@@ -1273,18 +1411,18 @@ createApp({
 
             // 1. Panning
             if (isPanning.value) {
-                const dx = e.clientX - lastMouse.x;
-                const dy = e.clientY - lastMouse.y;
+                const dx = clientX - lastMouse.x;
+                const dy = clientY - lastMouse.y;
                 pan.x += dx;
                 pan.y += dy;
-                lastMouse.x = e.clientX;
-                lastMouse.y = e.clientY;
+                lastMouse.x = clientX;
+                lastMouse.y = clientY;
             }
 
             // 2. Node Dragging (Corrected for Scale)
             if (draggingNode.value) {
-                const dx = (e.clientX - lastMouse.x) / scale.value;
-                const dy = (e.clientY - lastMouse.y) / scale.value;
+                const dx = (clientX - lastMouse.x) / scale.value;
+                const dy = (clientY - lastMouse.y) / scale.value;
 
                 if (draggingNode.value.nodes) {
                     draggingNode.value.nodes.forEach(n => {
@@ -1296,9 +1434,9 @@ createApp({
                     draggingNode.value.node.y += dy;
                 }
 
-                lastMouse.x = e.clientX;
-                lastMouse.y = e.clientY;
-                schedulePathUpdate();
+                lastMouse.x = clientX;
+                lastMouse.y = clientY;
+                schedulePathUpdate(draggingNode.value.nodeIds);
             }
 
             // 3. Line Dragging
@@ -1310,6 +1448,22 @@ createApp({
                 const end = worldPos;
                 dragLine.value.path = makeBezier(start.x, start.y, end.x, end.y);
             }
+        };
+
+        const flushGlobalMouseMove = () => {
+            mouseMoveRaf = null;
+            if (!pendingMouseMove.has) return;
+            const { clientX, clientY } = pendingMouseMove;
+            pendingMouseMove.has = false;
+            processGlobalMouseMove(clientX, clientY);
+        };
+
+        const onGlobalMouseMove = (e) => {
+            pendingMouseMove.clientX = e.clientX;
+            pendingMouseMove.clientY = e.clientY;
+            pendingMouseMove.has = true;
+            if (mouseMoveRaf != null) return;
+            mouseMoveRaf = queueFrame(flushGlobalMouseMove);
         };
 
         const onGlobalMouseUp = (e) => {
@@ -1354,6 +1508,10 @@ createApp({
                     cancelNodeNameEdit();
                     return;
                 }
+                if (helpPanelOpen.value) {
+                    helpPanelOpen.value = false;
+                    return;
+                }
                 if (nodeConnectMenu.visible) {
                     closeNodeConnectMenu();
                     return;
@@ -1371,6 +1529,8 @@ createApp({
                 if (selectedNodeIds.value.length) {
                     const created = createGroupFromSelection();
                     if (created) e.preventDefault();
+                } else {
+                    createKey.value = 'group';
                 }
                 return;
             }
@@ -1411,7 +1571,7 @@ createApp({
         };
 
         const onGlobalKeyUp = (e) => {
-            if (['KeyC', 'KeyS', 'KeyA', 'KeyD'].includes(e.code)) {
+            if (['KeyC', 'KeyS', 'KeyA', 'KeyD', 'KeyG'].includes(e.code)) {
                 createKey.value = null;
             }
         };
@@ -1430,16 +1590,64 @@ createApp({
             return `M ${x1} ${y1} C ${x1 + cpOffset} ${y1}, ${x2 - cpOffset} ${y2}, ${x2} ${y2}`;
         };
 
+        const buildSocketCacheKey = (nodeId, socketId) => `${nodeId}:${socketId || 'in'}`;
+
+        const getSocketPosFromCache = (cache, nodeId, socketId) => {
+            const key = buildSocketCacheKey(nodeId, socketId);
+            if (cache.has(key)) return cache.get(key);
+            const pos = getSocketPos(nodeId, socketId);
+            cache.set(key, pos);
+            return pos;
+        };
+
+        const updateSingleConnectionPath = (conn, socketCache) => {
+            const p1 = getSocketPosFromCache(socketCache, conn.from, conn.fromSocket);
+            const p2 = getSocketPosFromCache(socketCache, conn.to, conn.toSocket || 'in');
+            conn.path = makeBezier(p1.x, p1.y, p2.x, p2.y);
+        };
+
         const updateConnectionPaths = () => {
+            const socketCache = new Map();
             connections.value.forEach(conn => {
-                const p1 = getSocketPos(conn.from, conn.fromSocket);
-                const p2 = getSocketPos(conn.to, conn.toSocket || 'in');
-                conn.path = makeBezier(p1.x, p1.y, p2.x, p2.y);
+                updateSingleConnectionPath(conn, socketCache);
             });
         };
 
-        const schedulePathUpdate = () => {
-            nextTick(() => updateConnectionPaths());
+        const updateConnectionPathsForNodes = (nodeIds) => {
+            if (!nodeIds || !nodeIds.size) {
+                updateConnectionPaths();
+                return;
+            }
+            const socketCache = new Map();
+            connections.value.forEach(conn => {
+                if (!nodeIds.has(conn.from) && !nodeIds.has(conn.to)) return;
+                updateSingleConnectionPath(conn, socketCache);
+            });
+        };
+
+        const flushPathUpdate = () => {
+            pathUpdateRaf = null;
+            nextTick(() => {
+                if (!pendingPathFullUpdate && !pendingPathNodeIds.size) return;
+                if (pendingPathFullUpdate) {
+                    updateConnectionPaths();
+                } else {
+                    updateConnectionPathsForNodes(new Set(pendingPathNodeIds));
+                }
+                pendingPathNodeIds.clear();
+                pendingPathFullUpdate = false;
+            });
+        };
+
+        const schedulePathUpdate = (nodeIds = null) => {
+            if (Array.isArray(nodeIds) && nodeIds.length && !pendingPathFullUpdate) {
+                nodeIds.forEach(id => pendingPathNodeIds.add(id));
+            } else {
+                pendingPathFullUpdate = true;
+                pendingPathNodeIds.clear();
+            }
+            if (pathUpdateRaf != null) return;
+            pathUpdateRaf = queueFrame(flushPathUpdate);
         };
 
         // --- LOGIC: Nodes CRUD ---
@@ -1552,7 +1760,8 @@ createApp({
                 data: dataOverride || defaultNodeData(type)
             };
             nodes.value.push(node);
-            schedulePathUpdate();
+            clearDomCaches();
+            schedulePathUpdate([node.id]);
             return node;
         };
 
@@ -1597,7 +1806,7 @@ createApp({
                     }
                 });
                 connections.value = connections.value.concat(newConnections);
-                schedulePathUpdate();
+                schedulePathUpdate(created.map(n => n.id));
             }
 
             selectedNodeIds.value = created.map(n => n.id);
@@ -1714,7 +1923,8 @@ createApp({
             connections.value = connections.value.filter(c => c.from !== id && c.to !== id);
             if (selectedNodeId.value === id) selectedNodeId.value = null;
             selectedNodeIds.value = selectedNodeIds.value.filter(nid => nid !== id);
-            schedulePathUpdate();
+            clearDomCaches();
+            schedulePathUpdate([id]);
         };
 
         const selectNode = (id) => {
@@ -1726,9 +1936,10 @@ createApp({
         const selectConnection = (id) => { selectedConnId.value = id; selectedNodeId.value = null; };
 
         const deleteConnection = (id) => {
+            const target = connections.value.find(c => c.id === id) || null;
             connections.value = connections.value.filter(c => c.id !== id);
             if (selectedConnId.value === id) selectedConnId.value = null;
-            schedulePathUpdate();
+            if (target) schedulePathUpdate([target.from, target.to]);
         };
 
         const onConnectionClick = (id, e) => {
@@ -1943,24 +2154,29 @@ createApp({
             if (!node?.data) return;
             if (!Array.isArray(node.data.ops)) node.data.ops = [];
             node.data.ops.push(createActionOp());
+            schedulePathUpdate([node.id]);
         };
 
         const removeActionOp = (node, index) => {
             if (!node?.data || !Array.isArray(node.data.ops)) return;
             node.data.ops.splice(index, 1);
+            schedulePathUpdate([node.id]);
         };
 
         const addSwitcherCase = (node) => {
             if (!node?.data) return;
             if (!Array.isArray(node.data.cases)) node.data.cases = [];
             node.data.cases.push(createSwitchCase());
+            clearDomCaches();
+            schedulePathUpdate([node.id]);
         };
 
         const removeSwitcherCase = (node, caseItem) => {
             if (!node?.data || !Array.isArray(node.data.cases)) return;
             node.data.cases = node.data.cases.filter(c => c.id !== caseItem.id);
             connections.value = connections.value.filter(c => !(c.from === node.id && c.fromSocket === caseItem.socketId));
-            schedulePathUpdate();
+            clearDomCaches();
+            schedulePathUpdate([node.id]);
         };
 
         const onSwitcherVarChange = (node) => {
@@ -2292,6 +2508,7 @@ createApp({
 
             selectedNodeId.value = null;
             selectedConnId.value = null;
+            clearDomCaches();
             schedulePathUpdate();
         };
 
@@ -2465,6 +2682,7 @@ createApp({
             if (!restored) {
                 const startId = 'start';
                 nodes.value.push({ id: startId, type: 'start', x: 100, y: 100, data: {} });
+                clearDomCaches();
                 schedulePathUpdate();
             }
 
@@ -2484,6 +2702,18 @@ createApp({
                 autosaveTimer = null;
                 saveAutosaveNow();
             }
+            if (pathUpdateRaf != null) {
+                cancelFrame(pathUpdateRaf);
+                pathUpdateRaf = null;
+            }
+            if (mouseMoveRaf != null) {
+                cancelFrame(mouseMoveRaf);
+                mouseMoveRaf = null;
+            }
+            pendingMouseMove.has = false;
+            pendingPathNodeIds.clear();
+            pendingPathFullUpdate = false;
+            clearDomCaches();
             window.removeEventListener('mousemove', onGlobalMouseMove);
             window.removeEventListener('mouseup', onGlobalMouseUp);
             window.removeEventListener('keydown', onGlobalKeyDown);
@@ -2500,7 +2730,8 @@ createApp({
             tab, isPlayMode, gameLog, activeNode, gameFinished,
             dragLine,
             selectionBox, hotkeyHints,
-            helpPanelOpen, helpSections, autosaveStatusText,
+            helpPanelOpen, helpSections, nodeDocs, autosaveStatusText,
+            formatDocText,
             editingNodeNameId, nodeNameDraft,
             hierarchySearch, hierarchyTypeFilters, filteredHierarchyRows,
             groupColorPalette,
