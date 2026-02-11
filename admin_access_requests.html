@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="ru">
+п»ї<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -48,7 +48,7 @@
             margin-bottom: 12px;
         }
 
-        .input, .select, .btn {
+        .input, .btn {
             border-radius: 12px;
             border: 1px solid var(--border);
             background: rgba(15, 23, 42, 0.65);
@@ -85,12 +85,12 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 1220px;
+            min-width: 1160px;
         }
 
         th, td {
             text-align: left;
-            padding: 10px 10px;
+            padding: 10px;
             border-bottom: 1px solid rgba(148, 163, 184, 0.2);
             vertical-align: top;
             font-size: 0.84rem;
@@ -126,8 +126,8 @@
         }
 
         .row-actions {
-            display: grid;
-            grid-template-columns: 140px auto auto;
+            display: flex;
+            flex-wrap: wrap;
             gap: 6px;
             align-items: center;
         }
@@ -137,6 +137,12 @@
             border-radius: 10px;
             padding: 7px 9px;
             font-size: 0.78rem;
+            min-height: 34px;
+        }
+
+        .row-actions .input {
+            min-width: 200px;
+            flex: 1 1 200px;
         }
 
         .details-row td { padding: 0 10px 12px; }
@@ -153,8 +159,19 @@
         }
 
         .details-card .full { grid-column: 1 / -1; }
-        .details-title { color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
-        .details-value { color: var(--text); font-size: 0.82rem; white-space: pre-wrap; word-break: break-word; }
+        .details-title {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 4px;
+        }
+        .details-value {
+            color: var(--text);
+            font-size: 0.82rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
 
         .status-msg {
             margin-top: 12px;
@@ -169,27 +186,34 @@
 
         .status-msg.error { border-color: rgba(185, 95, 95, 0.58); color: #ffb3b3; }
 
-        #accessDenied { display: none; text-align: center; color: #ffb3b3; padding: 28px 10px; }
+        #accessDenied {
+            display: none;
+            text-align: center;
+            color: #ffb3b3;
+            padding: 28px 10px;
+        }
 
         @media (max-width: 900px) {
             body { padding: 10px; }
             .toolbar { grid-template-columns: 1fr; }
+            table { min-width: 900px; }
+            .details-card { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
     <div class="shell">
         <h1 class="title">Access Requests</h1>
-        <p class="subtitle">Заявки на доступ: просмотр, генерация пароля, approve и отправка email через Edge Function.</p>
+        <p class="subtitle">Review requests, generate passwords, approve users, and send email notices.</p>
 
         <div id="accessDenied">
-            <h3>Доступ запрещен</h3>
-            <p class="muted">Нужна авторизация и claim user_role = admin.</p>
+            <h3>Access denied</h3>
+            <p class="muted">Admin session required (JWT claim user_role = admin).</p>
         </div>
 
         <div id="adminArea" style="display:none;">
             <div class="toolbar">
-                <input id="searchInput" class="input" type="text" placeholder="Поиск по email или тексту заявки">
+                <input id="searchInput" class="input" type="text" placeholder="Search by email or request text">
                 <button id="refreshBtn" class="btn" type="button">Refresh</button>
             </div>
 
@@ -244,9 +268,7 @@
             try {
                 const payload = token.split('.')[1];
                 const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-                const json = decodeURIComponent(
-                    atob(normalized).split('').map((ch) => '%' + ('00' + ch.charCodeAt(0).toString(16)).slice(-2)).join('')
-                );
+                const json = decodeURIComponent(atob(normalized).split('').map((ch) => '%' + ('00' + ch.charCodeAt(0).toString(16)).slice(-2)).join(''));
                 return JSON.parse(json);
             } catch (_e) {
                 return {};
@@ -273,9 +295,7 @@
         function randomPassword(len = 14) {
             const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
             let out = '';
-            for (let i = 0; i < len; i += 1) {
-                out += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
+            for (let i = 0; i < len; i += 1) out += chars.charAt(Math.floor(Math.random() * chars.length));
             return out;
         }
 
@@ -284,7 +304,7 @@
             if (!q) return requests;
             return requests.filter((r) => {
                 const email = (r.email || '').toLowerCase();
-                const about = (r.about_text || '').toLowerCase();
+                const about = (r.about_text || r.about || '').toLowerCase();
                 return email.includes(q) || about.includes(q);
             });
         }
@@ -292,7 +312,7 @@
         function renderRows() {
             const filtered = getFilteredRows();
             if (!filtered.length) {
-                rowsEl.innerHTML = '<tr><td colspan="6" class="muted">Нет записей по текущему фильтру.</td></tr>';
+                rowsEl.innerHTML = '<tr><td colspan="6" class="muted">No records for current filter.</td></tr>';
                 return;
             }
 
@@ -300,14 +320,15 @@
                 const rowId = safeText(r.id);
                 const isExpanded = expandedDetails.has(String(r.id));
                 const detailsBtnText = isExpanded ? 'Hide' : 'Details';
-                const statusValue = (r.status || 'pending').toString().toLowerCase();
+                const statusValue = (r.status || 'new').toString().toLowerCase();
+                const aboutFull = (r.about_text || r.about || '').toString();
                 return `
                     <tr>
                         <td class="muted">${safeText(formatDate(r.created_at))}</td>
                         <td>${safeText(r.email || '')}</td>
                         <td class="muted">${safeText(r.submit_count ?? 1)}</td>
                         <td><span class="badge ${statusValue === 'approved' ? 'approved' : ''}">${safeText(statusValue)}</span></td>
-                        <td class="muted">${safeText((r.about_text || '').slice(0, 120))}${(r.about_text || '').length > 120 ? '...' : ''}</td>
+                        <td class="muted">${safeText(aboutFull.slice(0, 120))}${aboutFull.length > 120 ? '...' : ''}</td>
                         <td>
                             <div class="row-actions">
                                 <input class="input" data-pass-id="${rowId}" type="text" placeholder="Generated password">
@@ -332,7 +353,7 @@
                                 </div>
                                 <div class="full">
                                     <div class="details-title">About / Full Text</div>
-                                    <div class="details-value">${safeText(r.about_text || 'n/a')}</div>
+                                    <div class="details-value">${safeText(aboutFull || 'n/a')}</div>
                                 </div>
                                 <div>
                                     <div class="details-title">Page URL</div>
@@ -366,7 +387,7 @@
                 requests = data || [];
                 renderRows();
             } catch (err) {
-                showStatus(err.message || 'Не удалось загрузить access_requests.', true);
+                showStatus(err.message || 'Failed to load access_requests.', true);
             } finally {
                 refreshBtn.disabled = false;
                 refreshBtn.textContent = 'Refresh';
@@ -454,7 +475,7 @@
                 const input = rowsEl.querySelector(`input[data-pass-id="${id}"]`);
                 const password = (input && input.value ? input.value.trim() : '');
                 if (!password || password.length < 8) {
-                    showStatus('Сначала сгенерируй/введи пароль (минимум 8 символов).', true);
+                    showStatus('Generate or enter a password first (minimum 8 characters).', true);
                     return;
                 }
                 await approveRequest(row, password, approveBtn);
@@ -469,7 +490,7 @@
                 const input = rowsEl.querySelector(`input[data-pass-id="${id}"]`);
                 const password = (input && input.value ? input.value.trim() : '');
                 if (!password || password.length < 8) {
-                    showStatus('Сначала сгенерируй/введи пароль (минимум 8 символов).', true);
+                    showStatus('Generate or enter a password first (minimum 8 characters).', true);
                     return;
                 }
                 openMailto(row, password);
