@@ -181,6 +181,7 @@
         .nav-links a[href="shader_playground.html"] { --item-accent: 141, 130, 186; }
         .nav-links a[href="noise_gen.html"] { --item-accent: 95, 163, 154; }
         .nav-links a[href="admin_add.html"] { --item-accent: 134, 184, 216; }
+        .nav-links a[href="admin_access_requests.html"] { --item-accent: 95, 163, 154; }
         .nav-links a[href="admin_bug_reports.html"] { --item-accent: 185, 137, 137; }
 
         @keyframes nav-press {
@@ -808,6 +809,7 @@
 <div class="category-title admin-group" style="color: #6f98b2;">Admin Zone</div>
 <ul class="nav-links admin-group">
     <li><a href="admin_add.html" target="tool-frame"><i class="fa-solid fa-pen-to-square" style="margin-right:8px"></i>Snippet Builder</a></li>
+    <li><a href="admin_access_requests.html" target="tool-frame"><i class="fa-solid fa-user-check" style="margin-right:8px"></i>Access Requests</a></li>
     <li><a href="admin_bug_reports.html" target="tool-frame"><i class="fa-solid fa-bug" style="margin-right:8px"></i>Bug Reports</a></li>
 </ul>
 
@@ -1089,6 +1091,33 @@
             }
         }
 
+        async function extractFunctionError(err, fallbackText) {
+            if (!err) return fallbackText;
+            const defaultMessage = (err.message || '').trim();
+
+            const context = err.context || err.response || null;
+            if (context) {
+                try {
+                    const response = typeof context.clone === 'function' ? context.clone() : context;
+                    const data = await response.json();
+                    if (data && typeof data.error === 'string' && data.error.trim()) return data.error.trim();
+                    if (data && typeof data.message === 'string' && data.message.trim()) return data.message.trim();
+                } catch (_) {
+                    // no-op
+                }
+                try {
+                    const response = typeof context.clone === 'function' ? context.clone() : context;
+                    const text = await response.text();
+                    if (typeof text === 'string' && text.trim()) return text.trim();
+                } catch (_) {
+                    // no-op
+                }
+            }
+
+            if (defaultMessage && !/non-2xx/i.test(defaultMessage)) return defaultMessage;
+            return defaultMessage || fallbackText;
+        }
+
         function hasCaptchaConfigured() {
             return typeof TURNSTILE_SITE_KEY === 'string' && TURNSTILE_SITE_KEY.trim().length > 0;
         }
@@ -1267,7 +1296,7 @@
                 okBox.innerText = 'Report sent. Thank you.';
                 okBox.style.display = 'block';
             } catch (err) {
-                errBox.innerText = err.message || 'Failed to send report.';
+                errBox.innerText = await extractFunctionError(err, 'Failed to send report.');
                 errBox.style.display = 'block';
             } finally {
                 btn.disabled = false;
@@ -1276,11 +1305,19 @@
         }
 
         // --- 5. ОБНОВЛЕНИЕ ИНТЕРФЕЙСА ---
+        function toggleAccessRequestVisibility(isAuthenticated) {
+            const requestBtn = document.getElementById('accessRequestBtn');
+            if (requestBtn) {
+                requestBtn.style.display = isAuthenticated ? 'none' : 'flex';
+            }
+        }
+
         function unlockUI(user) {
             console.log("User authorized:", user.email);
             sessionStorage.setItem('ct_supabase_auth', 'true'); 
             
             document.querySelectorAll('.admin-group').forEach(el => el.style.display = 'block');
+            toggleAccessRequestVisibility(true);
             
             const btn = document.getElementById('loginBtn');
             if (btn) {
@@ -1300,6 +1337,7 @@
         function lockUI() {
             sessionStorage.removeItem('ct_supabase_auth');
             document.querySelectorAll('.admin-group').forEach(el => el.style.display = 'none');
+            toggleAccessRequestVisibility(false);
             
             const btn = document.getElementById('loginBtn');
             if (btn) {
@@ -1467,7 +1505,7 @@
                 }
                 okBox.style.display = 'block';
             } catch (err) {
-                errBox.innerText = err.message || 'Failed to send request.';
+                errBox.innerText = await extractFunctionError(err, 'Failed to send request.');
                 errBox.style.display = 'block';
             } finally {
                 btn.disabled = false;
@@ -1536,5 +1574,7 @@
     </script>
 </body>
 </html>
+
+
 
 

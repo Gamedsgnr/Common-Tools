@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CommonToolHub | Access Requests</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg: #1a1f2b;
+            --panel: rgba(30, 41, 59, 0.45);
+            --border: rgba(148, 163, 184, 0.28);
+            --text: #dbe7f3;
+            --text-muted: #9aa4b2;
+            --accent: #7dd3fc;
+            --accent-strong: #3b82f6;
+            --shadow-outer: 0 18px 30px -12px rgba(2, 6, 23, 0.7);
+            --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -10px 22px rgba(2, 6, 23, 0.32);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 18px;
+        }
+
+        .shell {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow-outer), var(--shadow-inset);
+            backdrop-filter: blur(18px) saturate(1.2);
+            -webkit-backdrop-filter: blur(18px) saturate(1.2);
+            padding: 16px;
+        }
+
+        .title { margin: 0 0 4px; color: var(--accent); font-size: 1.1rem; font-weight: 700; }
+        .subtitle { margin: 0 0 14px; color: var(--text-muted); font-size: 0.9rem; }
+
+        .toolbar {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .input, .select, .btn {
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.65);
+            color: var(--text);
+            padding: 9px 10px;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        .btn {
+            background: var(--accent-strong);
+            border-color: rgba(125, 211, 252, 0.45);
+            color: #ffffff;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn:hover { filter: brightness(1.08); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .btn.secondary {
+            background: rgba(59, 130, 246, 0.18);
+            border-color: rgba(125, 211, 252, 0.35);
+            color: #cde8ff;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.45);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1220px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 10px 10px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+            vertical-align: top;
+            font-size: 0.84rem;
+        }
+
+        th {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .muted { color: var(--text-muted); }
+
+        .badge {
+            display: inline-block;
+            border-radius: 10px;
+            padding: 4px 9px;
+            font-weight: 700;
+            font-size: 0.72rem;
+            border: 1px solid transparent;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            background: rgba(125, 211, 252, 0.14);
+            color: #7dd3fc;
+            border-color: rgba(125, 211, 252, 0.45);
+        }
+
+        .badge.approved {
+            background: rgba(95, 163, 154, 0.2);
+            color: #8ce6d6;
+            border-color: rgba(95, 163, 154, 0.5);
+        }
+
+        .row-actions {
+            display: grid;
+            grid-template-columns: 140px auto auto;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .row-actions .btn,
+        .row-actions .input {
+            border-radius: 10px;
+            padding: 7px 9px;
+            font-size: 0.78rem;
+        }
+
+        .details-row td { padding: 0 10px 12px; }
+
+        .details-card {
+            background: rgba(15, 23, 42, 0.58);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: var(--shadow-outer), var(--shadow-inset);
+            padding: 10px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .details-card .full { grid-column: 1 / -1; }
+        .details-title { color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+        .details-value { color: var(--text); font-size: 0.82rem; white-space: pre-wrap; word-break: break-word; }
+
+        .status-msg {
+            margin-top: 12px;
+            display: none;
+            border-radius: 10px;
+            padding: 9px 10px;
+            border: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.65);
+            color: var(--text);
+            font-size: 0.84rem;
+        }
+
+        .status-msg.error { border-color: rgba(185, 95, 95, 0.58); color: #ffb3b3; }
+
+        #accessDenied { display: none; text-align: center; color: #ffb3b3; padding: 28px 10px; }
+
+        @media (max-width: 900px) {
+            body { padding: 10px; }
+            .toolbar { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <h1 class="title">Access Requests</h1>
+        <p class="subtitle">Заявки на доступ: просмотр, генерация пароля, approve и отправка email через Edge Function.</p>
+
+        <div id="accessDenied">
+            <h3>Доступ запрещен</h3>
+            <p class="muted">Нужна авторизация и claim user_role = admin.</p>
+        </div>
+
+        <div id="adminArea" style="display:none;">
+            <div class="toolbar">
+                <input id="searchInput" class="input" type="text" placeholder="Поиск по email или тексту заявки">
+                <button id="refreshBtn" class="btn" type="button">Refresh</button>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Created</th>
+                            <th>Email</th>
+                            <th>Submits</th>
+                            <th>Status</th>
+                            <th>About</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rows"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="statusMsg" class="status-msg"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://vmwwvwtsznxwoswzdzui.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_hfVfEOEyUxTAl9TCGQLQdA_2qpquHGk';
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const rowsEl = document.getElementById('rows');
+        const statusMsg = document.getElementById('statusMsg');
+        const adminArea = document.getElementById('adminArea');
+        const accessDenied = document.getElementById('accessDenied');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const searchInput = document.getElementById('searchInput');
+
+        let requests = [];
+        const expandedDetails = new Set();
+
+        function showStatus(text, isError) {
+            statusMsg.textContent = text;
+            statusMsg.className = isError ? 'status-msg error' : 'status-msg';
+            statusMsg.style.display = 'block';
+        }
+
+        function clearStatus() {
+            statusMsg.style.display = 'none';
+            statusMsg.textContent = '';
+            statusMsg.className = 'status-msg';
+        }
+
+        function decodeJwt(token) {
+            try {
+                const payload = token.split('.')[1];
+                const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+                const json = decodeURIComponent(
+                    atob(normalized).split('').map((ch) => '%' + ('00' + ch.charCodeAt(0).toString(16)).slice(-2)).join('')
+                );
+                return JSON.parse(json);
+            } catch (_e) {
+                return {};
+            }
+        }
+
+        function isAdminFromSession(session) {
+            if (!session || !session.access_token) return false;
+            const claims = decodeJwt(session.access_token);
+            return claims.user_role === 'admin';
+        }
+
+        function safeText(value) {
+            return (value ?? '').toString().replace(/[<>&]/g, (m) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[m]));
+        }
+
+        function formatDate(value) {
+            if (!value) return 'n/a';
+            const d = new Date(value);
+            if (Number.isNaN(d.getTime())) return value;
+            return d.toLocaleString();
+        }
+
+        function randomPassword(len = 14) {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
+            let out = '';
+            for (let i = 0; i < len; i += 1) {
+                out += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return out;
+        }
+
+        function getFilteredRows() {
+            const q = (searchInput.value || '').trim().toLowerCase();
+            if (!q) return requests;
+            return requests.filter((r) => {
+                const email = (r.email || '').toLowerCase();
+                const about = (r.about_text || '').toLowerCase();
+                return email.includes(q) || about.includes(q);
+            });
+        }
+
+        function renderRows() {
+            const filtered = getFilteredRows();
+            if (!filtered.length) {
+                rowsEl.innerHTML = '<tr><td colspan="6" class="muted">Нет записей по текущему фильтру.</td></tr>';
+                return;
+            }
+
+            rowsEl.innerHTML = filtered.map((r) => {
+                const rowId = safeText(r.id);
+                const isExpanded = expandedDetails.has(String(r.id));
+                const detailsBtnText = isExpanded ? 'Hide' : 'Details';
+                const statusValue = (r.status || 'pending').toString().toLowerCase();
+                return `
+                    <tr>
+                        <td class="muted">${safeText(formatDate(r.created_at))}</td>
+                        <td>${safeText(r.email || '')}</td>
+                        <td class="muted">${safeText(r.submit_count ?? 1)}</td>
+                        <td><span class="badge ${statusValue === 'approved' ? 'approved' : ''}">${safeText(statusValue)}</span></td>
+                        <td class="muted">${safeText((r.about_text || '').slice(0, 120))}${(r.about_text || '').length > 120 ? '...' : ''}</td>
+                        <td>
+                            <div class="row-actions">
+                                <input class="input" data-pass-id="${rowId}" type="text" placeholder="Generated password">
+                                <button class="btn secondary" type="button" data-gen-id="${rowId}">Generate</button>
+                                <button class="btn secondary" type="button" data-details-id="${rowId}">${detailsBtnText}</button>
+                                <button class="btn" type="button" data-approve-id="${rowId}">Approve + Email</button>
+                                <button class="btn secondary" type="button" data-mailto-id="${rowId}">Mailto Draft</button>
+                            </div>
+                        </td>
+                    </tr>
+                    ${isExpanded ? `
+                    <tr class="details-row">
+                        <td colspan="6">
+                            <div class="details-card">
+                                <div>
+                                    <div class="details-title">Updated</div>
+                                    <div class="details-value">${safeText(formatDate(r.updated_at))}</div>
+                                </div>
+                                <div>
+                                    <div class="details-title">Last Submission</div>
+                                    <div class="details-value">${safeText(r.last_submission_text || 'n/a')}</div>
+                                </div>
+                                <div class="full">
+                                    <div class="details-title">About / Full Text</div>
+                                    <div class="details-value">${safeText(r.about_text || 'n/a')}</div>
+                                </div>
+                                <div>
+                                    <div class="details-title">Page URL</div>
+                                    <div class="details-value">${safeText(r.page_url || 'n/a')}</div>
+                                </div>
+                                <div>
+                                    <div class="details-title">User Agent</div>
+                                    <div class="details-value">${safeText(r.user_agent || 'n/a')}</div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    ` : ''}
+                `;
+            }).join('');
+        }
+
+        async function loadRequests() {
+            clearStatus();
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = 'Loading...';
+            try {
+                const { data, error } = await sb
+                    .from('access_requests')
+                    .select('*')
+                    .order('updated_at', { ascending: false, nullsFirst: false })
+                    .order('created_at', { ascending: false })
+                    .limit(300);
+
+                if (error) throw error;
+                requests = data || [];
+                renderRows();
+            } catch (err) {
+                showStatus(err.message || 'Не удалось загрузить access_requests.', true);
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.textContent = 'Refresh';
+            }
+        }
+
+        function getRowById(id) {
+            return requests.find((x) => String(x.id) === String(id));
+        }
+
+        async function approveRequest(row, password, buttonEl) {
+            clearStatus();
+            buttonEl.disabled = true;
+            buttonEl.textContent = 'Approving...';
+            try {
+                const { data, error } = await sb.functions.invoke('admin-access-approve', {
+                    body: {
+                        request_id: row.id,
+                        email: row.email,
+                        password,
+                        send_email: true
+                    }
+                });
+
+                if (error) throw error;
+                if (data && data.error) throw new Error(data.error);
+
+                showStatus('Approved and email sent.', false);
+                await loadRequests();
+            } catch (err) {
+                showStatus((err.message || 'Approve failed.') + ' Configure Edge Function admin-access-approve to complete this flow.', true);
+            } finally {
+                buttonEl.disabled = false;
+                buttonEl.textContent = 'Approve + Email';
+            }
+        }
+
+        function openMailto(row, password) {
+            const subj = encodeURIComponent('Common Tools Access Approved');
+            const body = encodeURIComponent(
+`Hello,\n\nYour access request has been approved.\n\nEmail: ${row.email || ''}\nPassword: ${password}\n\nYou can now sign in at Common Tools.\n\nRegards,\nCommon Tools Admin`
+            );
+            window.open(`mailto:${encodeURIComponent(row.email || '')}?subject=${subj}&body=${body}`, '_blank');
+        }
+
+        async function init() {
+            const { data, error } = await sb.auth.getSession();
+            if (error || !data.session || !isAdminFromSession(data.session)) {
+                accessDenied.style.display = 'block';
+                adminArea.style.display = 'none';
+                return;
+            }
+
+            accessDenied.style.display = 'none';
+            adminArea.style.display = 'block';
+            await loadRequests();
+        }
+
+        refreshBtn.addEventListener('click', loadRequests);
+        searchInput.addEventListener('input', renderRows);
+
+        rowsEl.addEventListener('click', async (event) => {
+            const genBtn = event.target.closest('button[data-gen-id]');
+            if (genBtn) {
+                const id = genBtn.getAttribute('data-gen-id');
+                const input = rowsEl.querySelector(`input[data-pass-id="${id}"]`);
+                if (input) input.value = randomPassword();
+                return;
+            }
+
+            const detailsBtn = event.target.closest('button[data-details-id]');
+            if (detailsBtn) {
+                const id = detailsBtn.getAttribute('data-details-id');
+                if (expandedDetails.has(String(id))) expandedDetails.delete(String(id));
+                else expandedDetails.add(String(id));
+                renderRows();
+                return;
+            }
+
+            const approveBtn = event.target.closest('button[data-approve-id]');
+            if (approveBtn) {
+                const id = approveBtn.getAttribute('data-approve-id');
+                const row = getRowById(id);
+                if (!row) return;
+                const input = rowsEl.querySelector(`input[data-pass-id="${id}"]`);
+                const password = (input && input.value ? input.value.trim() : '');
+                if (!password || password.length < 8) {
+                    showStatus('Сначала сгенерируй/введи пароль (минимум 8 символов).', true);
+                    return;
+                }
+                await approveRequest(row, password, approveBtn);
+                return;
+            }
+
+            const mailtoBtn = event.target.closest('button[data-mailto-id]');
+            if (mailtoBtn) {
+                const id = mailtoBtn.getAttribute('data-mailto-id');
+                const row = getRowById(id);
+                if (!row) return;
+                const input = rowsEl.querySelector(`input[data-pass-id="${id}"]`);
+                const password = (input && input.value ? input.value.trim() : '');
+                if (!password || password.length < 8) {
+                    showStatus('Сначала сгенерируй/введи пароль (минимум 8 символов).', true);
+                    return;
+                }
+                openMailto(row, password);
+            }
+        });
+
+        init();
+    </script>
+</body>
+</html>
