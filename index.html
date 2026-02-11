@@ -363,6 +363,39 @@
             backdrop-filter: blur(2px);
         }
 
+        #bugReportModal {
+            overflow: hidden;
+        }
+
+        .bug-modal-fx {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .bug-modal-fx .fx-bug {
+            position: absolute;
+            left: 0;
+            top: 0;
+            color: rgba(255, 166, 138, 0.62);
+            text-shadow:
+                0 0 10px rgba(255, 153, 119, 0.45),
+                0 0 20px rgba(255, 119, 86, 0.3),
+                0 0 24px rgba(2, 6, 23, 0.5);
+            transform-origin: center center;
+            user-select: none;
+            will-change: transform, opacity;
+            animation: bug-soft-blink 3.2s ease-in-out infinite;
+        }
+
+        @keyframes bug-soft-blink {
+            0% { opacity: 0.26; }
+            52% { opacity: 0.74; }
+            100% { opacity: 0.26; }
+        }
+
         .modal-box {
             background: #243142;
             padding: 30px;
@@ -426,6 +459,8 @@
                 0 18px 30px -12px rgba(2, 6, 23, 0.7),
                 inset 0 1px 0 rgba(255, 255, 255, 0.22),
                 inset 0 -10px 22px rgba(2, 6, 23, 0.32);
+            position: relative;
+            z-index: 2;
         }
 
         .bug-grid {
@@ -840,6 +875,7 @@
     </div>
 
     <div class="modal-overlay" id="bugReportModal">
+        <div class="bug-modal-fx" id="bugModalFx" aria-hidden="true"></div>
         <div class="modal-box bug-report-box">
             <h3>Bug Report</h3>
             <div class="bug-grid">
@@ -948,6 +984,10 @@
         var _requestCaptchaWidgetId = null;
         var _bugCaptchaToken = '';
         var _requestCaptchaToken = '';
+        var _bugFxItems = [];
+        var _bugFxAnimId = null;
+        var _bugFxPrevTs = 0;
+        var _bugFxLastSpawn = 0;
 
         // --- 2. ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ ---
         window.onload = async function() {
@@ -983,6 +1023,177 @@
         }
 
         // --- 3. ОБРАБОТКА КЛИКА ПО LOGIN ---
+        function randomRange(min, max) {
+            return min + Math.random() * (max - min);
+        }
+
+        function clearBugModalFx() {
+            const layer = document.getElementById('bugModalFx');
+            _bugFxItems = [];
+            if (_bugFxAnimId) {
+                cancelAnimationFrame(_bugFxAnimId);
+                _bugFxAnimId = null;
+            }
+            _bugFxPrevTs = 0;
+            _bugFxLastSpawn = 0;
+            if (layer) layer.innerHTML = '';
+        }
+
+        function spawnBugModalFx() {
+            const layer = document.getElementById('bugModalFx');
+            const modal = document.getElementById('bugReportModal');
+            if (!layer || !modal || modal.style.display !== 'flex') return;
+            if (_bugFxItems.length >= 180) return;
+
+            const width = modal.clientWidth || window.innerWidth;
+            const radius = randomRange(13, 17);
+            const x = randomRange(radius, Math.max(radius + 1, width - radius));
+            const y = randomRange(-120, -22);
+
+            const el = document.createElement('i');
+            el.className = 'fa-solid fa-bug fx-bug';
+            el.style.fontSize = `${Math.round(radius * 2)}px`;
+            el.style.animationDuration = `${randomRange(3.2, 6.1).toFixed(2)}s`;
+            layer.appendChild(el);
+
+            _bugFxItems.push({
+                el: el,
+                x: x,
+                y: y,
+                vx: randomRange(-26, 26),
+                vy: randomRange(-8, 18),
+                r: radius,
+                a: randomRange(-0.4, 0.4),
+                va: randomRange(-0.35, 0.35),
+                m: radius * radius,
+                sleeping: false,
+                restTime: 0
+            });
+        }
+
+        function resolveBugModalFxCollisions() {
+            for (let i = 0; i < _bugFxItems.length; i += 1) {
+                const a = _bugFxItems[i];
+                for (let j = i + 1; j < _bugFxItems.length; j += 1) {
+                    const b = _bugFxItems[j];
+                    const dx = b.x - a.x;
+                    const dy = b.y - a.y;
+                    const minDist = a.r + b.r;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq >= minDist * minDist) continue;
+
+                    const dist = Math.sqrt(Math.max(distSq, 0.0001));
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+                    const overlap = minDist - dist;
+                    const invMassA = 1 / a.m;
+                    const invMassB = 1 / b.m;
+                    const invMassSum = invMassA + invMassB;
+
+                    a.x -= nx * overlap * (invMassA / invMassSum);
+                    a.y -= ny * overlap * (invMassA / invMassSum);
+                    b.x += nx * overlap * (invMassB / invMassSum);
+                    b.y += ny * overlap * (invMassB / invMassSum);
+
+                    const rvx = b.vx - a.vx;
+                    const rvy = b.vy - a.vy;
+                    const velAlongNormal = rvx * nx + rvy * ny;
+                    if (velAlongNormal > 0) continue;
+
+                    const restitution = 0.3;
+                    const impulse = -(1 + restitution) * velAlongNormal / invMassSum;
+                    const ix = impulse * nx;
+                    const iy = impulse * ny;
+
+                    a.vx -= ix * invMassA;
+                    a.vy -= iy * invMassA;
+                    b.vx += ix * invMassB;
+                    b.vy += iy * invMassB;
+                    a.sleeping = false;
+                    b.sleeping = false;
+                    a.restTime = 0;
+                    b.restTime = 0;
+                }
+            }
+        }
+
+        function tickBugModalFx(ts) {
+            const modal = document.getElementById('bugReportModal');
+            if (!modal || modal.style.display !== 'flex') {
+                _bugFxAnimId = null;
+                return;
+            }
+
+            if (!_bugFxPrevTs) _bugFxPrevTs = ts;
+            const dt = Math.min((ts - _bugFxPrevTs) / 1000, 0.034);
+            _bugFxPrevTs = ts;
+
+            if ((ts - _bugFxLastSpawn) >= 860) {
+                spawnBugModalFx();
+                _bugFxLastSpawn = ts;
+            }
+
+            const width = modal.clientWidth || window.innerWidth;
+            const height = modal.clientHeight || window.innerHeight;
+            const gravity = 520;
+
+            for (let i = 0; i < _bugFxItems.length; i += 1) {
+                const b = _bugFxItems[i];
+                if (b.sleeping) continue;
+                b.vy += gravity * dt;
+                b.x += b.vx * dt;
+                b.y += b.vy * dt;
+                b.a += (b.vx / Math.max(b.r, 0.01)) * dt + b.va * dt;
+                b.va *= 0.992;
+
+                if (b.x < b.r) {
+                    b.x = b.r;
+                    b.vx *= -0.48;
+                } else if (b.x > width - b.r) {
+                    b.x = width - b.r;
+                    b.vx *= -0.48;
+                }
+
+                const floor = height - b.r - 6;
+                if (b.y > floor) {
+                    b.y = floor;
+                    if (Math.abs(b.vy) < 28) b.vy = 0;
+                    else b.vy *= -0.28;
+                    b.vx *= 0.985;
+                    if (Math.abs(b.vx) < 2.5) b.vx = 0;
+                }
+
+                const onFloor = b.y >= (floor - 0.6);
+                const nearStill = Math.abs(b.vx) < 1.2 && Math.abs(b.vy) < 1.2 && Math.abs(b.va) < 0.05;
+                if (onFloor && nearStill) {
+                    b.restTime += dt;
+                    if (b.restTime >= 5) {
+                        b.sleeping = true;
+                        b.vx = 0;
+                        b.vy = 0;
+                        b.va = 0;
+                    }
+                } else {
+                    b.restTime = 0;
+                }
+            }
+
+            resolveBugModalFxCollisions();
+
+            for (let i = 0; i < _bugFxItems.length; i += 1) {
+                const b = _bugFxItems[i];
+                b.el.style.transform = `translate(${(b.x - b.r).toFixed(2)}px, ${(b.y - b.r).toFixed(2)}px) rotate(${b.a.toFixed(3)}rad)`;
+            }
+
+            _bugFxAnimId = requestAnimationFrame(tickBugModalFx);
+        }
+
+        function initBugModalFx() {
+            if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            clearBugModalFx();
+            for (let i = 0; i < 7; i += 1) spawnBugModalFx();
+            _bugFxAnimId = requestAnimationFrame(tickBugModalFx);
+        }
         function handleAuthClick() {
             if (!_sbClient) {
                 alert("Ошибка: Supabase не инициализирован. Проверьте консоль.");
@@ -1026,6 +1237,7 @@
             if (errBox) errBox.style.display = 'none';
             if (captchaNote) captchaNote.style.display = 'none';
             if (modal) modal.style.display = 'flex';
+            initBugModalFx();
             ensureCaptchaForModal('bug');
         }
 
@@ -1036,6 +1248,7 @@
             if (modal) modal.style.display = 'none';
             if (errBox) errBox.style.display = 'none';
             if (okBox) okBox.style.display = 'none';
+            clearBugModalFx();
         }
 
         function openAccessRequestModal() {
@@ -1574,6 +1787,7 @@
     </script>
 </body>
 </html>
+
 
 
 

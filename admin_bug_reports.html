@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CommonToolHub | Bug Reports</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
             --bg: #1a1f2b;
@@ -26,6 +27,39 @@
             background: var(--bg);
             color: var(--text);
             padding: 18px;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        .bug-fall-layer {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .bug-fall-layer .fx-bug {
+            position: absolute;
+            left: 0;
+            top: 0;
+            color: rgba(255, 166, 138, 0.62);
+            text-shadow:
+                0 0 10px rgba(255, 153, 119, 0.45),
+                0 0 20px rgba(255, 119, 86, 0.3),
+                0 0 24px rgba(2, 6, 23, 0.5);
+            transform-origin: center center;
+            user-select: none;
+            will-change: transform, opacity;
+            animation: bug-fall-blink 3.2s ease-in-out infinite;
+        }
+
+        @keyframes bug-fall-blink {
+            0% { opacity: 0.26; }
+            52% { opacity: 0.74; }
+            100% { opacity: 0.26; }
         }
 
         .shell {
@@ -36,6 +70,8 @@
             backdrop-filter: blur(18px) saturate(1.2);
             -webkit-backdrop-filter: blur(18px) saturate(1.2);
             padding: 16px;
+            position: relative;
+            z-index: 2;
         }
 
         .title {
@@ -220,6 +256,7 @@
     </style>
 </head>
 <body>
+    <div class="bug-fall-layer" id="bugFallLayer" aria-hidden="true"></div>
     <div class="shell">
         <h1 class="title">Bug Reports</h1>
         <p class="subtitle">Админ-таблица баг-репортов: фильтрация и смена статуса.</p>
@@ -282,9 +319,165 @@
         const severityFilterEl = document.getElementById('severityFilter');
         const statusFilterEl = document.getElementById('statusFilter');
         const refreshBtn = document.getElementById('refreshBtn');
+        const bugFallLayer = document.getElementById('bugFallLayer');
 
         let reports = [];
         const expandedDetails = new Set();
+        const bugFx = [];
+        const BUG_MAX = 240;
+        const BUG_SPAWN_MS = 860;
+        let bugLastSpawn = 0;
+        let bugAnimHandle = null;
+        let bugPrevTs = 0;
+
+        function rand(min, max) {
+            return min + Math.random() * (max - min);
+        }
+
+        function spawnBugFx() {
+            if (!bugFallLayer || bugFx.length >= BUG_MAX) return;
+            const layerW = window.innerWidth;
+            const radius = rand(13, 17);
+            const x = rand(radius, layerW - radius);
+            const y = rand(-120, -22);
+            const el = document.createElement('i');
+            el.className = 'fa-solid fa-bug fx-bug';
+            el.style.fontSize = `${Math.round(radius * 2.02)}px`;
+            bugFallLayer.appendChild(el);
+
+            bugFx.push({
+                el,
+                x,
+                y,
+                vx: rand(-28, 28),
+                vy: rand(-8, 18),
+                r: radius,
+                a: rand(-0.4, 0.4),
+                va: rand(-0.35, 0.35),
+                m: radius * radius,
+                sleeping: false,
+                restTime: 0
+            });
+        }
+
+        function resolveBugCollisions() {
+            for (let i = 0; i < bugFx.length; i += 1) {
+                const a = bugFx[i];
+                for (let j = i + 1; j < bugFx.length; j += 1) {
+                    const b = bugFx[j];
+                    const dx = b.x - a.x;
+                    const dy = b.y - a.y;
+                    const distSq = dx * dx + dy * dy;
+                    const minDist = a.r + b.r;
+                    if (distSq >= minDist * minDist) continue;
+
+                    const dist = Math.sqrt(Math.max(distSq, 0.0001));
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+                    const overlap = minDist - dist;
+
+                    const invMassA = 1 / a.m;
+                    const invMassB = 1 / b.m;
+                    const invMassSum = invMassA + invMassB;
+
+                    a.x -= nx * overlap * (invMassA / invMassSum);
+                    a.y -= ny * overlap * (invMassA / invMassSum);
+                    b.x += nx * overlap * (invMassB / invMassSum);
+                    b.y += ny * overlap * (invMassB / invMassSum);
+
+                    const rvx = b.vx - a.vx;
+                    const rvy = b.vy - a.vy;
+                    const velAlongNormal = rvx * nx + rvy * ny;
+                    if (velAlongNormal > 0) continue;
+
+                    const restitution = 0.32;
+                    const impulse = -(1 + restitution) * velAlongNormal / invMassSum;
+                    const ix = impulse * nx;
+                    const iy = impulse * ny;
+                    a.vx -= ix * invMassA;
+                    a.vy -= iy * invMassA;
+                    b.vx += ix * invMassB;
+                    b.vy += iy * invMassB;
+                    a.sleeping = false;
+                    b.sleeping = false;
+                    a.restTime = 0;
+                    b.restTime = 0;
+                }
+            }
+        }
+
+        function tickBugFx(ts) {
+            if (!bugPrevTs) bugPrevTs = ts;
+            const dt = Math.min((ts - bugPrevTs) / 1000, 0.034);
+            bugPrevTs = ts;
+
+            if ((ts - bugLastSpawn) >= BUG_SPAWN_MS) {
+                spawnBugFx();
+                bugLastSpawn = ts;
+            }
+
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const floorPad = 6;
+            const gravity = 520;
+
+            for (let i = 0; i < bugFx.length; i += 1) {
+                const b = bugFx[i];
+                if (b.sleeping) continue;
+                b.vy += gravity * dt;
+                b.x += b.vx * dt;
+                b.y += b.vy * dt;
+                b.a += (b.vx / Math.max(b.r, 0.01)) * dt + b.va * dt;
+                b.va *= 0.992;
+
+                if (b.x < b.r) {
+                    b.x = b.r;
+                    b.vx *= -0.48;
+                } else if (b.x > w - b.r) {
+                    b.x = w - b.r;
+                    b.vx *= -0.48;
+                }
+
+                const floorY = h - floorPad - b.r;
+                if (b.y > floorY) {
+                    b.y = floorY;
+                    if (Math.abs(b.vy) < 28) b.vy = 0;
+                    else b.vy *= -0.28;
+                    b.vx *= 0.985;
+                    if (Math.abs(b.vx) < 2.5) b.vx = 0;
+                }
+
+                const onFloor = b.y >= (floorY - 0.6);
+                const nearStill = Math.abs(b.vx) < 1.2 && Math.abs(b.vy) < 1.2 && Math.abs(b.va) < 0.05;
+                if (onFloor && nearStill) {
+                    b.restTime += dt;
+                    if (b.restTime >= 5) {
+                        b.sleeping = true;
+                        b.vx = 0;
+                        b.vy = 0;
+                        b.va = 0;
+                    }
+                } else {
+                    b.restTime = 0;
+                }
+            }
+
+            resolveBugCollisions();
+
+            for (let i = 0; i < bugFx.length; i += 1) {
+                const b = bugFx[i];
+                b.el.style.transform = `translate(${(b.x - b.r).toFixed(2)}px, ${(b.y - b.r).toFixed(2)}px) rotate(${b.a.toFixed(3)}rad)`;
+            }
+
+            bugAnimHandle = requestAnimationFrame(tickBugFx);
+        }
+
+        function initBugFx() {
+            if (!bugFallLayer) return;
+            if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            for (let i = 0; i < 7; i += 1) spawnBugFx();
+            bugAnimHandle = requestAnimationFrame(tickBugFx);
+        }
 
         function showStatus(text, isError) {
             statusMsg.textContent = text;
@@ -515,6 +708,7 @@
             await updateStatus(id, select.value, btn);
         });
 
+        initBugFx();
         init();
     </script>
 </body>
