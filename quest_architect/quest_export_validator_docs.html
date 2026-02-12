@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quest Validator Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="quest_export_validator_docs.css">
+</head>
+<body>
+  <div class="docs-app">
+    <section class="docs-panel docs-head">
+      <div>
+        <h1>Документация: Quest Exporter + Validator</h1>
+        <p>Полное описание режимов, проверок, кнопок и форматов экспорта.</p>
+      </div>
+      <div class="head-note">Охват: от загрузки payload до скачивания итоговых JSON.</div>
+    </section>
+
+    <section class="docs-panel wiki-shell">
+      <aside class="wiki-nav">
+        <div class="wiki-nav-title">Содержание</div>
+        <a class="wiki-link active" href="#overview">1. Назначение</a>
+        <a class="wiki-link" href="#workflow">2. Быстрый сценарий работы</a>
+        <a class="wiki-link" href="#source">3. Блок Source</a>
+        <a class="wiki-link" href="#summary">4. Validation Summary</a>
+        <a class="wiki-link" href="#options">5. Export Options</a>
+        <a class="wiki-link" href="#diagnostics">6. Diagnostics</a>
+        <a class="wiki-link" href="#runtime-export">7. Runtime Export</a>
+        <a class="wiki-link" href="#dataasset-export">8. DataAsset Export</a>
+        <a class="wiki-link" href="#unity-export">9. Unity Export</a>
+        <a class="wiki-link" href="#debug-export">10. Debug Pack</a>
+        <a class="wiki-link" href="#actions">11. Copy / Download / Rebuild / Jump</a>
+        <a class="wiki-link" href="#status">12. Status и интерпретация</a>
+        <a class="wiki-link" href="#troubleshooting">13. Troubleshooting</a>
+        <a class="wiki-link" href="#checklist">14. Checklist перед экспортом</a>
+      </aside>
+
+      <main class="wiki-content-scroll" id="wikiScrollRoot">
+        <section class="wiki-section" id="overview">
+          <h2>1. Назначение</h2>
+          <p>Validator нужен для двух задач: проверить корректность квест-графа и получить готовые JSON-выгрузки в нескольких режимах.</p>
+          <ul>
+            <li>Вход: payload проекта (nodes, connections, variables, characters, title, version).</li>
+            <li>Промежуточный этап: валидация структуры, связей, достижимости, ссылок, переменных.</li>
+            <li>Выход: Runtime Export, DataAsset Export, Unity Export, Debug Pack.</li>
+          </ul>
+        </section>
+
+        <section class="wiki-section" id="workflow">
+          <h2>2. Быстрый сценарий работы</h2>
+          <ol>
+            <li>Открой Validator и нажми <code>Request From Architect</code> (или загрузи JSON вручную).</li>
+            <li>Проверь блок <code>Validation Summary</code>: critical/warning/runtime/unreachable.</li>
+            <li>Перейди в <code>Diagnostics</code> и обработай список <code>Validation Issues</code>.</li>
+            <li>Для проблемных нод используй <code>Jump</code> и поправь граф в Architect.</li>
+            <li>Вернись и нажми <code>Rebuild Exports</code>.</li>
+            <li>Выбери нужный таб экспорта.</li>
+            <li>Используй <code>Copy</code> или <code>Download</code> для выдачи результата.</li>
+          </ol>
+        </section>
+
+        <section class="wiki-section" id="source">
+          <h2>3. Блок Source</h2>
+          <h3>Request From Architect</h3>
+          <p>Просит актуальный payload у открытого Quest Architect через <code>postMessage</code>. Это основной рабочий путь внутри редактора.</p>
+          <h3>Load JSON File</h3>
+          <p>Загружает payload из файла. Удобно для оффлайн-проверки версии графа из архива/репозитория.</p>
+          <h3>Paste Raw JSON + Parse JSON</h3>
+          <p>Ручной ввод payload в textarea. Подходит для диагностики маленьких фрагментов и быстрых экспериментов.</p>
+          <h3>Load Sample</h3>
+          <p>Подставляет демонстрационный payload, чтобы проверить интерфейс и выходные форматы без подготовки своих данных.</p>
+          <h3>Source Meta</h3>
+          <p>Показывает источник, имя проекта, количество нод/связей и время последнего обновления данных.</p>
+        </section>
+
+        <section class="wiki-section" id="summary">
+          <h2>4. Validation Summary</h2>
+          <ul>
+            <li><code>Critical</code>: ошибки, при которых граф технически некорректен и экспорт небезопасен.</li>
+            <li><code>Warnings</code>: рискованные/неполные места, не всегда блокирующие экспорт.</li>
+            <li><code>Runtime Nodes</code>: число runtime-нод, учитываемых в экспортах.</li>
+            <li><code>Unreachable</code>: количество нод, недостижимых от Start.</li>
+          </ul>
+          <p>Практика: доводи <code>Critical = 0</code>; предупреждения разбирай по контексту дизайна.</p>
+        </section>
+
+        <section class="wiki-section" id="options">
+          <h2>5. Export Options</h2>
+          <h3>Pretty JSON formatting</h3>
+          <p>Влияет только на читаемость (отступы). Структура данных не меняется.</p>
+          <h3>Include docs nodes in runtime export</h3>
+          <p>Добавляет layout/doc ноды (<code>comment</code>, <code>group</code>) в runtime-выгрузки. Обычно выключено.</p>
+          <h3>Include source payload in debug export</h3>
+          <p>В Debug Pack добавляется полный исходный payload (<code>sourcePayload</code>) для глубокого разбора.</p>
+        </section>
+
+        <section class="wiki-section" id="diagnostics">
+          <h2>6. Таб Diagnostics</h2>
+          <h3>Validation Issues</h3>
+          <p>Список найденных проблем с кодом и уровнем:</p>
+          <ul>
+            <li><code>critical</code>: broken_connection, missing_start, unresolved link target и т.д.</li>
+            <li><code>warning</code>: dead-end ветви, пустые поля, недостижимые ноды, дубликаты имен.</li>
+          </ul>
+          <p>Кнопка <code>Jump</code> отправляет фокус к ноде в Architect.</p>
+          <h3>Runtime Diagnostics</h3>
+          <p>Сводные метрики графа (например, Runtime Edges, Avg Out Degree, Branch Nodes, Leaf Nodes, Approx Max Depth).</p>
+        </section>
+
+        <section class="wiki-section" id="runtime-export">
+          <h2>7. Таб Runtime Export</h2>
+          <p>Базовый runtime JSON для исполнения квеста:</p>
+          <ul>
+            <li><code>meta</code>: служебные поля генерации.</li>
+            <li><code>graph.startNodeId</code> и <code>graph.nodes[]</code>.</li>
+            <li>Каждая нода содержит <code>id</code>, <code>type</code>, <code>title</code>, <code>data</code>, <code>transitions</code>.</li>
+            <li>Также включаются <code>variables</code> и <code>characters</code>.</li>
+          </ul>
+          <pre><code>{
+  "graph": {
+    "startNodeId": "node_start",
+    "nodes": [{ "id": "node_a", "type": "dialog", "data": {}, "transitions": [] }]
+  }
+}</code></pre>
+        </section>
+
+        <section class="wiki-section" id="dataasset-export">
+          <h2>8. Таб DataAsset Export</h2>
+          <p>Структура с PascalCase-полями и явной схемой:</p>
+          <ul>
+            <li><code>Schema</code>, <code>QuestId</code>, <code>DisplayName</code>, <code>StartNodeId</code>.</li>
+            <li><code>Variables[]</code>, <code>Characters[]</code>.</li>
+            <li><code>Nodes[]</code>: <code>Id</code>, <code>Type</code>, <code>Title</code>, <code>Payload</code>, <code>Links[]</code>.</li>
+          </ul>
+          <pre><code>{
+  "Schema": "QuestDataAsset.v1",
+  "Nodes": [
+    {
+      "Id": "node_a",
+      "Type": "Dialog",
+      "Payload": {},
+      "Links": [{ "Socket": "choice-0", "To": "node_b", "Kind": "edge" }]
+    }
+  ]
+}</code></pre>
+        </section>
+
+        <section class="wiki-section" id="unity-export">
+          <h2>9. Таб Unity Export</h2>
+          <p>Аналогичная по смыслу выгрузка, но в lowerCamelCase:</p>
+          <ul>
+            <li><code>schema</code>, <code>questId</code>, <code>displayName</code>, <code>startNodeId</code>.</li>
+            <li><code>variables[]</code>, <code>characters[]</code>.</li>
+            <li><code>nodes[]</code> с <code>payload</code> и <code>links[]</code>.</li>
+          </ul>
+          <p>Это отдельный формат выдачи, удобный для сериализации под Unity-пайплайн.</p>
+        </section>
+
+        <section class="wiki-section" id="debug-export">
+          <h2>10. Таб Debug Pack</h2>
+          <p>Пакет для расследования проблем и сверки версий. Внутри:</p>
+          <ul>
+            <li><code>meta</code>, <code>summary</code>, <code>issues</code>, <code>diagnostics</code>.</li>
+            <li>Вложенные результаты всех режимов: <code>runtimeExport</code>, <code>dataAssetExport</code>, <code>unityExport</code>.</li>
+            <li>Опционально <code>sourcePayload</code> (если включен чекбокс Include source payload).</li>
+          </ul>
+        </section>
+
+        <section class="wiki-section" id="actions">
+          <h2>11. Copy / Download / Rebuild / Jump</h2>
+          <h3>Copy</h3>
+          <p>Копирует содержимое текущего активного таба в буфер обмена.</p>
+          <h3>Download</h3>
+          <p>Скачивает JSON текущего таба. Имена файлов задаются автоматически:</p>
+          <ul>
+            <li><code>quest_runtime_export.json</code></li>
+            <li><code>quest_dataasset_export.json</code></li>
+            <li><code>quest_unity_export.json</code></li>
+            <li><code>quest_debug_pack.json</code></li>
+          </ul>
+          <h3>Rebuild Exports</h3>
+          <p>Повторно считает валидацию и пересобирает все выгрузки на основе текущего payload и выбранных опций.</p>
+          <h3>Jump To Start</h3>
+          <p>Переход к Start-ноде в Architect (через bridge-сообщение).</p>
+        </section>
+
+        <section class="wiki-section" id="status">
+          <h2>12. Status и интерпретация</h2>
+          <ul>
+            <li><code>Waiting for data</code>: payload еще не загружен.</li>
+            <li><code>Requesting payload from architect...</code>: отправлен запрос в Architect.</li>
+            <li><code>Validation failed: critical issues</code>: есть критические ошибки.</li>
+            <li><code>Validation has warnings</code>: критических нет, но есть предупреждения.</li>
+            <li><code>Validation passed</code>: критических и предупреждений нет.</li>
+          </ul>
+        </section>
+
+        <section class="wiki-section" id="troubleshooting">
+          <h2>13. Troubleshooting</h2>
+          <h3>Пусто после Request From Architect</h3>
+          <ul>
+            <li>Убедись, что Validator открыт из Architect, а не отдельной вкладкой.</li>
+            <li>Нажми Request повторно или перезагрузи Architect.</li>
+            <li>Если нужно, загрузи payload вручную через File/Paste.</li>
+          </ul>
+          <h3>Неактивен экспорт / пустые output</h3>
+          <ul>
+            <li>Проверь, что payload успешно распарсен.</li>
+            <li>Нажми <code>Rebuild Exports</code>.</li>
+            <li>Проверь статус-строку и список issues.</li>
+          </ul>
+          <h3>Много unreachable / cycles</h3>
+          <p>Начни с Start и Link State/Link Entry связок, затем проверь default/true/false ветви и отсутствующие sockets.</p>
+        </section>
+
+        <section class="wiki-section" id="checklist">
+          <h2>14. Checklist перед экспортом</h2>
+          <ol>
+            <li><code>Critical = 0</code>.</li>
+            <li>Все важные warning разобраны осознанно.</li>
+            <li>Start есть и ведет в рабочий путь.</li>
+            <li>Нет битых ссылок и пустых обязательных полей.</li>
+            <li>Выбраны корректные Export Options.</li>
+            <li>Проверен нужный формат (Runtime/DataAsset/Unity/Debug).</li>
+            <li>Выгрузка выполнена через Copy или Download.</li>
+          </ol>
+        </section>
+      </main>
+    </section>
+  </div>
+  <script src="quest_export_validator_docs.js"></script>
+</body>
+</html>

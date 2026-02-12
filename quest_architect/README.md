@@ -42,22 +42,47 @@ Quest Architect is a visual quest-graph editor loaded by `QuestArchitect2.html`.
 - IO: one input, case outputs + `default`.
 - Notes: useful for enums and multi-state logic.
 
-6. `Link Entry`
+6. `Wait Event`
+- Purpose: suspend quest flow until external runtime event is emitted.
+- IO: one input, one `default` output.
+- Notes: set event key (for example `quest.bandits_cleared`) and continue from default output.
+
+7. `Wait Condition`
+- Purpose: suspend quest flow until condition becomes true.
+- IO: one input, one `default` output.
+- Notes: same comparison model as `Condition`, but resumes only when true.
+
+8. `Objective Set`
+- Purpose: create/update objective entry in quest journal/task tracker.
+- IO: one input, one `default` output.
+- Notes: define `objectiveId` + objective text shown to player.
+
+9. `Objective Complete`
+- Purpose: mark objective as completed.
+- IO: one input, one `default` output.
+- Notes: references previously created `objectiveId`.
+
+10. `Objective Fail`
+- Purpose: mark objective as failed.
+- IO: one input, one `default` output.
+- Notes: supports optional reason text for logs/UI.
+
+11. `Link Entry`
 - Purpose: named reusable destination.
 - IO: no input, one `default` output.
 - Notes: rename header to meaningful anchor name.
 
-7. `Link State`
+12. `Link State`
 - Purpose: jump to selected `Link Entry`.
 - IO: one input, no output.
 - Notes: select target via dropdown or eyedropper; use jump action to focus target.
 
-8. `Comment`
+13. `Comment`
 - Purpose: inline documentation.
 - IO: no input, no output.
 - Notes: ignored by runtime traversal.
 
-9. `Group`
+14. `Group`
 - Purpose: visual region for structure/documentation.
 - IO: no input, no output.
 - Notes: resize by corners and edges, tint in properties, always layout-only.
@@ -68,6 +93,11 @@ Quest Architect is a visual quest-graph editor loaded by `QuestArchitect2.html`.
 - `S + Click` -> create `Switch`.
 - `A + Click` -> create `Action`.
 - `D + Click` -> create `Dialog`.
+- `E + Click` -> create `Wait Event`.
+- `W + Click` -> create `Wait Condition`.
+- `O + Click` -> create `Objective Set`.
+- `K + Click` -> create `Objective Complete`.
+- `F + Click` -> create `Objective Fail`.
 - `G + Click` -> create `Group` at cursor.
 - `G` with selected nodes -> wrap selection into a new Group by bounds.
 - `Shift + Click` -> toggle node selection.
@@ -108,5 +138,7 @@ Reachability logic includes `Link State -> Link Entry` chains (linked entries ar
 
 - `Run` executes traversal from `Start`.
 - `Dialog` pauses and waits for player choice.
-- `Action`, `Condition`, `Switch`, `Link State`, `Link Entry` continue traversal automatically.
+- `Action`, `Condition`, `Switch`, `Link State`, `Link Entry`, `Objective*` continue traversal automatically.
+- `Wait Event` in simulator is treated as instantly fulfilled and continues via `default`.
+- `Wait Condition` in simulator continues only if condition is currently true.
 - `Comment` and `Group` are non-runtime and only for documentation/layout.

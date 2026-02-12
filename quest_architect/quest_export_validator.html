@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quest Exporter + Validator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="quest_export_validator.css">
+</head>
+<body>
+  <div class="app">
+    <section class="panel topbar">
+      <div>
+        <h1 class="title">Quest Exporter + Validator</h1>
+        <div class="subtitle">Validate graph and export production-ready JSON packs</div>
+      </div>
+      <div id="status" class="status"><span class="dot"></span><span id="statusText">Waiting for data</span></div>
+    </section>
+
+    <section class="layout">
+      <aside class="left">
+        <section class="panel card">
+          <h2 class="cardTitle">Source</h2>
+          <div class="row">
+            <button id="btnRequest" class="btn strong" type="button">Request From Architect</button>
+            <button id="btnFile" class="btn" type="button">Load JSON File</button>
+            <input id="fileInput" type="file" accept="application/json" hidden>
+          </div>
+          <div id="sourceMeta" class="meta">No payload loaded yet.</div>
+          <div style="margin-top:10px;">
+            <div class="label">Paste Raw JSON</div>
+            <textarea id="pasteInput" placeholder="{ &quot;nodes&quot;: [], &quot;connections&quot;: [] }"></textarea>
+            <div class="row" style="margin-top:8px;">
+              <button id="btnParse" class="btn" type="button">Parse JSON</button>
+              <button id="btnSample" class="btn ghost" type="button">Load Sample</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel card">
+          <h2 class="cardTitle">Validation Summary</h2>
+          <div class="summaryGrid">
+            <div class="sumCell"><div class="sumLabel">Critical</div><div id="countCritical" class="sumValue critical">0</div></div>
+            <div class="sumCell"><div class="sumLabel">Warnings</div><div id="countWarning" class="sumValue warning">0</div></div>
+            <div class="sumCell"><div class="sumLabel">Runtime Nodes</div><div id="countRuntime" class="sumValue">0</div></div>
+            <div class="sumCell"><div class="sumLabel">Unreachable</div><div id="countUnreachable" class="sumValue">0</div></div>
+          </div>
+        </section>
+
+        <section class="panel card">
+          <h2 class="cardTitle">Export Options</h2>
+          <div class="checks">
+            <label><input id="optPretty" type="checkbox" checked><span>Pretty JSON formatting</span></label>
+            <label><input id="optIncludeDocs" type="checkbox"><span>Include docs nodes in runtime export</span></label>
+            <label><input id="optIncludeSource" type="checkbox" checked><span>Include source payload in debug export</span></label>
+          </div>
+          <div class="row">
+            <button id="btnRefresh" class="btn" type="button">Rebuild Exports</button>
+            <button id="btnJumpStart" class="btn ghost" type="button">Jump To Start</button>
+          </div>
+        </section>
+      </aside>
+
+      <main class="main">
+        <section class="panel workspace">
+          <div class="tabs">
+            <div class="tabList">
+              <button class="tabBtn active" data-tab="diagnostics" type="button">Diagnostics</button>
+              <button class="tabBtn" data-tab="runtime" type="button">Runtime Export</button>
+              <button class="tabBtn" data-tab="dataAsset" type="button">DataAsset Export</button>
+              <button class="tabBtn" data-tab="unity" type="button">Unity Export</button>
+              <button class="tabBtn" data-tab="debug" type="button">Debug Pack</button>
+            </div>
+            <div class="row">
+              <button id="btnCopy" class="btn" type="button">Copy</button>
+              <button id="btnDownload" class="btn" type="button">Download</button>
+            </div>
+          </div>
+
+          <div class="tabBody">
+            <div class="tabPanel active" data-panel="diagnostics">
+              <div class="diagLayout">
+                <section class="box">
+                  <div class="boxHead"><span>Validation Issues</span><span id="issueCount">0</span></div>
+                  <div class="boxBody"><div id="issueList" class="issueList"></div></div>
+                </section>
+                <section class="box">
+                  <div class="boxHead">Runtime Diagnostics</div>
+                  <div class="boxBody"><div id="diagGrid" class="diagGrid"></div></div>
+                </section>
+              </div>
+            </div>
+            <div class="tabPanel" data-panel="runtime"><div class="outWrap"><textarea id="runtimeOutput" readonly></textarea></div></div>
+            <div class="tabPanel" data-panel="dataAsset"><div class="outWrap"><textarea id="dataAssetOutput" readonly></textarea></div></div>
+            <div class="tabPanel" data-panel="unity"><div class="outWrap"><textarea id="unityOutput" readonly></textarea></div></div>
+            <div class="tabPanel" data-panel="debug"><div class="outWrap"><textarea id="debugOutput" readonly></textarea></div></div>
+          </div>
+        </section>
+      </main>
+    </section>
+  </div>
+
+  <script src="quest_export_validator.js"></script>
+</body>
+</html>
+

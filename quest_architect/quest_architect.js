@@ -23,6 +23,50 @@ createApp({
             saveTitle: 'New Project',
             currentId: null
         });
+        const exporterAuthCache = reactive({
+            accessToken: null,
+            expiresAt: 0
+        });
+
+        const clearExporterAuthCache = () => {
+            exporterAuthCache.accessToken = null;
+            exporterAuthCache.expiresAt = 0;
+        };
+
+        const parseJwtExpMs = (token) => {
+            if (!token || typeof token !== 'string') return 0;
+            try {
+                const parts = token.split('.');
+                if (parts.length < 2) return 0;
+                let b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                while (b64.length % 4 !== 0) b64 += '=';
+                const payload = JSON.parse(atob(b64));
+                const exp = Number(payload?.exp) || 0;
+                return exp > 0 ? exp * 1000 : 0;
+            } catch (err) {
+                return 0;
+            }
+        };
+
+        const getExporterAccessToken = async () => {
+            const now = Date.now();
+            const marginMs = 30 * 1000;
+            if (exporterAuthCache.accessToken && exporterAuthCache.expiresAt > now + marginMs) {
+                return exporterAuthCache.accessToken;
+            }
+
+            if (!isAuth.value) return null;
+            if (!supabase.value) initSupabaseAuto();
+            if (!supabase.value) return null;
+
+            const { data: authData } = await supabase.value.auth.getSession();
+            const token = authData?.session?.access_token || null;
+            const expMs = parseJwtExpMs(token);
+
+            exporterAuthCache.accessToken = token;
+            exporterAuthCache.expiresAt = expMs;
+            return token;
+        };
 
         const syncAuthFromSession = () => {
             const sessionAuth = sessionStorage.getItem('ct_supabase_auth') === 'true';
@@ -31,6 +75,7 @@ createApp({
                 if (isAuth.value && !supabase.value) initSupabaseAuto();
                 if (!isAuth.value) {
                     cloud.show = false;
+                    clearExporterAuthCache();
                 }
             }
         };
@@ -39,7 +84,77 @@ createApp({
             if (!e?.data || e.data.type !== 'ct_auth') return;
             isAuth.value = !!e.data.isAuth;
             if (isAuth.value && !supabase.value) initSupabaseAuto();
-            if (!isAuth.value) cloud.show = false;
+            if (!isAuth.value) {
+                cloud.show = false;
+                clearExporterAuthCache();
+            }
+        };
+
+        const notifyAuthRequired = (key = 'auth') => {
+            authHintKey.value = key;
+            if (authHintTimer) clearTimeout(authHintTimer);
+            authHintTimer = setTimeout(() => {
+                authHintKey.value = null;
+                authHintTimer = null;
+            }, 1800);
+        };
+
+        const onExporterMessage = (e) => {
+            const data = e?.data;
+            if (!data || typeof data !== 'object') return;
+
+            if (data.type === 'qa_exporter_auth_request') {
+                const replyAuth = async () => {
+                    let accessToken = null;
+                    if (isAuth.value) {
+                        try {
+                            accessToken = await getExporterAccessToken();
+                        } catch (err) {
+                            console.error('Exporter auth reply failed', err);
+                        }
+                    }
+                    try {
+                        e.source?.postMessage(
+                            {
+                                type: 'qa_exporter_auth',
+                                isAuth: Boolean(isAuth.value),
+                                accessToken,
+                                supabaseUrl: SUPABASE_URL,
+                                supabaseAnonKey: SUPABASE_KEY
+                            },
+                            '*'
+                        );
+                    } catch (err) {
+                        console.error('Exporter auth post failed', err);
+                    }
+                };
+                replyAuth();
+                return;
+            }
+
+            if (data.type === 'qa_exporter_request') {
+                try {
+                    const payload = buildSerializableProjectPayload();
+                    e.source?.postMessage(
+                        {
+                            type: 'qa_exporter_payload',
+                            payload
+                        },
+                        '*'
+                    );
+                } catch (err) {
+                    console.error('Exporter payload post failed', err);
+                }
+                return;
+            }
+
+            if (data.type === 'qa_exporter_jump') {
+                const nodeId = typeof data.nodeId === 'string' ? data.nodeId.trim() : '';
+                if (!nodeId) return;
+                jumpToNode(nodeId, true);
+                exportPanelOpen.value = false;
+                exportValidatorDocsOpen.value = false;
+            }
         };
 
         // Viewport
@@ -76,6 +191,10 @@ createApp({
         const editingNodeNameId = ref(null);
         const nodeNameDraft = ref('');
         const helpPanelOpen = ref(false);
+        const exportPanelOpen = ref(false);
+        const exportValidatorDocsOpen = ref(false);
+        const authHintKey = ref(null);
+        let authHintTimer = null;
         const hierarchySearch = reactive({
             query: '',
             warningsOnly: false,
@@ -178,8 +297,10 @@ createApp({
                 lines: [
                     '1) Start from **Start** node and rough branches with **Dialog/Condition/Switch**.',
                     '2) Add **Action** nodes for variable updates and check values in **Condition**.',
-                    '3) Use **Link Entry** as reusable destination and **Link State** as jump.',
-                    '4) Add **Group/Comment** for documentation, then validate warnings and run scenario.'
+                    '3) Use **Wait Event/Wait Condition** for long-running quest checkpoints.',
+                    '4) Track progress with **Objective Set/Complete/Fail** nodes.',
+                    '5) Use **Link Entry** as reusable destination and **Link State** as jump.',
+                    '6) Add **Group/Comment** for documentation, then validate warnings and run scenario.'
                 ]
             }
         ]);
@@ -221,6 +342,41 @@ createApp({
                 usage: 'Add cases for expected values; use `default` for fallback branch.'
             },
             {
+                type: 'wait_event',
+                label: 'Wait Event',
+                io: '`In: one` | `Out: default`',
+                role: 'Pauses runtime until an external event key is triggered.',
+                usage: 'Set event key (`quest.bandits_cleared`) and continue from default output.'
+            },
+            {
+                type: 'wait_condition',
+                label: 'Wait Condition',
+                io: '`In: one` | `Out: default`',
+                role: 'Pauses runtime until variable check becomes true.',
+                usage: 'Pick variable/operator/value. Runtime resumes when condition is satisfied.'
+            },
+            {
+                type: 'objective_set',
+                label: 'Objective Set',
+                io: '`In: one` | `Out: default`',
+                role: 'Creates or updates objective text in journal/UI.',
+                usage: 'Set objective id and objective text.'
+            },
+            {
+                type: 'objective_complete',
+                label: 'Objective Complete',
+                io: '`In: one` | `Out: default`',
+                role: 'Marks objective as completed.',
+                usage: 'Use same objective id previously created by Objective Set.'
+            },
+            {
+                type: 'objective_fail',
+                label: 'Objective Fail',
+                io: '`In: one` | `Out: default`',
+                role: 'Marks objective as failed.',
+                usage: 'Use objective id and optional reason text.'
+            },
+            {
                 type: 'link_entry',
                 label: 'Link Entry',
                 io: '`In: none` | `Out: default`',
@@ -250,7 +406,20 @@ createApp({
             }
         ]);
 
-        const editableNodeTypes = new Set(['dialog', 'action', 'condition', 'switcher', 'link_entry', 'comment', 'group']);
+        const editableNodeTypes = new Set([
+            'dialog',
+            'action',
+            'condition',
+            'switcher',
+            'wait_event',
+            'wait_condition',
+            'objective_set',
+            'objective_complete',
+            'objective_fail',
+            'link_entry',
+            'comment',
+            'group'
+        ]);
         const docNodeTypes = new Set(['comment', 'group']);
         const nonConnectableTargetTypes = new Set(['start', 'link_entry', 'comment', 'group']);
 
@@ -260,6 +429,11 @@ createApp({
             action: 'Action',
             condition: 'Condition',
             switcher: 'Switch',
+            wait_event: 'Wait Event',
+            wait_condition: 'Wait Condition',
+            objective_set: 'Objective Set',
+            objective_complete: 'Objective Complete',
+            objective_fail: 'Objective Fail',
             link_state: 'Link State',
             link_entry: 'Link Entry',
             comment: 'Comment',
@@ -270,6 +444,11 @@ createApp({
             { type: 'action', label: 'Action', desc: 'Mutate quest variables', icon: 'fa-solid fa-bolt', tone: 'action' },
             { type: 'condition', label: 'Condition', desc: 'Branch by variable check', icon: 'fa-solid fa-code-branch', tone: 'condition' },
             { type: 'switcher', label: 'Switcher', desc: 'Route by cases and default', icon: 'fa-solid fa-shuffle', tone: 'switcher' },
+            { type: 'wait_event', label: 'Wait Event', desc: 'Pause until runtime event key', icon: 'fa-solid fa-hourglass-half', tone: 'wait' },
+            { type: 'wait_condition', label: 'Wait Condition', desc: 'Pause until condition is true', icon: 'fa-solid fa-stopwatch', tone: 'wait' },
+            { type: 'objective_set', label: 'Objective Set', desc: 'Create/update quest objective', icon: 'fa-solid fa-list-check', tone: 'objective' },
+            { type: 'objective_complete', label: 'Objective Complete', desc: 'Mark objective complete', icon: 'fa-solid fa-circle-check', tone: 'objective' },
+            { type: 'objective_fail', label: 'Objective Fail', desc: 'Mark objective failed', icon: 'fa-solid fa-circle-xmark', tone: 'objective' },
             { type: 'link_state', label: 'Link State', desc: 'Jump to selected Link Entry', icon: 'fa-solid fa-link', tone: 'link' }
         ]);
         const nodeConnectMenu = reactive({
@@ -418,6 +597,11 @@ createApp({
                 action: 'fa-bolt',
                 condition: 'fa-code-branch',
                 switcher: 'fa-shuffle',
+                wait_event: 'fa-hourglass-half',
+                wait_condition: 'fa-stopwatch',
+                objective_set: 'fa-list-check',
+                objective_complete: 'fa-circle-check',
+                objective_fail: 'fa-circle-xmark',
                 link_state: 'fa-link',
                 link_entry: 'fa-right-to-bracket',
                 comment: 'fa-note-sticky',
@@ -574,6 +758,23 @@ createApp({
                     node.data.cases.forEach(c => parts.push(c?.value));
                 }
             }
+            if (node.type === 'wait_event') {
+                parts.push(node.data?.eventKey);
+                parts.push(node.data?.note);
+            }
+            if (node.type === 'wait_condition') {
+                parts.push(getVarName(node.data?.varId));
+                parts.push(node.data?.op);
+                parts.push(node.data?.val);
+            }
+            if (node.type === 'objective_set') {
+                parts.push(node.data?.objectiveId);
+                parts.push(node.data?.objectiveText);
+            }
+            if (node.type === 'objective_complete' || node.type === 'objective_fail') {
+                parts.push(node.data?.objectiveId);
+                parts.push(node.data?.reason);
+            }
             if (node.type === 'link_state') {
                 const target = getLinkEntryForState(node);
                 if (target) parts.push(getNodeDisplayName(target));
@@ -588,6 +789,11 @@ createApp({
                 { keys: 'S + Click', label: 'Create Switcher node' },
                 { keys: 'A + Click', label: 'Create Action node' },
                 { keys: 'D + Click', label: 'Create Dialog node' },
+                { keys: 'E + Click', label: 'Create Wait Event node' },
+                { keys: 'W + Click', label: 'Create Wait Condition node' },
+                { keys: 'O + Click', label: 'Create Objective Set node' },
+                { keys: 'K + Click', label: 'Create Objective Complete node' },
+                { keys: 'F + Click', label: 'Create Objective Fail node' },
                 { keys: 'G + Click', label: 'Create Group node' },
                 { keys: 'Alt + Click line', label: 'Delete connection' },
                 { keys: 'G', label: 'Group selected nodes' }
@@ -744,10 +950,13 @@ createApp({
             if (!node || !canvasContainer.value) return;
 
             const rect = canvasContainer.value.getBoundingClientRect();
+            const jumpFocusScale = 0.96;
+            const nextScale = Math.min(3, Math.max(0.2, jumpFocusScale));
+            scale.value = nextScale;
             const targetX = node.x + 150;
             const targetY = node.y + 70;
-            pan.x = rect.width / 2 - targetX * scale.value;
-            pan.y = rect.height / 2 - targetY * scale.value;
+            pan.x = rect.width / 2 - targetX * nextScale;
+            pan.y = rect.height / 2 - targetY * nextScale;
 
             if (shouldSelect) {
                 selectedNodeId.value = node.id;
@@ -755,6 +964,30 @@ createApp({
                 selectedConnId.value = null;
                 tab.value = 'props';
             }
+
+            triggerNodeJumpPulse(node.id);
+        };
+
+        const triggerNodeJumpPulse = (nodeId) => {
+            if (!nodeId) return;
+            queueFrame(() => {
+                const nodeEl = getNodeElement(nodeId);
+                if (!nodeEl) return;
+
+                const existing = nodeEl.querySelector('.node-jump-pulse-overlay');
+                if (existing) existing.remove();
+
+                const overlay = document.createElement('span');
+                overlay.className = 'node-jump-pulse-overlay';
+                overlay.setAttribute('aria-hidden', 'true');
+                nodeEl.appendChild(overlay);
+
+                const cleanup = () => {
+                    if (overlay.parentNode) overlay.remove();
+                };
+                overlay.addEventListener('animationend', cleanup, { once: true });
+                setTimeout(cleanup, 2300);
+            });
         };
 
         const jumpToLinkEntry = (stateNode) => {
@@ -937,6 +1170,28 @@ createApp({
                 }
             });
 
+            nodes.value.filter(n => n.type === 'wait_event').forEach(n => {
+                const key = String(n.data?.eventKey || '').trim();
+                if (!key) {
+                    pushWarn('warning', `Wait Event "${getNodeDisplayName(n)}" has no event key.`, n.id, `wait_event_key_${n.id}`);
+                }
+            });
+
+            nodes.value.filter(n => n.type === 'wait_condition').forEach(n => {
+                if (!n.data?.varId) {
+                    pushWarn('warning', `Wait Condition "${getNodeDisplayName(n)}" has no variable selected.`, n.id, `wait_cond_var_${n.id}`);
+                }
+            });
+
+            nodes.value
+                .filter(n => ['objective_set', 'objective_complete', 'objective_fail'].includes(n.type))
+                .forEach(n => {
+                    const id = String(n.data?.objectiveId || '').trim();
+                    if (!id) {
+                        pushWarn('warning', `${getNodeTypeLabel(n.type)} "${getNodeDisplayName(n)}" has empty objective id.`, n.id, `objective_id_${n.id}`);
+                    }
+                });
+
             nodes.value.filter(n => n.type === 'dialog').forEach(n => {
                 const outs = outgoing.get(n.id) || [];
                 const choices = Array.isArray(n.data?.choices) ? n.data.choices : [];
@@ -953,6 +1208,15 @@ createApp({
                     pushWarn('warning', `Link Entry "${getNodeDisplayName(n)}" has no outgoing link.`, n.id, `entry_out_${n.id}`);
                 }
             });
+
+            nodes.value
+                .filter(n => ['action', 'wait_event', 'wait_condition', 'objective_set', 'objective_complete', 'objective_fail'].includes(n.type))
+                .forEach(n => {
+                    const hasOut = (outgoing.get(n.id) || []).some(c => (c.fromSocket || 'default') === 'default');
+                    if (!hasOut) {
+                        pushWarn('warning', `${getNodeTypeLabel(n.type)} "${getNodeDisplayName(n)}" has no default outgoing link.`, n.id, `default_out_${n.id}`);
+                    }
+                });
 
             const varNameGroups = new Map();
             variables.value.forEach(v => {
@@ -1512,6 +1776,15 @@ createApp({
                     helpPanelOpen.value = false;
                     return;
                 }
+                if (exportValidatorDocsOpen.value) {
+                    exportValidatorDocsOpen.value = false;
+                    return;
+                }
+                if (exportPanelOpen.value) {
+                    exportPanelOpen.value = false;
+                    exportValidatorDocsOpen.value = false;
+                    return;
+                }
                 if (nodeConnectMenu.visible) {
                     closeNodeConnectMenu();
                     return;
@@ -1534,8 +1807,18 @@ createApp({
                 }
                 return;
             }
-            if (['KeyC', 'KeyS', 'KeyA', 'KeyD'].includes(e.code)) {
-                const map = { KeyC: 'condition', KeyS: 'switcher', KeyA: 'action', KeyD: 'dialog' };
+            if (['KeyC', 'KeyS', 'KeyA', 'KeyD', 'KeyE', 'KeyW', 'KeyO', 'KeyK', 'KeyF'].includes(e.code)) {
+                const map = {
+                    KeyC: 'condition',
+                    KeyS: 'switcher',
+                    KeyA: 'action',
+                    KeyD: 'dialog',
+                    KeyE: 'wait_event',
+                    KeyW: 'wait_condition',
+                    KeyO: 'objective_set',
+                    KeyK: 'objective_complete',
+                    KeyF: 'objective_fail'
+                };
                 createKey.value = map[e.code];
             }
             if (key === 'delete' || key === 'backspace') {
@@ -1571,7 +1854,7 @@ createApp({
         };
 
         const onGlobalKeyUp = (e) => {
-            if (['KeyC', 'KeyS', 'KeyA', 'KeyD', 'KeyG'].includes(e.code)) {
+            if (['KeyC', 'KeyS', 'KeyA', 'KeyD', 'KeyE', 'KeyW', 'KeyO', 'KeyK', 'KeyF', 'KeyG'].includes(e.code)) {
                 createKey.value = null;
             }
         };
@@ -1685,6 +1968,11 @@ createApp({
             if (type === 'action') return { title: getNodeTypeLabel('action'), ops: [createActionOp()] };
             if (type === 'condition') return { title: getNodeTypeLabel('condition'), varId: null, op: 'eq', val: 0 };
             if (type === 'switcher') return { title: getNodeTypeLabel('switcher'), varId: null, cases: [createSwitchCase()] };
+            if (type === 'wait_event') return { title: getNodeTypeLabel('wait_event'), eventKey: '', note: '' };
+            if (type === 'wait_condition') return { title: getNodeTypeLabel('wait_condition'), varId: null, op: 'eq', val: 0 };
+            if (type === 'objective_set') return { title: getNodeTypeLabel('objective_set'), objectiveId: '', objectiveText: '' };
+            if (type === 'objective_complete') return { title: getNodeTypeLabel('objective_complete'), objectiveId: '', reason: '' };
+            if (type === 'objective_fail') return { title: getNodeTypeLabel('objective_fail'), objectiveId: '', reason: '' };
             if (type === 'link_state') return { title: getNodeTypeLabel('link_state'), entryId: null, entryName: '' };
             if (type === 'link_entry') {
                 const name = getNextLinkEntryName();
@@ -1726,6 +2014,27 @@ createApp({
                 if (!cloned.cases.length) cloned.cases = [createSwitchCase()];
                 if (!('varId' in cloned)) cloned.varId = null;
                 if (!('title' in cloned) || !String(cloned.title).trim()) cloned.title = getNodeTypeLabel('switcher');
+            }
+            if (type === 'wait_event') {
+                if (!('eventKey' in cloned)) cloned.eventKey = '';
+                if (!('note' in cloned)) cloned.note = '';
+                if (!('title' in cloned) || !String(cloned.title).trim()) cloned.title = getNodeTypeLabel('wait_event');
+            }
+            if (type === 'wait_condition') {
+                if (!('varId' in cloned)) cloned.varId = null;
+                if (!('op' in cloned)) cloned.op = 'eq';
+                if (!('val' in cloned)) cloned.val = 0;
+                if (!('title' in cloned) || !String(cloned.title).trim()) cloned.title = getNodeTypeLabel('wait_condition');
+            }
+            if (type === 'objective_set') {
+                if (!('objectiveId' in cloned)) cloned.objectiveId = '';
+                if (!('objectiveText' in cloned)) cloned.objectiveText = '';
+                if (!('title' in cloned) || !String(cloned.title).trim()) cloned.title = getNodeTypeLabel('objective_set');
+            }
+            if (type === 'objective_complete' || type === 'objective_fail') {
+                if (!('objectiveId' in cloned)) cloned.objectiveId = '';
+                if (!('reason' in cloned)) cloned.reason = '';
+                if (!('title' in cloned) || !String(cloned.title).trim()) cloned.title = getNodeTypeLabel(type);
             }
             if (type === 'link_state') {
                 if (!('entryId' in cloned)) cloned.entryId = null;
@@ -2002,7 +2311,7 @@ createApp({
 
             // Update condition/switcher tied to this variable
             nodes.value.forEach(node => {
-                if (node.type === 'condition' && node.data.varId === variable.id) {
+                if ((node.type === 'condition' || node.type === 'wait_condition') && node.data.varId === variable.id) {
                     if (variable.type === 'bool') {
                         node.data.op = ['eq', 'neq'].includes(node.data.op) ? node.data.op : 'eq';
                         node.data.val = Boolean(node.data.val);
@@ -2055,6 +2364,9 @@ createApp({
                 }
 
                 if (node.type === 'switcher' && node.data.varId === variableId) {
+                    node.data.varId = null;
+                }
+                if (node.type === 'wait_condition' && node.data.varId === variableId) {
                     node.data.varId = null;
                 }
             });
@@ -2202,6 +2514,36 @@ createApp({
             const opMap = { eq: '==', neq: '!=', gt: '>', lt: '<' };
             return d.varId ? `${v} ${opMap[d.op] || '??'} ${d.val}` : 'Select Variable';
         };
+
+        const evaluateConditionNode = (conditionData) => {
+            const variable = variables.value.find(v => v.id === conditionData?.varId);
+            const vType = variable?.type || 'num';
+            const rawVal = runtimeVars.value[conditionData?.varId];
+            let val = rawVal;
+            let target = conditionData?.val;
+            let res = false;
+
+            if (vType === 'bool') {
+                val = Boolean(rawVal);
+                target = Boolean(conditionData?.val);
+                if (conditionData?.op === 'eq') res = val === target;
+                if (conditionData?.op === 'neq') res = val !== target;
+            } else if (vType === 'string' || vType === 'enum') {
+                val = rawVal != null ? String(rawVal) : '';
+                target = conditionData?.val != null ? String(conditionData?.val) : '';
+                if (conditionData?.op === 'eq') res = val === target;
+                if (conditionData?.op === 'neq') res = val !== target;
+            } else {
+                val = Number(rawVal) || 0;
+                target = Number(conditionData?.val) || 0;
+                if (conditionData?.op === 'eq') res = val == target;
+                if (conditionData?.op === 'gt') res = val > target;
+                if (conditionData?.op === 'lt') res = val < target;
+                if (conditionData?.op === 'neq') res = val != target;
+            }
+
+            return res;
+        };
         const selectedNode = computed(() => nodes.value.find(n => n.id === selectedNodeId.value));
 
         const resetView = () => {
@@ -2285,33 +2627,24 @@ createApp({
                 traverse(node.id, matched ? matched.socketId : 'default');
             }
             else if (node.type === 'condition') {
-                const variable = variables.value.find(v => v.id === node.data.varId);
-                const vType = variable?.type || 'num';
-                const rawVal = runtimeVars.value[node.data.varId];
-                let val = rawVal;
-                let target = node.data.val;
-                let res = false;
-
-                if (vType === 'bool') {
-                    val = Boolean(rawVal);
-                    target = Boolean(node.data.val);
-                    if (node.data.op === 'eq') res = val === target;
-                    if (node.data.op === 'neq') res = val !== target;
-                } else if (vType === 'string' || vType === 'enum') {
-                    val = rawVal != null ? String(rawVal) : '';
-                    target = node.data.val != null ? String(node.data.val) : '';
-                    if (node.data.op === 'eq') res = val === target;
-                    if (node.data.op === 'neq') res = val !== target;
-                } else {
-                    val = Number(rawVal) || 0;
-                    target = Number(node.data.val) || 0;
-                    if (node.data.op === 'eq') res = val == target;
-                    if (node.data.op === 'gt') res = val > target;
-                    if (node.data.op === 'lt') res = val < target;
-                    if (node.data.op === 'neq') res = val != target;
-                }
-                
+                const res = evaluateConditionNode(node.data);
                 traverse(node.id, res ? 'true' : 'false');
+            }
+            else if (node.type === 'wait_event') {
+                // Simulator behavior: treat wait as instantly fulfilled.
+                traverse(node.id, 'default');
+            }
+            else if (node.type === 'wait_condition') {
+                const isReady = evaluateConditionNode(node.data);
+                if (!isReady) {
+                    gameFinished.value = true;
+                    return;
+                }
+                traverse(node.id, 'default');
+            }
+            else if (node.type === 'objective_set' || node.type === 'objective_complete' || node.type === 'objective_fail') {
+                // Simulator behavior: objective hooks are side effects in engine bridge, continue immediately.
+                traverse(node.id, 'default');
             }
             else if (node.type === 'link_state') {
                 const entryNode = getLinkEntryForState(node);
@@ -2365,6 +2698,25 @@ createApp({
             pan: { x: pan.x, y: pan.y },
             scale: scale.value
         });
+
+        const buildSerializableProjectPayload = () => {
+            const payload = buildProjectPayload();
+            try {
+                return JSON.parse(JSON.stringify(payload));
+            } catch (err) {
+                console.error('Failed to serialize project payload for exporter bridge', err);
+                return {
+                    version: 1,
+                    title: currentProjectTitle.value || '',
+                    nodes: Array.isArray(nodes.value) ? nodes.value.map(n => ({ ...n, data: n?.data ? { ...n.data } : {} })) : [],
+                    connections: Array.isArray(connections.value) ? connections.value.map(c => ({ ...c })) : [],
+                    variables: Array.isArray(variables.value) ? variables.value.map(v => ({ ...v })) : [],
+                    characters: Array.isArray(characters.value) ? characters.value.map(c => ({ ...c })) : [],
+                    pan: { x: pan.x, y: pan.y },
+                    scale: scale.value
+                };
+            }
+        };
 
         const saveAutosaveNow = () => {
             if (autosaveLocked.value) return;
@@ -2450,6 +2802,27 @@ createApp({
                     if (!n.data.cases.length) n.data.cases = [createSwitchCase()];
                     if (!('title' in n.data) || !String(n.data.title).trim()) n.data.title = getNodeTypeLabel('switcher');
                 }
+                if (n.type === 'wait_event') {
+                    if (!('eventKey' in n.data)) n.data.eventKey = '';
+                    if (!('note' in n.data)) n.data.note = '';
+                    if (!('title' in n.data) || !String(n.data.title).trim()) n.data.title = getNodeTypeLabel('wait_event');
+                }
+                if (n.type === 'wait_condition') {
+                    if (!('varId' in n.data)) n.data.varId = null;
+                    if (!('op' in n.data)) n.data.op = 'eq';
+                    if (!('val' in n.data)) n.data.val = 0;
+                    if (!('title' in n.data) || !String(n.data.title).trim()) n.data.title = getNodeTypeLabel('wait_condition');
+                }
+                if (n.type === 'objective_set') {
+                    if (!('objectiveId' in n.data)) n.data.objectiveId = '';
+                    if (!('objectiveText' in n.data)) n.data.objectiveText = '';
+                    if (!('title' in n.data) || !String(n.data.title).trim()) n.data.title = getNodeTypeLabel('objective_set');
+                }
+                if (n.type === 'objective_complete' || n.type === 'objective_fail') {
+                    if (!('objectiveId' in n.data)) n.data.objectiveId = '';
+                    if (!('reason' in n.data)) n.data.reason = '';
+                    if (!('title' in n.data) || !String(n.data.title).trim()) n.data.title = getNodeTypeLabel(n.type);
+                }
                 if (n.type === 'dialog') {
                     if (!Array.isArray(n.data?.choices)) n.data.choices = [];
                     if (!('speakerId' in n.data)) n.data.speakerId = null;
@@ -2519,6 +2892,9 @@ createApp({
             },
             { deep: true }
         );
+        watch(exportPanelOpen, (open) => {
+            if (!open) exportValidatorDocsOpen.value = false;
+        });
 
         const saveProject = () => {
             const payload = buildProjectPayload();
@@ -2692,6 +3068,7 @@ createApp({
             window.addEventListener('keydown', onGlobalKeyDown);
             window.addEventListener('keyup', onGlobalKeyUp);
             window.addEventListener('message', onAuthMessage);
+            window.addEventListener('message', onExporterMessage);
             window.addEventListener('focus', syncAuthFromSession);
             document.addEventListener('visibilitychange', syncAuthFromSession);
         });
@@ -2710,6 +3087,11 @@ createApp({
                 cancelFrame(mouseMoveRaf);
                 mouseMoveRaf = null;
             }
+            if (authHintTimer) {
+                clearTimeout(authHintTimer);
+                authHintTimer = null;
+            }
+            authHintKey.value = null;
             pendingMouseMove.has = false;
             pendingPathNodeIds.clear();
             pendingPathFullUpdate = false;
@@ -2719,6 +3101,7 @@ createApp({
             window.removeEventListener('keydown', onGlobalKeyDown);
             window.removeEventListener('keyup', onGlobalKeyUp);
             window.removeEventListener('message', onAuthMessage);
+            window.removeEventListener('message', onExporterMessage);
             window.removeEventListener('focus', syncAuthFromSession);
             document.removeEventListener('visibilitychange', syncAuthFromSession);
         });
@@ -2730,7 +3113,8 @@ createApp({
             tab, isPlayMode, gameLog, activeNode, gameFinished,
             dragLine,
             selectionBox, hotkeyHints,
-            helpPanelOpen, helpSections, nodeDocs, autosaveStatusText,
+            helpPanelOpen, exportPanelOpen, exportValidatorDocsOpen, helpSections, nodeDocs, autosaveStatusText,
+            authHintKey,
             formatDocText,
             editingNodeNameId, nodeNameDraft,
             hierarchySearch, hierarchyTypeFilters, filteredHierarchyRows,
@@ -2756,6 +3140,7 @@ createApp({
             getVarName, getConditionText, getNodeIcon, getNodeTypeLabel,
             resetView, runScenario, makeChoice,
             saveProject, loadProject, triggerLoad,
+            notifyAuthRequired,
             openCloudModal, saveToCloud, loadFromCloud, deleteFromCloud
         };
     }

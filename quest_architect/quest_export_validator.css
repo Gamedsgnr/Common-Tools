@@ -1,0 +1,123 @@
+    :root {
+      --bg: #1a1f2b;
+      --panel: rgba(30, 41, 59, 0.45);
+      --border: rgba(148, 163, 184, 0.28);
+      --text: #dbe7f3;
+      --muted: #9aa4b2;
+      --accent: #7dd3fc;
+      --accentStrong: #3b82f6;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --critical: #fb7185;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      font-family: Inter, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(120% 110% at 0% -10%, rgba(125,211,252,.16), transparent 52%),
+        radial-gradient(100% 90% at 110% 0%, rgba(59,130,246,.14), transparent 48%),
+        linear-gradient(165deg, #161b26, var(--bg) 58%);
+      overflow: hidden;
+    }
+    .app { height: 100%; display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--panel);
+      box-shadow: 0 18px 30px -12px rgba(2,6,23,.7), inset 0 1px 0 rgba(255,255,255,.22), inset 0 -10px 22px rgba(2,6,23,.32);
+      backdrop-filter: blur(18px) saturate(1.18);
+      -webkit-backdrop-filter: blur(18px) saturate(1.18);
+    }
+    .topbar { min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; }
+    .title { margin: 0; font-size: 16px; font-weight: 800; letter-spacing: .04em; }
+    .subtitle { margin-top: 3px; font-size: 12px; color: var(--muted); }
+    .status { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 12px; padding: 6px 10px; background: rgba(15,23,42,.45); color: var(--muted); font-size: 12px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 6px rgba(125,211,252,.18); }
+    .status.ok .dot { background: var(--ok); box-shadow: 0 0 0 6px rgba(52,211,153,.2); }
+    .status.warn .dot { background: var(--warn); box-shadow: 0 0 0 6px rgba(251,191,36,.2); }
+    .status.critical .dot { background: var(--critical); box-shadow: 0 0 0 6px rgba(251,113,133,.2); }
+    .layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(320px, 370px) minmax(0,1fr); gap: 10px; }
+    .left { min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+    .card { padding: 12px; }
+    .cardTitle { margin: 0 0 10px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      background: rgba(15,23,42,.54);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 11px;
+      cursor: pointer;
+      transition: .2s;
+    }
+    .btn:hover { border-color: rgba(125,211,252,.58); background: rgba(30,41,59,.75); }
+    .btn.strong { border-color: rgba(59,130,246,.62); background: rgba(30,58,138,.28); }
+    .btn.ghost { color: var(--muted); }
+    .meta { margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .label { margin-bottom: 6px; color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+    textarea {
+      width: 100%;
+      border-radius: 11px;
+      border: 1px solid var(--border);
+      background: rgba(15,23,42,.55);
+      color: var(--text);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      padding: 10px;
+      outline: none;
+    }
+    textarea:focus { border-color: rgba(125,211,252,.75); box-shadow: 0 0 0 3px rgba(125,211,252,.14); }
+    #pasteInput { min-height: 110px; resize: vertical; }
+    .summaryGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+    .sumCell { border: 1px solid rgba(148,163,184,.26); border-radius: 12px; background: rgba(15,23,42,.45); padding: 9px; }
+    .sumLabel { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+    .sumValue { margin-top: 6px; font-size: 22px; font-weight: 700; line-height: 1; }
+    .sumValue.critical { color: var(--critical); }
+    .sumValue.warning { color: var(--warn); }
+    .checks { display: grid; gap: 8px; margin-bottom: 12px; font-size: 12px; }
+    .checks label { display: flex; gap: 8px; align-items: flex-start; }
+    .checks input { margin-top: 2px; accent-color: var(--accentStrong); }
+    .main { min-height: 0; display: flex; }
+    .workspace { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .tabs { min-height: 56px; padding: 8px 12px; border-bottom: 1px solid rgba(148,163,184,.2); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .tabList { display: flex; flex-wrap: wrap; gap: 7px; }
+    .tabBtn { position: relative; border: 1px solid rgba(148,163,184,.28); border-radius: 10px; background: rgba(15,23,42,.48); color: var(--muted); font-size: 12px; font-weight: 600; padding: 7px 10px; cursor: pointer; }
+    .tabBtn.active { color: var(--text); border-color: rgba(125,211,252,.62); background: linear-gradient(145deg, rgba(59,130,246,.24), rgba(15,23,42,.55)); }
+    .tabBtn.active::before, .issue.active::before { content: ''; position: absolute; inset: 1px; border-radius: 9px; background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,0)); pointer-events: none; }
+    .tabBtn.active::after, .issue.active::after { content: ''; position: absolute; inset: auto 1px 1px 1px; height: 32%; border-radius: 0 0 9px 9px; background: linear-gradient(180deg, rgba(59,130,246,0), rgba(59,130,246,.24)); pointer-events: none; }
+    .tabBody { flex: 1; min-height: 0; padding: 12px; }
+    .tabPanel { width: 100%; height: 100%; display: none; }
+    .tabPanel.active { display: block; }
+    .diagLayout { width: 100%; height: 100%; min-height: 0; display: grid; grid-template-columns: minmax(360px,.9fr) minmax(0,1.1fr); gap: 10px; }
+    .box { min-height: 0; display: flex; flex-direction: column; border-radius: 12px; border: 1px solid rgba(148,163,184,.25); background: rgba(15,23,42,.36); overflow: hidden; }
+    .boxHead { padding: 9px 10px; border-bottom: 1px solid rgba(148,163,184,.2); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+    .boxBody { flex: 1; min-height: 0; overflow: auto; padding: 8px; }
+    .issueList { display: grid; gap: 6px; }
+    .issue { position: relative; border: 1px solid rgba(148,163,184,.28); border-radius: 11px; background: rgba(30,41,59,.4); padding: 8px 9px; display: flex; justify-content: space-between; gap: 8px; cursor: pointer; }
+    .issue:hover { border-color: rgba(125,211,252,.52); }
+    .issue.active { border-color: rgba(125,211,252,.62); background: rgba(30,58,138,.22); }
+    .issue.critical { border-left: 4px solid var(--critical); }
+    .issue.warning { border-left: 4px solid var(--warn); }
+    .issue.info { border-left: 4px solid var(--accent); }
+    .issueText { min-width: 0; }
+    .issueTitle { font-size: 12px; font-weight: 600; line-height: 1.35; margin-bottom: 4px; }
+    .issueMeta { font-size: 11px; color: var(--muted); font-family: "JetBrains Mono", monospace; }
+    .miniBtn { border: 1px solid rgba(148,163,184,.34); border-radius: 10px; background: rgba(15,23,42,.56); color: var(--muted); font-size: 11px; font-weight: 600; padding: 6px 8px; cursor: pointer; }
+    .miniBtn:hover { border-color: rgba(125,211,252,.58); color: var(--text); }
+    .diagGrid { display: grid; grid-template-columns: repeat(auto-fill,minmax(230px,1fr)); gap: 8px; }
+    .diagCard { border: 1px solid rgba(148,163,184,.26); border-radius: 12px; background: rgba(30,41,59,.4); padding: 10px; }
+    .diagName { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+    .diagValue { margin-top: 7px; font-size: 20px; font-weight: 700; }
+    .diagNote { margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .outWrap, .outWrap textarea { width: 100%; height: 100%; min-height: 100%; resize: none; }
+    .placeholder { border: 1px dashed rgba(148,163,184,.3); border-radius: 12px; padding: 14px; color: var(--muted); font-size: 13px; line-height: 1.5; background: rgba(15,23,42,.35); }
+    @media (max-width: 1180px) { .diagLayout { grid-template-columns: minmax(0,1fr); } }
+    @media (max-width: 980px) { .app { padding: 8px; } .layout { grid-template-columns: minmax(0,1fr); grid-template-rows: auto minmax(0,1fr); } .topbar { flex-wrap: wrap; } }
+  

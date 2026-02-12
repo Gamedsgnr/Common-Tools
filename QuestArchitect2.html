@@ -31,12 +31,57 @@
                 <button @click="saveProject" class="px-3 py-1.5 text-xs font-bold bg-slate-800 hover:bg-slate-700 rounded border border-slate-600 transition">
                     <i class="fa-solid fa-save mr-1"></i> SAVE
                 </button>
-                <button v-if="isAuth" @click="openCloudModal('load')" class="px-3 py-1.5 text-xs font-bold bg-sky-900/60 hover:bg-sky-800/70 text-sky-200 rounded border border-sky-700/60 transition">
-                    <i class="fa-solid fa-cloud-arrow-down mr-1"></i> LOAD CLOUD
-                </button>
-                <button v-if="isAuth" @click="openCloudModal('save')" class="px-3 py-1.5 text-xs font-bold bg-emerald-900/60 hover:bg-emerald-800/70 text-emerald-200 rounded border border-emerald-700/60 transition">
-                    <i class="fa-solid fa-cloud-arrow-up mr-1"></i> SAVE CLOUD
-                </button>
+                <div class="auth-gated-btn-wrap">
+                    <button
+                        @click="exportPanelOpen = true"
+                        :disabled="!isAuth"
+                        class="px-3 py-1.5 text-xs font-bold bg-indigo-900/60 hover:bg-indigo-800/70 text-indigo-100 rounded border border-indigo-600/60 transition disabled:opacity-75 disabled:cursor-not-allowed disabled:hover:bg-indigo-900/60">
+                        <i class="fa-solid fa-file-export mr-1"></i> VALIDATE / EXPORT
+                    </button>
+                    <button
+                        v-if="!isAuth"
+                        type="button"
+                        class="auth-gated-btn-overlay"
+                        aria-label="Только для авторизованных пользователей"
+                        @click="notifyAuthRequired('export')"></button>
+                    <div v-if="authHintKey === 'export'" class="auth-gated-toast">
+                        Только для авторизованных пользователей
+                    </div>
+                </div>
+                <div class="auth-gated-btn-wrap">
+                    <button
+                        @click="openCloudModal('load')"
+                        :disabled="!isAuth"
+                        class="px-3 py-1.5 text-xs font-bold bg-sky-900/60 hover:bg-sky-800/70 text-sky-200 rounded border border-sky-700/60 transition disabled:opacity-75 disabled:cursor-not-allowed disabled:hover:bg-sky-900/60">
+                        <i class="fa-solid fa-cloud-arrow-down mr-1"></i> LOAD CLOUD
+                    </button>
+                    <button
+                        v-if="!isAuth"
+                        type="button"
+                        class="auth-gated-btn-overlay"
+                        aria-label="Только для авторизованных пользователей"
+                        @click="notifyAuthRequired('load_cloud')"></button>
+                    <div v-if="authHintKey === 'load_cloud'" class="auth-gated-toast">
+                        Только для авторизованных пользователей
+                    </div>
+                </div>
+                <div class="auth-gated-btn-wrap">
+                    <button
+                        @click="openCloudModal('save')"
+                        :disabled="!isAuth"
+                        class="px-3 py-1.5 text-xs font-bold bg-emerald-900/60 hover:bg-emerald-800/70 text-emerald-200 rounded border border-emerald-700/60 transition disabled:opacity-75 disabled:cursor-not-allowed disabled:hover:bg-emerald-900/60">
+                        <i class="fa-solid fa-cloud-arrow-up mr-1"></i> SAVE CLOUD
+                    </button>
+                    <button
+                        v-if="!isAuth"
+                        type="button"
+                        class="auth-gated-btn-overlay"
+                        aria-label="Только для авторизованных пользователей"
+                        @click="notifyAuthRequired('save_cloud')"></button>
+                    <div v-if="authHintKey === 'save_cloud'" class="auth-gated-toast">
+                        Только для авторизованных пользователей
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -353,6 +398,102 @@
                                 </div>
                             </div>
 
+                            <div v-if="node.type === 'wait_event'">
+                                <div class="bg-cyan-900/20 p-2 rounded border border-cyan-500/25 mb-2 space-y-2">
+                                    <input v-model="node.data.eventKey" @mousedown.stop
+                                           class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-cyan-100"
+                                           placeholder="Event key: quest.bandits_cleared" />
+                                    <input v-model="node.data.note" @mousedown.stop
+                                           class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-cyan-200/90"
+                                           placeholder="Optional note..." />
+                                </div>
+                                <div class="relative mt-2 bg-slate-900/40 border border-slate-700 rounded p-2 text-[10px] flex items-center justify-between translate-x-2">
+                                    <span class="text-cyan-300/80 uppercase tracking-wide">Resume</span>
+                                    <div class="socket socket-out"
+                                         :class="{ 'socket-occupied': isSocketOccupied(node.id, 'default') }"
+                                         :data-node-id="node.id"
+                                         data-socket-id="default"
+                                         @mousedown.stop.prevent="startDragLine(node.id, 'default', $event)"></div>
+                                </div>
+                            </div>
+
+                            <div v-if="node.type === 'wait_condition'">
+                                <div class="bg-amber-900/20 p-2 rounded border border-amber-500/25 mb-2 space-y-2">
+                                    <select v-model="node.data.varId" @mousedown.stop
+                                            class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-amber-200">
+                                        <option :value="null">Variable...</option>
+                                        <option v-for="v in variables" :value="v.id">{{ v.name }}</option>
+                                    </select>
+                                    <div v-if="node.data.varId">
+                                        <div v-if="getVarType(node.data.varId) === 'bool'" class="flex gap-2">
+                                            <select v-model="node.data.op" @mousedown.stop class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-amber-200">
+                                                <option value="eq">==</option>
+                                                <option value="neq">!=</option>
+                                            </select>
+                                            <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-emerald-200">
+                                                <input type="checkbox" v-model="node.data.val" @mousedown.stop class="accent-emerald-500">
+                                                <span>{{ node.data.val ? 'True' : 'False' }}</span>
+                                            </label>
+                                        </div>
+                                        <div v-else-if="getVarType(node.data.varId) === 'enum'" class="flex gap-2">
+                                            <select v-model="node.data.op" @mousedown.stop class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-amber-200">
+                                                <option value="eq">==</option>
+                                                <option value="neq">!=</option>
+                                            </select>
+                                            <select v-model="node.data.val" @mousedown.stop class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-amber-200">
+                                                <option v-for="opt in getVarOptions(node.data.varId)" :value="opt">{{ opt }}</option>
+                                            </select>
+                                        </div>
+                                        <div v-else-if="getVarType(node.data.varId) === 'string'" class="flex gap-2">
+                                            <select v-model="node.data.op" @mousedown.stop class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-amber-200">
+                                                <option value="eq">==</option>
+                                                <option value="neq">!=</option>
+                                            </select>
+                                            <input type="text" v-model="node.data.val" @mousedown.stop class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-amber-200">
+                                        </div>
+                                        <div v-else class="flex gap-2">
+                                            <select v-model="node.data.op" @mousedown.stop class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-amber-200">
+                                                <option value="eq">==</option>
+                                                <option value="neq">!=</option>
+                                                <option value="gt">&gt;</option>
+                                                <option value="lt">&lt;</option>
+                                            </select>
+                                            <input type="number" v-model.number="node.data.val" @mousedown.stop class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-amber-200">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="relative mt-2 bg-slate-900/40 border border-slate-700 rounded p-2 text-[10px] flex items-center justify-between translate-x-2">
+                                    <span class="text-amber-300/80 uppercase tracking-wide">When true</span>
+                                    <div class="socket socket-out"
+                                         :class="{ 'socket-occupied': isSocketOccupied(node.id, 'default') }"
+                                         :data-node-id="node.id"
+                                         data-socket-id="default"
+                                         @mousedown.stop.prevent="startDragLine(node.id, 'default', $event)"></div>
+                                </div>
+                            </div>
+
+                            <div v-if="node.type === 'objective_set' || node.type === 'objective_complete' || node.type === 'objective_fail'">
+                                <div class="bg-emerald-900/18 p-2 rounded border border-emerald-500/25 mb-2 space-y-2">
+                                    <input v-model="node.data.objectiveId" @mousedown.stop
+                                           class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-emerald-100"
+                                           placeholder="Objective id: quest_find_relic" />
+                                    <textarea v-if="node.type === 'objective_set'" v-model="node.data.objectiveText" @mousedown.stop rows="2"
+                                              class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-emerald-100 resize-none"
+                                              placeholder="Objective text in journal..."></textarea>
+                                    <input v-else v-model="node.data.reason" @mousedown.stop
+                                           class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-emerald-100"
+                                           placeholder="Optional reason..." />
+                                </div>
+                                <div class="relative mt-2 bg-slate-900/40 border border-slate-700 rounded p-2 text-[10px] flex items-center justify-between translate-x-2">
+                                    <span class="text-emerald-300/80 uppercase tracking-wide">Continue</span>
+                                    <div class="socket socket-out"
+                                         :class="{ 'socket-occupied': isSocketOccupied(node.id, 'default') }"
+                                         :data-node-id="node.id"
+                                         data-socket-id="default"
+                                         @mousedown.stop.prevent="startDragLine(node.id, 'default', $event)"></div>
+                                </div>
+                            </div>
+
                             <div v-if="node.type === 'link_state'">
                                 <div class="bg-red-900/20 p-2 rounded border border-red-500/25 mb-2 space-y-2">
                                     <div class="flex items-center gap-2">
@@ -526,6 +667,31 @@
                         <button @click="addNode('switcher')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-sky-600/20 hover:text-sky-400 text-slate-400 transition group">
                             <i class="fa-solid fa-shuffle text-2xl mb-1 group-hover:scale-110 transition"></i>
                             <span class="text-[10px] font-bold">SWITCH</span>
+                        </button>
+                        <div class="w-px h-10 bg-slate-700"></div>
+                        <button @click="addNode('wait_event')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-cyan-600/20 hover:text-cyan-300 text-slate-400 transition group">
+                            <i class="fa-solid fa-hourglass-half text-2xl mb-1 group-hover:scale-110 transition"></i>
+                            <span class="text-[10px] font-bold">WAIT EV</span>
+                        </button>
+                        <div class="w-px h-10 bg-slate-700"></div>
+                        <button @click="addNode('wait_condition')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-amber-600/20 hover:text-amber-300 text-slate-400 transition group">
+                            <i class="fa-solid fa-stopwatch text-2xl mb-1 group-hover:scale-110 transition"></i>
+                            <span class="text-[10px] font-bold">WAIT IF</span>
+                        </button>
+                        <div class="w-px h-10 bg-slate-700"></div>
+                        <button @click="addNode('objective_set')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-emerald-600/20 hover:text-emerald-300 text-slate-400 transition group">
+                            <i class="fa-solid fa-list-check text-2xl mb-1 group-hover:scale-110 transition"></i>
+                            <span class="text-[10px] font-bold">OBJ SET</span>
+                        </button>
+                        <div class="w-px h-10 bg-slate-700"></div>
+                        <button @click="addNode('objective_complete')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-emerald-700/20 hover:text-emerald-200 text-slate-400 transition group">
+                            <i class="fa-solid fa-circle-check text-2xl mb-1 group-hover:scale-110 transition"></i>
+                            <span class="text-[10px] font-bold">OBJ OK</span>
+                        </button>
+                        <div class="w-px h-10 bg-slate-700"></div>
+                        <button @click="addNode('objective_fail')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-rose-700/20 hover:text-rose-200 text-slate-400 transition group">
+                            <i class="fa-solid fa-circle-xmark text-2xl mb-1 group-hover:scale-110 transition"></i>
+                            <span class="text-[10px] font-bold">OBJ FAIL</span>
                         </button>
                         <div class="w-px h-10 bg-slate-700"></div>
                         <button @click="addNode('link_state')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-red-600/20 hover:text-red-300 text-slate-400 transition group">
@@ -707,6 +873,67 @@
                                         <input type="number" v-model.number="selectedNode.data.val" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
                                     </div>
                                 </div>
+                            </div>
+
+                            <div v-if="selectedNode.type === 'wait_event'" class="space-y-4">
+                                <label class="text-xs text-slate-500 block">Wait Event</label>
+                                <input v-model="selectedNode.data.eventKey" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-cyan-100" placeholder="quest.bandits_cleared">
+                                <input v-model="selectedNode.data.note" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-cyan-100" placeholder="Optional note">
+                                <div class="text-xs text-slate-500">Runtime should pause until this event key is emitted.</div>
+                            </div>
+
+                            <div v-if="selectedNode.type === 'wait_condition'" class="space-y-4">
+                                <label class="text-xs text-slate-500 block">Wait Condition</label>
+                                <select v-model="selectedNode.data.varId" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm">
+                                    <option :value="null">Select variable...</option>
+                                    <option v-for="v in variables" :value="v.id">{{ v.name }}</option>
+                                </select>
+                                <div class="flex gap-2" v-if="selectedNode.data.varId">
+                                    <div v-if="getVarType(selectedNode.data.varId) === 'bool'" class="flex gap-2 w-full">
+                                        <select v-model="selectedNode.data.op" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                            <option value="eq">==</option>
+                                            <option value="neq">!=</option>
+                                        </select>
+                                        <label class="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                            <input type="checkbox" v-model="selectedNode.data.val" class="accent-emerald-500">
+                                            <span>{{ selectedNode.data.val ? 'True' : 'False' }}</span>
+                                        </label>
+                                    </div>
+                                    <div v-else-if="getVarType(selectedNode.data.varId) === 'enum'" class="flex gap-2 w-full">
+                                        <select v-model="selectedNode.data.op" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                            <option value="eq">==</option>
+                                            <option value="neq">!=</option>
+                                        </select>
+                                        <select v-model="selectedNode.data.val" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                            <option v-for="opt in getVarOptions(selectedNode.data.varId)" :value="opt">{{ opt }}</option>
+                                        </select>
+                                    </div>
+                                    <div v-else-if="getVarType(selectedNode.data.varId) === 'string'" class="flex gap-2 w-full">
+                                        <select v-model="selectedNode.data.op" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                            <option value="eq">==</option>
+                                            <option value="neq">!=</option>
+                                        </select>
+                                        <input type="text" v-model="selectedNode.data.val" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                    </div>
+                                    <div v-else class="flex gap-2 w-full">
+                                        <select v-model="selectedNode.data.op" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                            <option value="eq">==</option>
+                                            <option value="neq">!=</option>
+                                            <option value="gt">&gt;</option>
+                                            <option value="lt">&lt;</option>
+                                        </select>
+                                        <input type="number" v-model.number="selectedNode.data.val" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm">
+                                    </div>
+                                </div>
+                                <div class="text-xs text-slate-500">Quest waits until this condition is true, then continues.</div>
+                            </div>
+
+                            <div v-if="selectedNode.type === 'objective_set' || selectedNode.type === 'objective_complete' || selectedNode.type === 'objective_fail'" class="space-y-4">
+                                <label class="text-xs text-slate-500 block">Objective Hook</label>
+                                <input v-model="selectedNode.data.objectiveId" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-emerald-100" placeholder="quest_find_relic">
+                                <textarea v-if="selectedNode.type === 'objective_set'" v-model="selectedNode.data.objectiveText" rows="3" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-emerald-100 resize-y" placeholder="Objective text in journal..."></textarea>
+                                <input v-else v-model="selectedNode.data.reason" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-emerald-100" placeholder="Optional reason">
+                                <div class="text-xs text-slate-500">Engine bridge maps objective id to journal/task system.</div>
                             </div>
 
                             <div v-if="selectedNode.type === 'link_state'" class="space-y-4">
@@ -918,6 +1145,48 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="exportPanelOpen" class="export-validator-overlay" @mousedown.self="exportPanelOpen = false; exportValidatorDocsOpen = false">
+            <div class="export-validator-modal" @mousedown.stop>
+                <div class="export-validator-head">
+                    <div>
+                        <div class="export-validator-title">Quest Exporter + Validator</div>
+                        <div class="export-validator-subtitle">Production export, runtime diagnostics, and graph validation</div>
+                    </div>
+                    <div class="export-validator-head-actions">
+                        <button @click="exportValidatorDocsOpen = true" class="export-validator-close" title="Validator Docs">
+                            <i class="fa-solid fa-question"></i>
+                        </button>
+                        <button @click="exportPanelOpen = false; exportValidatorDocsOpen = false" class="export-validator-close" title="Close">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+                <iframe
+                    class="export-validator-frame"
+                    src="quest_architect/quest_export_validator.html"
+                    title="Quest Exporter and Validator">
+                </iframe>
+                <div v-if="exportValidatorDocsOpen" class="export-validator-docs-layer" @mousedown.self="exportValidatorDocsOpen = false">
+                    <div class="export-validator-docs-modal" @mousedown.stop>
+                        <div class="export-validator-head">
+                            <div>
+                                <div class="export-validator-title">Validator Documentation</div>
+                                <div class="export-validator-subtitle">Wiki guide for modes, controls, diagnostics, and export formats</div>
+                            </div>
+                            <button @click="exportValidatorDocsOpen = false" class="export-validator-close" title="Close Docs">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                        <iframe
+                            class="export-validator-frame"
+                            src="quest_architect/quest_export_validator_docs.html"
+                            title="Quest Export Validator Docs">
+                        </iframe>
                     </div>
                 </div>
             </div>
