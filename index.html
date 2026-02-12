@@ -167,6 +167,68 @@
             text-shadow: 0 0 14px rgba(var(--item-accent), 0.5);
         }
 
+        .toolbar-item-actions {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: none;
+            gap: 4px;
+            z-index: 2;
+        }
+
+        .toolbar-item-actions .tool-action {
+            width: 22px;
+            height: 22px;
+            border: 1px solid rgba(148, 163, 184, 0.38);
+            border-radius: 10px;
+            background: rgba(15, 23, 42, 0.74);
+            color: #9aa4b2;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+        }
+
+        .toolbar-item-actions .tool-action:hover {
+            border-color: rgba(125, 211, 252, 0.5);
+            color: #dbe7f3;
+            background: rgba(30, 41, 59, 0.78);
+        }
+
+        .toolbar-item-actions .tool-action.is-on {
+            border-color: rgba(125, 211, 252, 0.6);
+            color: #7dd3fc;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+        }
+
+        body.toolbar-customize-mode .nav-links a {
+            padding-right: 108px;
+        }
+
+        body.toolbar-customize-mode .toolbar-item-actions {
+            display: inline-flex;
+        }
+
+        .nav-links li.hidden-by-pref a {
+            opacity: 0.58;
+            border-style: dashed;
+        }
+
+        body.toolbar-customize-mode .nav-links li.hidden-by-pref a:hover {
+            opacity: 0.78;
+        }
+
+        .nav-links li.pinned-item a {
+            border-color: rgba(125, 211, 252, 0.45);
+            box-shadow:
+                0 10px 18px -12px rgba(2, 6, 23, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.14),
+                inset 0 -10px 18px rgba(2, 6, 23, 0.25),
+                0 0 0 1px rgba(125, 211, 252, 0.14);
+        }
+
         .nav-links a[href="blueprints_view.html"] { --item-accent: 134, 184, 216; }
         .nav-links a[href="shaders_view.html"] { --item-accent: 217, 132, 96; }
         .nav-links a[href="hlsl_view.html"] { --item-accent: 95, 163, 154; }
@@ -183,6 +245,7 @@
         .nav-links a[href="admin_add.html"] { --item-accent: 134, 184, 216; }
         .nav-links a[href="admin_access_requests.html"] { --item-accent: 95, 163, 154; }
         .nav-links a[href="admin_bug_reports.html"] { --item-accent: 185, 137, 137; }
+        .nav-links a[href="user_cabinet.html"] { --item-accent: 125, 211, 252; }
 
         @keyframes nav-press {
             0% { transform: translateY(0); box-shadow: 0 0 0 rgba(0,0,0,0); }
@@ -277,6 +340,59 @@
         .footer.secondary i {
             color: #f3c5a5;
             text-shadow: 0 0 10px rgba(185, 137, 137, 0.45);
+        }
+
+        .footer.quaternary {
+            margin-top: 0;
+            border-top: none;
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            border-radius: 12px;
+            background: rgba(30, 41, 59, 0.45);
+            box-shadow:
+                0 18px 30px -12px rgba(2, 6, 23, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22),
+                inset 0 -10px 22px rgba(2, 6, 23, 0.32);
+            color: #dbe7f3;
+        }
+
+        .footer.quaternary:hover {
+            border-color: rgba(125, 211, 252, 0.52);
+            color: #dbe7f3;
+            box-shadow:
+                0 18px 30px -12px rgba(2, 6, 23, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22),
+                inset 0 -10px 22px rgba(2, 6, 23, 0.32),
+                0 0 0 1px rgba(125, 211, 252, 0.2);
+        }
+
+        .footer.quaternary i {
+            color: #7dd3fc;
+        }
+
+        .footer.quaternary.danger {
+            border-color: rgba(185, 137, 137, 0.46);
+        }
+
+        .footer.quaternary.danger:hover {
+            border-color: rgba(185, 137, 137, 0.62);
+            box-shadow:
+                0 18px 30px -12px rgba(2, 6, 23, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22),
+                inset 0 -10px 22px rgba(2, 6, 23, 0.32),
+                0 0 0 1px rgba(185, 137, 137, 0.22);
+        }
+
+        .footer.quaternary.danger i {
+            color: #f2b8b8;
+        }
+
+        body.toolbar-customize-mode #toolbarCustomizeBtn {
+            border-color: rgba(125, 211, 252, 0.62);
+            box-shadow:
+                0 18px 30px -12px rgba(2, 6, 23, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22),
+                inset 0 -10px 22px rgba(2, 6, 23, 0.32),
+                0 0 0 1px rgba(125, 211, 252, 0.25);
         }
 
         .footer.tertiary {
@@ -817,36 +933,48 @@
         </div>
 
         <div class="category-title">Visual Library</div>
-        <ul class="nav-links">
-            <li><a href="blueprints_view.html" target="tool-frame"><i class="fa-solid fa-cubes" style="margin-right:8px"></i>Blueprint Gallery</a></li>
-            <li><a href="shaders_view.html" target="tool-frame"><i class="fa-solid fa-wand-magic-sparkles" style="margin-right:8px"></i>Shader Library</a></li>
-            <li><a href="hlsl_view.html" target="tool-frame"><i class="fa-solid fa-code" style="margin-right:8px"></i>HLSL Library</a></li>
-            <li><a href="snippets_view.html" target="tool-frame"><i class="fa-solid fa-file-code" style="margin-right:8px"></i>Snippets Library</a></li>
+        <ul class="nav-links" data-group="visual">
+            <li><a href="blueprints_view.html" target="tool-frame" data-tool-key="blueprints_view"><i class="fa-solid fa-cubes" style="margin-right:8px"></i>Blueprint Gallery</a></li>
+            <li><a href="shaders_view.html" target="tool-frame" data-tool-key="shaders_view"><i class="fa-solid fa-wand-magic-sparkles" style="margin-right:8px"></i>Shader Library</a></li>
+            <li><a href="hlsl_view.html" target="tool-frame" data-tool-key="hlsl_view"><i class="fa-solid fa-code" style="margin-right:8px"></i>HLSL Library</a></li>
+            <li><a href="snippets_view.html" target="tool-frame" data-tool-key="snippets_view"><i class="fa-solid fa-file-code" style="margin-right:8px"></i>Snippets Library</a></li>
         </ul>
 
         <div class="category-title">Data Tools</div>
-        <ul class="nav-links">
-            <li><a href="UE_EnumGen.html" target="tool-frame"><i class="fa-solid fa-list-ol" style="margin-right:8px"></i>UE Enum Generator</a></li>
-            <li><a href="UE_Converter_Pro.html" target="tool-frame"><i class="fa-solid fa-right-left" style="margin-right:8px"></i>Data Converter</a></li>
-            <li><a href="CurveToCode_Pro.html" target="tool-frame"><i class="fa-solid fa-chart-line" style="margin-right:8px"></i>Curve Editor</a></li>
-            <li><a href="progression_balancer.html" target="tool-frame"><i class="fa-solid fa-sliders" style="margin-right:8px"></i>Balance Progression Tool</a></li>
-            <li><a href="FactoryArchitect_New.html" target="tool-frame"><i class="fa-solid fa-industry" style="margin-right:8px"></i>Factory Architect</a></li>
-            <li><a href="QuestArchitect2.html" target="tool-frame"><i class="fa-solid fa-diagram-project" style="margin-right:8px"></i>Quest Architect</a></li>
+        <ul class="nav-links" data-group="data_tools">
+            <li><a href="UE_EnumGen.html" target="tool-frame" data-tool-key="ue_enumgen"><i class="fa-solid fa-list-ol" style="margin-right:8px"></i>UE Enum Generator</a></li>
+            <li><a href="UE_Converter_Pro.html" target="tool-frame" data-tool-key="ue_converter"><i class="fa-solid fa-right-left" style="margin-right:8px"></i>Data Converter</a></li>
+            <li><a href="CurveToCode_Pro.html" target="tool-frame" data-tool-key="curve_editor"><i class="fa-solid fa-chart-line" style="margin-right:8px"></i>Curve Editor</a></li>
+            <li><a href="progression_balancer.html" target="tool-frame" data-tool-key="progression_balancer"><i class="fa-solid fa-sliders" style="margin-right:8px"></i>Balance Progression Tool</a></li>
+            <li><a href="FactoryArchitect_New.html" target="tool-frame" data-tool-key="factory_architect"><i class="fa-solid fa-industry" style="margin-right:8px"></i>Factory Architect</a></li>
+            <li><a href="QuestArchitect2.html" target="tool-frame" data-tool-key="quest_architect"><i class="fa-solid fa-diagram-project" style="margin-right:8px"></i>Quest Architect</a></li>
         </ul>
 
         <div class="category-title" style="color: #6f98b2;">Generators</div>
-        <ul class="nav-links">
-            <li><a href="math_plotter.html" target="tool-frame"><i class="fa-solid fa-square-root-variable" style="margin-right:8px"></i>Math Plotter</a></li>
-            <li><a href="shader_playground.html" target="tool-frame"><i class="fa-solid fa-flask-vial" style="margin-right:8px"></i>HLSL Live Studio</a></li>
-            <li><a href="noise_gen.html" target="tool-frame"><i class="fa-solid fa-image" style="margin-right:8px"></i>Texture Generator</a></li>
+        <ul class="nav-links" data-group="generators">
+            <li><a href="math_plotter.html" target="tool-frame" data-tool-key="math_plotter"><i class="fa-solid fa-square-root-variable" style="margin-right:8px"></i>Math Plotter</a></li>
+            <li><a href="shader_playground.html" target="tool-frame" data-tool-key="shader_playground"><i class="fa-solid fa-flask-vial" style="margin-right:8px"></i>HLSL Live Studio</a></li>
+            <li><a href="noise_gen.html" target="tool-frame" data-tool-key="noise_gen"><i class="fa-solid fa-image" style="margin-right:8px"></i>Texture Generator</a></li>
         </ul>
 
-<div class="category-title admin-group" style="color: #6f98b2;">Admin Zone</div>
-<ul class="nav-links admin-group">
-    <li><a href="admin_add.html" target="tool-frame"><i class="fa-solid fa-pen-to-square" style="margin-right:8px"></i>Snippet Builder</a></li>
-    <li><a href="admin_access_requests.html" target="tool-frame"><i class="fa-solid fa-user-check" style="margin-right:8px"></i>Access Requests</a></li>
-    <li><a href="admin_bug_reports.html" target="tool-frame"><i class="fa-solid fa-bug" style="margin-right:8px"></i>Bug Reports</a></li>
-</ul>
+        <div class="category-title" style="color: #7dd3fc;">Account</div>
+        <ul class="nav-links" data-group="account">
+            <li><a href="user_cabinet.html" target="tool-frame" data-tool-key="user_cabinet"><i class="fa-solid fa-id-card" style="margin-right:8px"></i>User Cabinet</a></li>
+        </ul>
+
+        <div class="category-title admin-group" style="color: #6f98b2;">Admin Zone</div>
+        <ul class="nav-links admin-group" data-group="admin">
+            <li><a href="admin_add.html" target="tool-frame" data-tool-key="admin_add"><i class="fa-solid fa-pen-to-square" style="margin-right:8px"></i>Snippet Builder</a></li>
+            <li><a href="admin_access_requests.html" target="tool-frame" data-tool-key="admin_access_requests"><i class="fa-solid fa-user-check" style="margin-right:8px"></i>Access Requests</a></li>
+            <li><a href="admin_bug_reports.html" target="tool-frame" data-tool-key="admin_bug_reports"><i class="fa-solid fa-bug" style="margin-right:8px"></i>Bug Reports</a></li>
+        </ul>
+
+        <div class="footer quaternary" id="toolbarCustomizeBtn" onclick="toggleToolbarCustomizeMode()">
+            <i class="fa-solid fa-sliders" style="margin-right:8px"></i> Customize Toolbar
+        </div>
+        <div class="footer quaternary danger" id="toolbarResetBtn" onclick="resetToolbarPrefs()" style="display:none;">
+            <i class="fa-solid fa-rotate-left" style="margin-right:8px"></i> Reset Toolbar Layout
+        </div>
 
         <div class="footer" id="loginBtn" onclick="handleAuthClick()">
             <i id="statusIcon" class="fa-solid fa-lock" style="margin-right:8px"></i> Login
@@ -988,11 +1116,18 @@
         var _bugFxAnimId = null;
         var _bugFxPrevTs = 0;
         var _bugFxLastSpawn = 0;
+        var _toolbarPrefs = null;
+        var _toolbarCustomizeMode = false;
+        var _isAdminUser = false;
+        var _authEmail = null;
+        var _sidebarSetupDone = false;
+        var TOOLBAR_PREFS_KEY = 'ct_toolbar_prefs_v1';
 
         // --- 2. РРќРР¦РРђР›РР—РђР¦РРЇ РџР Р Р—РђР“Р РЈР—РљР• ---
         window.onload = async function() {
             console.log("CommonToolHub: Script loaded");
             initMobileLayout();
+            initToolbarCustomization();
             setupSidebarActive();
 
             try {
@@ -1007,13 +1142,13 @@
                 const { data: { session }, error } = await _sbClient.auth.getSession();
                 
                 if (session) {
-                    unlockUI(session.user);
+                    unlockUI(session);
                 } else {
                     lockUI();
                 }
                 
                 _sbClient.auth.onAuthStateChange((event, session) => {
-                    if (session) unlockUI(session.user);
+                    if (session) unlockUI(session);
                     else lockUI();
                 });
 
@@ -1194,6 +1329,388 @@
             for (let i = 0; i < 7; i += 1) spawnBugModalFx();
             _bugFxAnimId = requestAnimationFrame(tickBugModalFx);
         }
+
+        function parseJwtPayload(token) {
+            if (!token || typeof token !== 'string') return null;
+            try {
+                const payload = token.split('.')[1];
+                if (!payload) return null;
+                const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+                const decoded = atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='));
+                return JSON.parse(decoded);
+            } catch (_) {
+                return null;
+            }
+        }
+
+        function resolveUserRole(session) {
+            if (!session || !session.user) return '';
+            const user = session.user;
+            const roleFromUser =
+                user.app_metadata?.user_role ||
+                user.user_metadata?.user_role ||
+                user.app_metadata?.role ||
+                '';
+            if (typeof roleFromUser === 'string' && roleFromUser.trim()) {
+                return roleFromUser.trim().toLowerCase();
+            }
+
+            const jwt = parseJwtPayload(session.access_token);
+            const roleFromJwt =
+                jwt?.user_role ||
+                jwt?.app_metadata?.user_role ||
+                jwt?.user_metadata?.user_role ||
+                '';
+            return typeof roleFromJwt === 'string' ? roleFromJwt.trim().toLowerCase() : '';
+        }
+
+        function defaultToolbarPrefs() {
+            return {
+                version: 1,
+                hiddenKeys: [],
+                pinnedKeys: [],
+                orderByGroup: {}
+            };
+        }
+
+        function normalizeStringArray(value) {
+            if (!Array.isArray(value)) return [];
+            const set = new Set();
+            value.forEach((item) => {
+                if (typeof item === 'string' && item.trim()) {
+                    set.add(item.trim());
+                }
+            });
+            return Array.from(set);
+        }
+
+        function normalizeToolbarPrefs(raw) {
+            const fallback = defaultToolbarPrefs();
+            if (!raw || typeof raw !== 'object') return fallback;
+
+            const normalized = {
+                version: 1,
+                hiddenKeys: normalizeStringArray(raw.hiddenKeys),
+                pinnedKeys: normalizeStringArray(raw.pinnedKeys),
+                orderByGroup: {}
+            };
+
+            if (raw.orderByGroup && typeof raw.orderByGroup === 'object') {
+                Object.keys(raw.orderByGroup).forEach((groupKey) => {
+                    normalized.orderByGroup[groupKey] = normalizeStringArray(raw.orderByGroup[groupKey]);
+                });
+            }
+
+            return normalized;
+        }
+
+        function loadToolbarPrefs() {
+            try {
+                const raw = localStorage.getItem(TOOLBAR_PREFS_KEY);
+                if (!raw) return defaultToolbarPrefs();
+                const parsed = JSON.parse(raw);
+                return normalizeToolbarPrefs(parsed);
+            } catch (_) {
+                return defaultToolbarPrefs();
+            }
+        }
+
+        function saveToolbarPrefs() {
+            if (!_toolbarPrefs) return;
+            localStorage.setItem(TOOLBAR_PREFS_KEY, JSON.stringify(_toolbarPrefs));
+        }
+
+        function getSidebarLinks() {
+            return Array.from(document.querySelectorAll('.nav-links a[target="tool-frame"]'));
+        }
+
+        function isSidebarLinkVisible(link) {
+            if (!link) return false;
+            const li = link.closest('li');
+            if (!li) return false;
+            if (window.getComputedStyle(li).display === 'none') return false;
+
+            let current = li.parentElement;
+            while (current && current !== document.body) {
+                if (window.getComputedStyle(current).display === 'none') return false;
+                current = current.parentElement;
+            }
+            return true;
+        }
+
+        function clearSidebarActive() {
+            document.querySelectorAll('.nav-links a').forEach((link) => link.classList.remove('active'));
+            document.querySelectorAll('.category-title').forEach((title) => title.classList.remove('active'));
+        }
+
+        function setSidebarActiveLink(link, options) {
+            if (!link) return;
+            const opts = options || {};
+            clearSidebarActive();
+            link.classList.add('active');
+            const title = link.closest('ul')?.previousElementSibling;
+            if (title && title.classList.contains('category-title')) {
+                title.classList.add('active');
+            }
+
+            const href = link.getAttribute('href');
+            if (opts.persist !== false && href) {
+                localStorage.setItem('ct_active_link', href);
+            }
+
+            if (opts.loadFrame && href) {
+                const frame = document.getElementById('tool-frame');
+                if (frame) {
+                    frame.setAttribute('src', href);
+                    frame.src = href;
+                }
+            }
+        }
+
+        function getToolLinkByKey(toolKey) {
+            return document.querySelector(`.nav-links a[data-tool-key="${toolKey}"]`);
+        }
+
+        function getToolGroupByLink(link) {
+            return link?.closest('ul.nav-links')?.dataset?.group || 'misc';
+        }
+
+        function ensureToolbarOrder(groupKey, keysInDom) {
+            if (!_toolbarPrefs.orderByGroup[groupKey]) {
+                _toolbarPrefs.orderByGroup[groupKey] = [];
+            }
+
+            const existing = _toolbarPrefs.orderByGroup[groupKey].filter((key) => keysInDom.includes(key));
+            keysInDom.forEach((key) => {
+                if (!existing.includes(key)) existing.push(key);
+            });
+            _toolbarPrefs.orderByGroup[groupKey] = existing;
+            return existing;
+        }
+
+        function updateToolbarActionStates() {
+            const hidden = new Set(_toolbarPrefs.hiddenKeys || []);
+            const pinned = new Set(_toolbarPrefs.pinnedKeys || []);
+            getSidebarLinks().forEach((link) => {
+                const key = link.dataset.toolKey;
+                const hideBtn = link.querySelector('.tool-action[data-act="hide"]');
+                const pinBtn = link.querySelector('.tool-action[data-act="pin"]');
+                if (hideBtn) hideBtn.classList.toggle('is-on', hidden.has(key));
+                if (pinBtn) pinBtn.classList.toggle('is-on', pinned.has(key));
+            });
+        }
+
+        function broadcastToolbarState() {
+            const frame = document.getElementById('tool-frame');
+            if (frame && frame.contentWindow) {
+                frame.contentWindow.postMessage({
+                    type: 'ct_toolbar_state',
+                    customizeMode: _toolbarCustomizeMode,
+                    prefs: _toolbarPrefs,
+                    isAdmin: _isAdminUser,
+                    email: _authEmail
+                }, '*');
+            }
+        }
+
+        function ensureVisibleActiveLink() {
+            const active = document.querySelector('.nav-links a.active');
+            if (active && isSidebarLinkVisible(active)) return;
+            const stored = localStorage.getItem('ct_active_link');
+            if (!active && !stored) return;
+
+            const firstVisible = getSidebarLinks().find((link) => isSidebarLinkVisible(link));
+            if (firstVisible) {
+                const frame = document.getElementById('tool-frame');
+                const currentSrc = frame?.getAttribute('src') || '';
+                const targetHref = firstVisible.getAttribute('href') || '';
+                const shouldLoadFrame = !!targetHref && currentSrc !== targetHref;
+                setSidebarActiveLink(firstVisible, { persist: true, loadFrame: shouldLoadFrame });
+            }
+        }
+
+        function applyToolbarPrefs() {
+            if (!_toolbarPrefs) _toolbarPrefs = defaultToolbarPrefs();
+            const hidden = new Set(_toolbarPrefs.hiddenKeys || []);
+            const pinned = new Set(_toolbarPrefs.pinnedKeys || []);
+            const groups = Array.from(document.querySelectorAll('.nav-links[data-group]'));
+
+            groups.forEach((groupEl) => {
+                const groupKey = groupEl.dataset.group || 'misc';
+                const listItems = Array.from(groupEl.querySelectorAll(':scope > li'))
+                    .filter((li) => li.querySelector('a[data-tool-key]'));
+                const keyToLi = new Map();
+                const keysInDom = [];
+
+                listItems.forEach((li) => {
+                    const link = li.querySelector('a[data-tool-key]');
+                    const key = link?.dataset?.toolKey;
+                    if (!key) return;
+                    keyToLi.set(key, li);
+                    keysInDom.push(key);
+                });
+
+                const orderedKeys = ensureToolbarOrder(groupKey, keysInDom);
+                const sortedKeys = orderedKeys.slice().sort((a, b) => {
+                    const aPinned = pinned.has(a) ? 0 : 1;
+                    const bPinned = pinned.has(b) ? 0 : 1;
+                    if (aPinned !== bPinned) return aPinned - bPinned;
+                    return orderedKeys.indexOf(a) - orderedKeys.indexOf(b);
+                });
+
+                sortedKeys.forEach((key) => {
+                    const li = keyToLi.get(key);
+                    if (li) groupEl.appendChild(li);
+                });
+
+                sortedKeys.forEach((key) => {
+                    const li = keyToLi.get(key);
+                    const link = li?.querySelector('a[data-tool-key]');
+                    if (!li || !link) return;
+
+                    const forceAdminHidden = groupKey === 'admin' && !_isAdminUser;
+                    const hiddenByPrefs = hidden.has(key);
+                    const hiddenFinal = forceAdminHidden || hiddenByPrefs;
+
+                    li.classList.toggle('pinned-item', pinned.has(key));
+                    li.classList.toggle('hidden-by-pref', hiddenByPrefs && !forceAdminHidden);
+                    li.style.display = '';
+
+                    if (forceAdminHidden) {
+                        li.style.display = 'none';
+                        return;
+                    }
+
+                    if (!_toolbarCustomizeMode && hiddenFinal) {
+                        li.style.display = 'none';
+                    }
+                });
+
+                const titleEl = groupEl.previousElementSibling;
+                const visibleCount = sortedKeys.reduce((count, key) => {
+                    const li = keyToLi.get(key);
+                    return li && li.style.display !== 'none' ? count + 1 : count;
+                }, 0);
+                const shouldHideGroup = (groupKey === 'admin' && !_isAdminUser) || (!_toolbarCustomizeMode && visibleCount === 0);
+                groupEl.style.display = shouldHideGroup ? 'none' : '';
+                if (titleEl && titleEl.classList.contains('category-title')) {
+                    titleEl.style.display = shouldHideGroup ? 'none' : '';
+                }
+            });
+
+            document.body.classList.toggle('toolbar-customize-mode', _toolbarCustomizeMode);
+            const resetBtn = document.getElementById('toolbarResetBtn');
+            if (resetBtn) {
+                resetBtn.style.display = _toolbarCustomizeMode ? 'block' : 'none';
+            }
+
+            updateToolbarActionStates();
+            ensureVisibleActiveLink();
+            saveToolbarPrefs();
+            broadcastToolbarState();
+        }
+
+        function moveToolbarItem(toolKey, direction) {
+            const link = getToolLinkByKey(toolKey);
+            if (!link) return;
+            const groupKey = getToolGroupByLink(link);
+            const order = _toolbarPrefs.orderByGroup[groupKey] || [];
+            const idx = order.indexOf(toolKey);
+            if (idx < 0) return;
+
+            const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+            if (targetIdx < 0 || targetIdx >= order.length) return;
+
+            const swap = order[targetIdx];
+            order[targetIdx] = order[idx];
+            order[idx] = swap;
+            _toolbarPrefs.orderByGroup[groupKey] = order;
+            applyToolbarPrefs();
+        }
+
+        function toggleToolbarKey(collectionKey, toolKey) {
+            const arr = Array.isArray(_toolbarPrefs[collectionKey]) ? _toolbarPrefs[collectionKey] : [];
+            const hasValue = arr.includes(toolKey);
+            _toolbarPrefs[collectionKey] = hasValue ? arr.filter((k) => k !== toolKey) : arr.concat(toolKey);
+            applyToolbarPrefs();
+        }
+
+        function handleToolbarItemAction(toolKey, action) {
+            if (!_toolbarCustomizeMode) return;
+            if (action === 'pin') {
+                toggleToolbarKey('pinnedKeys', toolKey);
+                return;
+            }
+            if (action === 'hide') {
+                toggleToolbarKey('hiddenKeys', toolKey);
+                return;
+            }
+            if (action === 'up' || action === 'down') {
+                moveToolbarItem(toolKey, action);
+            }
+        }
+
+        function addToolbarActionsToLinks() {
+            getSidebarLinks().forEach((link) => {
+                if (!link.dataset.toolKey) return;
+                if (link.querySelector('.toolbar-item-actions')) return;
+
+                const actions = document.createElement('span');
+                actions.className = 'toolbar-item-actions';
+                actions.innerHTML = [
+                    '<button class="tool-action" data-act="pin" type="button" title="Pin to top"><i class="fa-solid fa-star"></i></button>',
+                    '<button class="tool-action" data-act="hide" type="button" title="Hide/Show"><i class="fa-solid fa-eye-slash"></i></button>',
+                    '<button class="tool-action" data-act="up" type="button" title="Move up"><i class="fa-solid fa-arrow-up"></i></button>',
+                    '<button class="tool-action" data-act="down" type="button" title="Move down"><i class="fa-solid fa-arrow-down"></i></button>'
+                ].join('');
+
+                actions.querySelectorAll('.tool-action').forEach((button) => {
+                    button.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const action = button.dataset.act;
+                        handleToolbarItemAction(link.dataset.toolKey, action);
+                    });
+                });
+                link.appendChild(actions);
+            });
+        }
+
+        function setToolbarCustomizeMode(enabled) {
+            _toolbarCustomizeMode = Boolean(enabled);
+            applyToolbarPrefs();
+        }
+
+        function toggleToolbarCustomizeMode() {
+            setToolbarCustomizeMode(!_toolbarCustomizeMode);
+        }
+
+        function resetToolbarPrefs() {
+            _toolbarPrefs = defaultToolbarPrefs();
+            applyToolbarPrefs();
+        }
+
+        function initToolbarCustomization() {
+            _toolbarPrefs = loadToolbarPrefs();
+            addToolbarActionsToLinks();
+            applyToolbarPrefs();
+            window.addEventListener('message', function(event) {
+                const data = event?.data;
+                if (!data || typeof data !== 'object') return;
+                if (data.type === 'ct_toolbar_customize_toggle') {
+                    if (typeof data.enabled === 'boolean') {
+                        setToolbarCustomizeMode(data.enabled);
+                    } else {
+                        toggleToolbarCustomizeMode();
+                    }
+                } else if (data.type === 'ct_toolbar_prefs_reset') {
+                    resetToolbarPrefs();
+                } else if (data.type === 'ct_toolbar_state_request') {
+                    broadcastToolbarState();
+                }
+            });
+        }
+
         function handleAuthClick() {
             if (!_sbClient) {
                 alert("РћС€РёР±РєР°: Supabase РЅРµ РёРЅРёС†РёР°Р»РёР·РёСЂРѕРІР°РЅ. РџСЂРѕРІРµСЂСЊС‚Рµ РєРѕРЅСЃРѕР»СЊ.");
@@ -1289,7 +1806,8 @@
                 'CurveToCode_Pro.html': 'curve_editor',
                 'math_plotter.html': 'math_plotter',
                 'shader_playground.html': 'hlsl_live_studio',
-                'noise_gen.html': 'texture_generator'
+                'noise_gen.html': 'texture_generator',
+                'user_cabinet.html': 'user_cabinet'
             };
             return map[href] || 'other';
         }
@@ -1525,30 +2043,40 @@
             }
         }
 
-        function unlockUI(user) {
-            console.log("User authorized:", user.email);
-            sessionStorage.setItem('ct_supabase_auth', 'true'); 
-            
-            document.querySelectorAll('.admin-group').forEach(el => el.style.display = 'block');
+        function unlockUI(session) {
+            const user = session?.user || null;
+            const email = user?.email || '';
+            const role = resolveUserRole(session);
+            _isAdminUser = role === 'admin';
+            _authEmail = email || null;
+            console.log("User authorized:", email, "role:", role || 'n/a');
+            sessionStorage.setItem('ct_supabase_auth', 'true');
+            sessionStorage.setItem('ct_user_role', role || 'authenticated');
+
+            document.querySelectorAll('.admin-group').forEach(el => el.style.display = _isAdminUser ? 'block' : 'none');
             toggleAccessRequestVisibility(true);
             
             const btn = document.getElementById('loginBtn');
             if (btn) {
                 btn.classList.add('authenticated');
-                btn.innerHTML = `<i class="fa-solid fa-circle-check" style="margin-right:8px"></i> ${user.email}`;
+                btn.innerHTML = `<i class="fa-solid fa-circle-check" style="margin-right:8px"></i> ${email}`;
             }
 
             const mobileBtn = document.getElementById('mobileLoginBtn');
             if (mobileBtn) {
                 mobileBtn.classList.add('authenticated');
-                mobileBtn.innerHTML = `<i class="fa-solid fa-circle-check"></i><span>${user.email}</span>`;
+                mobileBtn.innerHTML = `<i class="fa-solid fa-circle-check"></i><span>${email}</span>`;
             }
 
-            broadcastAuthState(true, user?.email || null);
+            applyToolbarPrefs();
+            broadcastAuthState(true, email || null);
         }
 
         function lockUI() {
             sessionStorage.removeItem('ct_supabase_auth');
+            sessionStorage.removeItem('ct_user_role');
+            _isAdminUser = false;
+            _authEmail = null;
             document.querySelectorAll('.admin-group').forEach(el => el.style.display = 'none');
             toggleAccessRequestVisibility(false);
             
@@ -1564,14 +2092,16 @@
                 mobileBtn.innerHTML = '<i class="fa-solid fa-lock"></i><span>Login</span>';
             }
 
+            applyToolbarPrefs();
             broadcastAuthState(false, null);
         }
 
         function broadcastAuthState(isAuth, email) {
             const frame = document.getElementById('tool-frame');
             if (frame && frame.contentWindow) {
-                frame.contentWindow.postMessage({ type: 'ct_auth', isAuth, email }, '*');
+                frame.contentWindow.postMessage({ type: 'ct_auth', isAuth, email, isAdmin: _isAdminUser }, '*');
             }
+            broadcastToolbarState();
         }
 
         function isMobileViewport() {
@@ -1624,8 +2154,7 @@
                 frame.setAttribute('src', 'welcome.html');
                 frame.src = 'welcome.html';
             }
-            document.querySelectorAll('.nav-links a').forEach(link => link.classList.remove('active'));
-            document.querySelectorAll('.category-title').forEach(title => title.classList.remove('active'));
+            clearSidebarActive();
             localStorage.removeItem('ct_active_link');
             if (isMobileViewport()) {
                 closeMobileSidebar();
@@ -1727,46 +2256,46 @@
         }
 
         function setupSidebarActive() {
-            const links = Array.from(document.querySelectorAll('.nav-links a'));
-            const titles = Array.from(document.querySelectorAll('.category-title'));
+            const links = getSidebarLinks();
             const frame = document.getElementById('tool-frame');
 
-            function clearActive() {
-                links.forEach(link => link.classList.remove('active'));
-                titles.forEach(title => title.classList.remove('active'));
-            }
+            if (!_sidebarSetupDone) {
+                links.forEach(link => {
+                    link.addEventListener('click', (event) => {
+                        if (event.target.closest('.toolbar-item-actions')) {
+                            event.preventDefault();
+                            return;
+                        }
 
-            function setActive(link) {
-                if (!link) return;
-                clearActive();
-                link.classList.add('active');
-                const title = link.closest('ul')?.previousElementSibling;
-                if (title && title.classList.contains('category-title')) {
-                    title.classList.add('active');
-                }
-                localStorage.setItem('ct_active_link', link.getAttribute('href'));
-            }
-
-            links.forEach(link => {
-                link.addEventListener('click', () => {
-                    setActive(link);
-                    if (isMobileViewport()) {
-                        closeMobileSidebar();
-                    }
+                        setSidebarActiveLink(link, { persist: true });
+                        if (isMobileViewport()) {
+                            closeMobileSidebar();
+                        }
+                    });
                 });
-            });
+
+                if (frame) {
+                    frame.addEventListener('load', () => {
+                        const src = frame.getAttribute('src');
+                        const currentLinks = getSidebarLinks();
+                        const match = src ? currentLinks.find(l => l.getAttribute('href') === src) : null;
+                        if (match && isSidebarLinkVisible(match)) {
+                            setSidebarActiveLink(match, { persist: true });
+                        }
+                    });
+                }
+
+                _sidebarSetupDone = true;
+            }
 
             const stored = localStorage.getItem('ct_active_link');
             const initialHref = stored || frame?.getAttribute('src');
-            const initialLink = initialHref ? links.find(l => l.getAttribute('href') === initialHref) : links[0];
-            setActive(initialLink);
-
-            if (frame) {
-                frame.addEventListener('load', () => {
-                    const src = frame.getAttribute('src');
-                    const match = links.find(l => l.getAttribute('href') === src);
-                    if (match) setActive(match);
-                });
+            let initialLink = initialHref ? links.find(l => l.getAttribute('href') === initialHref) : null;
+            if (!initialLink || !isSidebarLinkVisible(initialLink)) {
+                initialLink = links.find(link => isSidebarLinkVisible(link)) || null;
+            }
+            if (initialLink) {
+                setSidebarActiveLink(initialLink, { persist: true });
             }
         }
 

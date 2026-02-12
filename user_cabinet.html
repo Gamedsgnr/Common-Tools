@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Cabinet</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #1a1f2b;
+            --panel: rgba(30, 41, 59, 0.45);
+            --border: rgba(148, 163, 184, 0.28);
+            --text: #dbe7f3;
+            --muted: #9aa4b2;
+            --accent: #7dd3fc;
+            --accent-strong: #3b82f6;
+            --shadow-glass: 0 18px 30px -12px rgba(2, 6, 23, 0.7);
+            --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -10px 22px rgba(2, 6, 23, 0.32);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            min-height: 100vh;
+            font-family: "Segoe UI", sans-serif;
+            background: radial-gradient(1200px 620px at 92% -8%, rgba(59, 130, 246, 0.2), transparent 55%), var(--bg);
+            color: var(--text);
+            padding: 18px;
+        }
+
+        .wrap {
+            max-width: 980px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 14px;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow-glass), var(--shadow-inset);
+            backdrop-filter: blur(18px) saturate(1.15);
+            -webkit-backdrop-filter: blur(18px) saturate(1.15);
+            padding: 16px;
+        }
+
+        .title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--accent);
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .muted {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .status-row {
+            margin-top: 12px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 8px 10px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .badge strong {
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .metric {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.55);
+            padding: 12px;
+            box-shadow: inset 0 0 12px rgba(2, 6, 23, 0.25);
+        }
+
+        .metric .k {
+            color: var(--muted);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-bottom: 4px;
+        }
+
+        .metric .v {
+            font-size: 26px;
+            font-weight: 800;
+            color: var(--text);
+        }
+
+        .toolbar-actions {
+            margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .btn {
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-radius: 12px;
+            background: rgba(30, 41, 59, 0.45);
+            color: var(--text);
+            padding: 10px 12px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: var(--shadow-glass), var(--shadow-inset);
+            transition: border-color 0.2s ease, filter 0.2s ease;
+        }
+
+        .btn:hover {
+            filter: brightness(1.06);
+            border-color: rgba(125, 211, 252, 0.52);
+        }
+
+        .btn.primary {
+            border-color: rgba(125, 211, 252, 0.42);
+            background: linear-gradient(135deg, rgba(125, 211, 252, 0.16), rgba(30, 41, 59, 0.55));
+        }
+
+        .btn.warn {
+            border-color: rgba(185, 137, 137, 0.45);
+            background: linear-gradient(135deg, rgba(185, 137, 137, 0.2), rgba(30, 41, 59, 0.55));
+        }
+
+        .schema {
+            margin-top: 10px;
+            font-family: Consolas, monospace;
+            font-size: 12px;
+            color: #c6d8ea;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.58);
+            padding: 12px;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+            background: #94a3b8;
+        }
+
+        .dot.online {
+            background: #34d399;
+            box-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <section class="card">
+            <h1 class="title"><i class="fa-solid fa-id-card"></i> User Cabinet</h1>
+            <p class="muted">Профиль и персональные настройки панели инструментов. Хранение сейчас локальное (`localStorage`), подготовлено к синхронизации через Supabase.</p>
+            <div class="status-row">
+                <div class="badge"><span class="dot" id="authDot"></span><strong id="authText">Not authenticated</strong></div>
+                <div class="badge">Email: <strong id="emailText">-</strong></div>
+                <div class="badge">Role: <strong id="roleText">guest</strong></div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2 class="title"><i class="fa-solid fa-sliders"></i> Toolbar Preferences</h2>
+            <p class="muted">Настройки применяются в `index.html` и управляют видимостью, пином и порядком пунктов тулбара.</p>
+            <div class="grid">
+                <div class="metric">
+                    <div class="k">Pinned</div>
+                    <div class="v" id="pinnedCount">0</div>
+                </div>
+                <div class="metric">
+                    <div class="k">Hidden</div>
+                    <div class="v" id="hiddenCount">0</div>
+                </div>
+                <div class="metric">
+                    <div class="k">Groups</div>
+                    <div class="v" id="groupCount">0</div>
+                </div>
+                <div class="metric">
+                    <div class="k">Customize Mode</div>
+                    <div class="v" id="customizeMode">Off</div>
+                </div>
+            </div>
+
+            <div class="toolbar-actions">
+                <button class="btn primary" type="button" id="toggleCustomizeBtn"><i class="fa-solid fa-sliders" style="margin-right:8px"></i>Toggle Customize Mode</button>
+                <button class="btn warn" type="button" id="resetToolbarBtn"><i class="fa-solid fa-rotate-left" style="margin-right:8px"></i>Reset Toolbar Layout</button>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2 class="title"><i class="fa-solid fa-database"></i> Cloud Schema Contract</h2>
+            <p class="muted">Фронт ожидает такую структуру для синхронизации персональных настроек:</p>
+            <div class="schema" id="schemaPreview"></div>
+        </section>
+    </div>
+
+    <script>
+        const state = {
+            isAuth: false,
+            email: null,
+            isAdmin: false,
+            customizeMode: false,
+            prefs: {
+                hiddenKeys: [],
+                pinnedKeys: [],
+                orderByGroup: {}
+            }
+        };
+
+        const schemaTemplate = {
+            toolbar_layout: {
+                version: 1,
+                hiddenKeys: [],
+                pinnedKeys: [],
+                orderByGroup: {
+                    visual: [],
+                    data_tools: [],
+                    generators: [],
+                    account: [],
+                    admin: []
+                }
+            },
+            ui_prefs: {
+                theme: "glass",
+                lang: "ru"
+            }
+        };
+
+        function render() {
+            const authDot = document.getElementById('authDot');
+            const authText = document.getElementById('authText');
+            const emailText = document.getElementById('emailText');
+            const roleText = document.getElementById('roleText');
+            const pinnedCount = document.getElementById('pinnedCount');
+            const hiddenCount = document.getElementById('hiddenCount');
+            const groupCount = document.getElementById('groupCount');
+            const customizeMode = document.getElementById('customizeMode');
+
+            authDot.classList.toggle('online', state.isAuth);
+            authText.textContent = state.isAuth ? 'Authenticated' : 'Not authenticated';
+            emailText.textContent = state.email || '-';
+            roleText.textContent = state.isAdmin ? 'admin' : (state.isAuth ? 'authenticated' : 'guest');
+            pinnedCount.textContent = String((state.prefs.pinnedKeys || []).length);
+            hiddenCount.textContent = String((state.prefs.hiddenKeys || []).length);
+            groupCount.textContent = String(Object.keys(state.prefs.orderByGroup || {}).length);
+            customizeMode.textContent = state.customizeMode ? 'On' : 'Off';
+            document.getElementById('schemaPreview').textContent = JSON.stringify(schemaTemplate, null, 2);
+        }
+
+        function postToParent(payload) {
+            if (window.parent) {
+                window.parent.postMessage(payload, '*');
+            }
+        }
+
+        window.addEventListener('message', (event) => {
+            const data = event?.data;
+            if (!data || typeof data !== 'object') return;
+
+            if (data.type === 'ct_auth') {
+                state.isAuth = Boolean(data.isAuth);
+                state.email = data.email || null;
+                state.isAdmin = Boolean(data.isAdmin);
+                render();
+                return;
+            }
+
+            if (data.type === 'ct_toolbar_state') {
+                state.customizeMode = Boolean(data.customizeMode);
+                state.prefs = data.prefs || state.prefs;
+                if (typeof data.isAdmin === 'boolean') state.isAdmin = data.isAdmin;
+                if (typeof data.email === 'string') state.email = data.email;
+                render();
+            }
+        });
+
+        document.getElementById('toggleCustomizeBtn').addEventListener('click', () => {
+            postToParent({ type: 'ct_toolbar_customize_toggle' });
+        });
+
+        document.getElementById('resetToolbarBtn').addEventListener('click', () => {
+            postToParent({ type: 'ct_toolbar_prefs_reset' });
+        });
+
+        render();
+        postToParent({ type: 'ct_toolbar_state_request' });
+    </script>
+</body>
+</html>
