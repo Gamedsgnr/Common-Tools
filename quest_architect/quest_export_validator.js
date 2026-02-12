@@ -22,6 +22,7 @@ const CLIENT_RUNTIME_TYPES = new Set([
 const TAB_FILE_NAMES = {
   runtime: 'quest_runtime_export.json',
   dataAsset: 'quest_dataasset_export.json',
+  bundle: 'quest_bundle_export.json',
   unity: 'quest_unity_export.json',
   debug: 'quest_debug_pack.json'
 };
@@ -35,11 +36,11 @@ const state = {
   issues: [],
   diagnostics: [],
   summary: { critical: 0, warning: 0, runtime: 0, unreachable: 0 },
-  exports: { runtime: '', dataAsset: '', unity: '', debug: '' },
+  exports: { runtime: '', dataAsset: '', bundle: '', unity: '', debug: '' },
   hasValidationResult: false,
   activeTab: 'diagnostics',
   selectedIssueIndex: -1,
-  options: { pretty: true, includeDocs: false, includeSourceInDebug: true }
+  options: { pretty: true, includeDocs: false, includeSourceInDebug: true, localizationLocale: 'ru' }
 };
 
 let requestReplyTimer = null;
@@ -68,13 +69,15 @@ const els = {
   diagGrid: document.getElementById('diagGrid'),
   runtimeOutput: document.getElementById('runtimeOutput'),
   dataAssetOutput: document.getElementById('dataAssetOutput'),
+  bundleOutput: document.getElementById('bundleOutput'),
   unityOutput: document.getElementById('unityOutput'),
   debugOutput: document.getElementById('debugOutput'),
   pasteInput: document.getElementById('pasteInput'),
   fileInput: document.getElementById('fileInput'),
   optPretty: document.getElementById('optPretty'),
   optIncludeDocs: document.getElementById('optIncludeDocs'),
-  optIncludeSource: document.getElementById('optIncludeSource')
+  optIncludeSource: document.getElementById('optIncludeSource'),
+  optLocale: document.getElementById('optLocale')
 };
 
 function setStatus(text, tone) {
@@ -436,7 +439,8 @@ async function callEdgeValidation(payload, forceRefreshAuth = false) {
       options: {
         pretty: Boolean(state.options.pretty),
         includeDocs: Boolean(state.options.includeDocs),
-        includeSourceInDebug: Boolean(state.options.includeSourceInDebug)
+        includeSourceInDebug: Boolean(state.options.includeSourceInDebug),
+        localizationLocale: String(state.options.localizationLocale || 'ru')
       }
     })
   });
@@ -487,6 +491,7 @@ function applyServerResult(data) {
   state.exports = {
     runtime: typeof ex.runtime === 'string' ? ex.runtime : '',
     dataAsset: typeof ex.dataAsset === 'string' ? ex.dataAsset : '',
+    bundle: typeof ex.bundle === 'string' ? ex.bundle : '',
     unity: typeof ex.unity === 'string' ? ex.unity : '',
     debug: typeof ex.debug === 'string' ? ex.debug : ''
   };
@@ -499,7 +504,7 @@ function resetValidationState() {
   state.issues = [];
   state.diagnostics = [];
   state.summary = { critical: 0, warning: 0, runtime: 0, unreachable: 0 };
-  state.exports = { runtime: '', dataAsset: '', unity: '', debug: '' };
+  state.exports = { runtime: '', dataAsset: '', bundle: '', unity: '', debug: '' };
   state.selectedIssueIndex = -1;
   state.hasValidationResult = false;
 }
@@ -629,6 +634,7 @@ function renderDiagnostics() {
 function renderOutputs() {
   els.runtimeOutput.value = state.exports.runtime || '';
   els.dataAssetOutput.value = state.exports.dataAsset || '';
+  els.bundleOutput.value = state.exports.bundle || '';
   els.unityOutput.value = state.exports.unity || '';
   els.debugOutput.value = state.exports.debug || '';
 }
@@ -811,6 +817,10 @@ els.optIncludeSource.addEventListener('change', () => {
   state.options.includeSourceInDebug = Boolean(els.optIncludeSource.checked);
   setStatus('Export option changed. Click "Rebuild Exports" to apply.');
 });
+els.optLocale.addEventListener('change', () => {
+  state.options.localizationLocale = String(els.optLocale.value || 'ru').trim() || 'ru';
+  setStatus('Export option changed. Click "Rebuild Exports" to apply.');
+});
 
 document.querySelectorAll('.tabBtn').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
 
@@ -860,4 +870,7 @@ window.addEventListener('message', (e) => {
 });
 
 setTab('diagnostics');
+if (els.optLocale) {
+  state.options.localizationLocale = String(els.optLocale.value || 'ru').trim() || 'ru';
+}
 requestFromParent();

@@ -56,6 +56,10 @@
             <label><input id="optIncludeDocs" type="checkbox"><span>Include docs nodes in runtime export</span></label>
             <label><input id="optIncludeSource" type="checkbox" checked><span>Include source payload in debug export</span></label>
           </div>
+          <div style="margin-top:10px;">
+            <div class="label">String Table Locale</div>
+            <input id="optLocale" class="textInput" type="text" value="ru" placeholder="ru">
+          </div>
           <div class="row">
             <button id="btnRefresh" class="btn" type="button">Rebuild Exports</button>
             <button id="btnJumpStart" class="btn ghost" type="button">Jump To Start</button>
@@ -70,6 +74,7 @@
               <button class="tabBtn active" data-tab="diagnostics" type="button">Diagnostics</button>
               <button class="tabBtn" data-tab="runtime" type="button">Runtime Export</button>
               <button class="tabBtn" data-tab="dataAsset" type="button">DataAsset Export</button>
+              <button class="tabBtn" data-tab="bundle" type="button">Bundle Export</button>
               <button class="tabBtn" data-tab="unity" type="button">Unity Export</button>
               <button class="tabBtn" data-tab="debug" type="button">Debug Pack</button>
             </div>
@@ -94,6 +99,7 @@
             </div>
             <div class="tabPanel" data-panel="runtime"><div class="outWrap"><textarea id="runtimeOutput" readonly></textarea></div></div>
             <div class="tabPanel" data-panel="dataAsset"><div class="outWrap"><textarea id="dataAssetOutput" readonly></textarea></div></div>
+            <div class="tabPanel" data-panel="bundle"><div class="outWrap"><textarea id="bundleOutput" readonly></textarea></div></div>
             <div class="tabPanel" data-panel="unity"><div class="outWrap"><textarea id="unityOutput" readonly></textarea></div></div>
             <div class="tabPanel" data-panel="debug"><div class="outWrap"><textarea id="debugOutput" readonly></textarea></div></div>
           </div>
@@ -105,4 +111,3 @@
   <script src="quest_export_validator.js"></script>
 </body>
 </html>
-

@@ -73,6 +73,19 @@
       padding: 10px;
       outline: none;
     }
+    .textInput {
+      width: 100%;
+      border-radius: 11px;
+      border: 1px solid var(--border);
+      background: rgba(15,23,42,.55);
+      color: var(--text);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      padding: 9px 10px;
+      outline: none;
+    }
+    .textInput:focus { border-color: rgba(125,211,252,.75); box-shadow: 0 0 0 3px rgba(125,211,252,.14); }
     textarea:focus { border-color: rgba(125,211,252,.75); box-shadow: 0 0 0 3px rgba(125,211,252,.14); }
     #pasteInput { min-height: 110px; resize: vertical; }
     .summaryGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
