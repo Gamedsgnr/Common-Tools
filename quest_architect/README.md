@@ -7,6 +7,9 @@ Quest Architect is a visual quest-graph editor loaded by `QuestArchitect2.html`.
 - `QuestArchitect2.html` - main page markup and Vue template.
 - `quest_architect/quest_architect.css` - UI styling (Glass System based panels and nodes).
 - `quest_architect/quest_architect.js` - editor state, graph logic, runtime simulation, autosave, cloud operations.
+- `quest_architect/quest_architect_docs.html` - wiki-style UX documentation opened from `Docs`.
+- `quest_architect/quest_architect_docs.css` - docs page styling.
+- `quest_architect/quest_architect_docs.js` - docs page navigation behavior.
 
 ## Core Concepts
 
@@ -67,22 +70,27 @@ Quest Architect is a visual quest-graph editor loaded by `QuestArchitect2.html`.
 - IO: one input, one `default` output.
 - Notes: supports optional reason text for logs/UI.
 
-11. `Link Entry`
+11. `Quest End`
+- Purpose: explicit terminal node for final quest state.
+- IO: one input, no output.
+- Notes: use `result` (`complete/fail/abort`) and optional ending note.
+
+12. `Link Entry`
 - Purpose: named reusable destination.
 - IO: no input, one `default` output.
 - Notes: rename header to meaningful anchor name.
 
-12. `Link State`
+13. `Link State`
 - Purpose: jump to selected `Link Entry`.
 - IO: one input, no output.
 - Notes: select target via dropdown or eyedropper; use jump action to focus target.
 
-13. `Comment`
+14. `Comment`
 - Purpose: inline documentation.
 - IO: no input, no output.
 - Notes: ignored by runtime traversal.
 
-14. `Group`
+15. `Group`
 - Purpose: visual region for structure/documentation.
 - IO: no input, no output.
 - Notes: resize by corners and edges, tint in properties, always layout-only.
@@ -98,6 +106,7 @@ Quest Architect is a visual quest-graph editor loaded by `QuestArchitect2.html`.
 - `O + Click` -> create `Objective Set`.
 - `K + Click` -> create `Objective Complete`.
 - `F + Click` -> create `Objective Fail`.
+- `Q + Click` -> create `Quest End`.
 - `G + Click` -> create `Group` at cursor.
 - `G` with selected nodes -> wrap selection into a new Group by bounds.
 - `Shift + Click` -> toggle node selection.
@@ -122,7 +131,8 @@ Warnings panel highlights risky graph states such as:
 
 - duplicate `Link Entry` names,
 - missing Link targets,
-- disconnected branches,
+- disconnected branches / terminal dead-ends,
+- missing `Quest End` or `Quest End` unreachable from `Start`,
 - unreachable nodes.
 
 Reachability logic includes `Link State -> Link Entry` chains (linked entries are treated as reachable).
@@ -139,6 +149,7 @@ Reachability logic includes `Link State -> Link Entry` chains (linked entries ar
 - `Run` executes traversal from `Start`.
 - `Dialog` pauses and waits for player choice.
 - `Action`, `Condition`, `Switch`, `Link State`, `Link Entry`, `Objective*` continue traversal automatically.
+- `Quest End` explicitly terminates the scenario in simulator.
 - `Wait Event` in simulator is treated as instantly fulfilled and continues via `default`.
 - `Wait Condition` in simulator continues only if condition is currently true.
 - `Comment` and `Group` are non-runtime and only for documentation/layout.

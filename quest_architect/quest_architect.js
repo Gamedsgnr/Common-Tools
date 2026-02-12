@@ -206,6 +206,7 @@ createApp({
                 switcher: true,
                 link_state: true,
                 link_entry: true,
+                quest_end: true,
                 comment: true,
                 group: true
             }
@@ -377,6 +378,13 @@ createApp({
                 usage: 'Use objective id and optional reason text.'
             },
             {
+                type: 'quest_end',
+                label: 'Quest End',
+                io: '`In: one` | `Out: none`',
+                role: 'Explicitly finalizes quest flow with result state.',
+                usage: 'Use as terminal node with result `complete/fail/abort` to avoid ambiguous dead-ends.'
+            },
+            {
                 type: 'link_entry',
                 label: 'Link Entry',
                 io: '`In: none` | `Out: default`',
@@ -416,6 +424,7 @@ createApp({
             'objective_set',
             'objective_complete',
             'objective_fail',
+            'quest_end',
             'link_entry',
             'comment',
             'group'
@@ -434,6 +443,7 @@ createApp({
             objective_set: 'Objective Set',
             objective_complete: 'Objective Complete',
             objective_fail: 'Objective Fail',
+            quest_end: 'Quest End',
             link_state: 'Link State',
             link_entry: 'Link Entry',
             comment: 'Comment',
@@ -449,6 +459,7 @@ createApp({
             { type: 'objective_set', label: 'Objective Set', desc: 'Create/update quest objective', icon: 'fa-solid fa-list-check', tone: 'objective' },
             { type: 'objective_complete', label: 'Objective Complete', desc: 'Mark objective complete', icon: 'fa-solid fa-circle-check', tone: 'objective' },
             { type: 'objective_fail', label: 'Objective Fail', desc: 'Mark objective failed', icon: 'fa-solid fa-circle-xmark', tone: 'objective' },
+            { type: 'quest_end', label: 'Quest End', desc: 'Finalize quest with explicit result', icon: 'fa-solid fa-flag-checkered', tone: 'ending' },
             { type: 'link_state', label: 'Link State', desc: 'Jump to selected Link Entry', icon: 'fa-solid fa-link', tone: 'link' }
         ]);
         const nodeConnectMenu = reactive({
@@ -602,6 +613,7 @@ createApp({
                 objective_set: 'fa-list-check',
                 objective_complete: 'fa-circle-check',
                 objective_fail: 'fa-circle-xmark',
+                quest_end: 'fa-flag-checkered',
                 link_state: 'fa-link',
                 link_entry: 'fa-right-to-bracket',
                 comment: 'fa-note-sticky',
@@ -775,6 +787,10 @@ createApp({
                 parts.push(node.data?.objectiveId);
                 parts.push(node.data?.reason);
             }
+            if (node.type === 'quest_end') {
+                parts.push(node.data?.result);
+                parts.push(node.data?.endingNote);
+            }
             if (node.type === 'link_state') {
                 const target = getLinkEntryForState(node);
                 if (target) parts.push(getNodeDisplayName(target));
@@ -794,6 +810,7 @@ createApp({
                 { keys: 'O + Click', label: 'Create Objective Set node' },
                 { keys: 'K + Click', label: 'Create Objective Complete node' },
                 { keys: 'F + Click', label: 'Create Objective Fail node' },
+                { keys: 'Q + Click', label: 'Create Quest End node' },
                 { keys: 'G + Click', label: 'Create Group node' },
                 { keys: 'Alt + Click line', label: 'Delete connection' },
                 { keys: 'G', label: 'Group selected nodes' }
@@ -1108,6 +1125,45 @@ createApp({
                 outgoing.get(c.from).push(c);
                 incoming.set(c.to, (incoming.get(c.to) || 0) + 1);
             });
+            const nodeByIdMap = new Map(nodes.value.map(n => [n.id, n]));
+
+            const getTraversalTargets = (nodeId) => {
+                const targets = new Set();
+                (outgoing.get(nodeId) || []).forEach(conn => {
+                    if (conn?.to) targets.add(conn.to);
+                });
+                const node = nodeByIdMap.get(nodeId);
+                if (node && node.type === 'link_state') {
+                    const targetEntry = getLinkEntryForState(node);
+                    if (targetEntry?.id) targets.add(targetEntry.id);
+                }
+                return Array.from(targets);
+            };
+
+            const questEndIds = new Set(
+                nodes.value
+                    .filter(n => n.type === 'quest_end')
+                    .map(n => n.id)
+            );
+
+            const canReachQuestEndMemo = new Map();
+            const canReachQuestEnd = (nodeId, stack = new Set()) => {
+                if (questEndIds.has(nodeId)) return true;
+                if (canReachQuestEndMemo.has(nodeId)) return canReachQuestEndMemo.get(nodeId);
+                if (stack.has(nodeId)) return false;
+                stack.add(nodeId);
+                const next = getTraversalTargets(nodeId);
+                for (const targetId of next) {
+                    if (canReachQuestEnd(targetId, stack)) {
+                        stack.delete(nodeId);
+                        canReachQuestEndMemo.set(nodeId, true);
+                        return true;
+                    }
+                }
+                stack.delete(nodeId);
+                canReachQuestEndMemo.set(nodeId, false);
+                return false;
+            };
 
             const startNodes = nodes.value.filter(n => n.type === 'start');
             if (!startNodes.length) {
@@ -1192,6 +1248,27 @@ createApp({
                     }
                 });
 
+            const questEndNodes = nodes.value.filter(n => n.type === 'quest_end');
+            if (!questEndNodes.length) {
+                pushWarn('warning', 'No Quest End node found. Final state is inferred from dead-end, which is ambiguous.', null, 'quest_end_missing');
+            } else {
+                questEndNodes.forEach(n => {
+                    const hasOut = getTraversalTargets(n.id).length > 0;
+                    if (hasOut) {
+                        pushWarn('warning', `Quest End "${getNodeDisplayName(n)}" should not have outgoing links.`, n.id, `quest_end_out_${n.id}`);
+                    }
+                    if (!incoming.get(n.id)) {
+                        pushWarn('warning', `Quest End "${getNodeDisplayName(n)}" is not reachable from any incoming link.`, n.id, `quest_end_in_${n.id}`);
+                    }
+                });
+
+                const objectiveTerminalNodes = nodes.value.filter(n => n.type === 'objective_complete' || n.type === 'objective_fail');
+                const objectiveWithoutEnd = objectiveTerminalNodes.filter(n => !canReachQuestEnd(n.id));
+                if (objectiveWithoutEnd.length) {
+                    pushWarn('warning', `Objective Complete/Fail nodes without path to Quest End: ${objectiveWithoutEnd.length}.`, objectiveWithoutEnd[0].id, 'objective_path_to_end');
+                }
+            }
+
             nodes.value.filter(n => n.type === 'dialog').forEach(n => {
                 const outs = outgoing.get(n.id) || [];
                 const choices = Array.isArray(n.data?.choices) ? n.data.choices : [];
@@ -1233,28 +1310,33 @@ createApp({
 
             if (startNodes.length) {
                 const visited = new Set();
-                const nodeById = new Map(nodes.value.map(n => [n.id, n]));
                 const queue = startNodes.map(n => n.id);
                 while (queue.length) {
                     const current = queue.shift();
                     if (visited.has(current)) continue;
                     visited.add(current);
 
-                    (outgoing.get(current) || []).forEach(conn => {
-                        if (!visited.has(conn.to)) queue.push(conn.to);
+                    getTraversalTargets(current).forEach(nextId => {
+                        if (!visited.has(nextId)) queue.push(nextId);
                     });
-
-                    const currentNode = nodeById.get(current);
-                    if (currentNode && currentNode.type === 'link_state') {
-                        const targetEntry = getLinkEntryForState(currentNode);
-                        if (targetEntry && !visited.has(targetEntry.id)) {
-                            queue.push(targetEntry.id);
-                        }
-                    }
                 }
                 const unreachable = nodes.value.filter(n => n.type !== 'start' && !isDocNodeType(n.type) && !visited.has(n.id));
                 if (unreachable.length) {
                     pushWarn('warning', `Unreachable nodes detected: ${unreachable.length}.`, unreachable[0].id, 'unreachable_nodes');
+                }
+
+                if (questEndNodes.length) {
+                    const reachableQuestEnds = questEndNodes.filter(n => visited.has(n.id));
+                    if (!reachableQuestEnds.length) {
+                        pushWarn('critical', 'Start flow does not reach any Quest End node.', startNodes[0]?.id || null, 'quest_end_unreachable');
+                    }
+                    const terminalDeadEnds = nodes.value.filter(n => {
+                        if (!visited.has(n.id) || isDocNodeType(n.type) || n.type === 'quest_end') return false;
+                        return getTraversalTargets(n.id).length === 0;
+                    });
+                    if (terminalDeadEnds.length) {
+                        pushWarn('warning', `Terminal dead-ends without Quest End: ${terminalDeadEnds.length}.`, terminalDeadEnds[0].id, 'terminal_dead_ends');
+                    }
                 }
             }
 
@@ -1807,7 +1889,7 @@ createApp({
                 }
                 return;
             }
-            if (['KeyC', 'KeyS', 'KeyA', 'KeyD', 'KeyE', 'KeyW', 'KeyO', 'KeyK', 'KeyF'].includes(e.code)) {
+            if (['KeyC', 'KeyS', 'KeyA', 'KeyD', 'KeyE', 'KeyW', 'KeyO', 'KeyK', 'KeyF', 'KeyQ'].includes(e.code)) {
                 const map = {
                     KeyC: 'condition',
                     KeyS: 'switcher',
@@ -1817,7 +1899,8 @@ createApp({
                     KeyW: 'wait_condition',
                     KeyO: 'objective_set',
                     KeyK: 'objective_complete',
-                    KeyF: 'objective_fail'
+                    KeyF: 'objective_fail',
+                    KeyQ: 'quest_end'
                 };
                 createKey.value = map[e.code];
             }
@@ -1854,7 +1937,7 @@ createApp({
         };
 
         const onGlobalKeyUp = (e) => {
-            if (['KeyC', 'KeyS', 'KeyA', 'KeyD', 'KeyE', 'KeyW', 'KeyO', 'KeyK', 'KeyF', 'KeyG'].includes(e.code)) {
+            if (['KeyC', 'KeyS', 'KeyA', 'KeyD', 'KeyE', 'KeyW', 'KeyO', 'KeyK', 'KeyF', 'KeyQ', 'KeyG'].includes(e.code)) {
                 createKey.value = null;
             }
         };
@@ -1973,6 +2056,7 @@ createApp({
             if (type === 'objective_set') return { title: getNodeTypeLabel('objective_set'), objectiveId: '', objectiveText: '' };
             if (type === 'objective_complete') return { title: getNodeTypeLabel('objective_complete'), objectiveId: '', reason: '' };
             if (type === 'objective_fail') return { title: getNodeTypeLabel('objective_fail'), objectiveId: '', reason: '' };
+            if (type === 'quest_end') return { title: getNodeTypeLabel('quest_end'), result: 'complete', endingNote: '' };
             if (type === 'link_state') return { title: getNodeTypeLabel('link_state'), entryId: null, entryName: '' };
             if (type === 'link_entry') {
                 const name = getNextLinkEntryName();
@@ -2035,6 +2119,12 @@ createApp({
                 if (!('objectiveId' in cloned)) cloned.objectiveId = '';
                 if (!('reason' in cloned)) cloned.reason = '';
                 if (!('title' in cloned) || !String(cloned.title).trim()) cloned.title = getNodeTypeLabel(type);
+            }
+            if (type === 'quest_end') {
+                const result = String(cloned.result || 'complete').trim().toLowerCase();
+                cloned.result = ['complete', 'fail', 'abort'].includes(result) ? result : 'complete';
+                if (!('endingNote' in cloned)) cloned.endingNote = '';
+                if (!('title' in cloned) || !String(cloned.title).trim()) cloned.title = getNodeTypeLabel('quest_end');
             }
             if (type === 'link_state') {
                 if (!('entryId' in cloned)) cloned.entryId = null;
@@ -2646,6 +2736,11 @@ createApp({
                 // Simulator behavior: objective hooks are side effects in engine bridge, continue immediately.
                 traverse(node.id, 'default');
             }
+            else if (node.type === 'quest_end') {
+                // Explicit terminal node for scenario completion states.
+                gameFinished.value = true;
+                return;
+            }
             else if (node.type === 'link_state') {
                 const entryNode = getLinkEntryForState(node);
                 if (!entryNode) {
@@ -2822,6 +2917,12 @@ createApp({
                     if (!('objectiveId' in n.data)) n.data.objectiveId = '';
                     if (!('reason' in n.data)) n.data.reason = '';
                     if (!('title' in n.data) || !String(n.data.title).trim()) n.data.title = getNodeTypeLabel(n.type);
+                }
+                if (n.type === 'quest_end') {
+                    const result = String(n.data?.result || 'complete').trim().toLowerCase();
+                    n.data.result = ['complete', 'fail', 'abort'].includes(result) ? result : 'complete';
+                    if (!('endingNote' in n.data)) n.data.endingNote = '';
+                    if (!('title' in n.data) || !String(n.data.title).trim()) n.data.title = getNodeTypeLabel('quest_end');
                 }
                 if (n.type === 'dialog') {
                     if (!Array.isArray(n.data?.choices)) n.data.choices = [];

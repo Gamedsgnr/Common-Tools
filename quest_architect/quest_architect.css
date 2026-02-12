@@ -334,6 +334,7 @@ input, textarea, select {
 .type-objective_set { background: linear-gradient(135deg, #059669, #047857); }
 .type-objective_complete { background: linear-gradient(135deg, #10b981, #059669); }
 .type-objective_fail { background: linear-gradient(135deg, #e11d48, #9f1239); }
+.type-quest_end { background: linear-gradient(135deg, #4338ca, #312e81); }
 .type-link_state { background: linear-gradient(135deg, #dc2626, #7f1d1d); }
 .type-link_entry { background: linear-gradient(135deg, #ef4444, #991b1b); }
 .type-comment { background: linear-gradient(135deg, #d97706, #92400e); }
@@ -610,6 +611,15 @@ input, textarea, select {
     --tone-icon-hover: #d1fae5;
 }
 
+.node-context-item[data-tone='ending'] {
+    --tone-bg: rgba(67, 56, 202, 0.2);
+    --tone-bg-hover: rgba(67, 56, 202, 0.3);
+    --tone-border: rgba(165, 180, 252, 0.52);
+    --tone-border-hover: rgba(199, 210, 254, 0.82);
+    --tone-icon: #c7d2fe;
+    --tone-icon-hover: #e0e7ff;
+}
+
 .node-context-item[data-tone='link'] {
     --tone-bg: rgba(220, 38, 38, 0.2);
     --tone-bg-hover: rgba(220, 38, 38, 0.3);
@@ -653,6 +663,12 @@ input, textarea, select {
     background:
         linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 55%),
         linear-gradient(340deg, rgba(110, 231, 183, 0.2), rgba(110, 231, 183, 0) 60%);
+}
+
+.node-context-item[data-tone='ending']::before {
+    background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 55%),
+        linear-gradient(340deg, rgba(165, 180, 252, 0.24), rgba(165, 180, 252, 0) 60%);
 }
 
 .node-context-item[data-tone='link']::before {
@@ -999,6 +1015,12 @@ input, textarea, select {
     background: rgba(225, 29, 72, 0.24);
     border-color: rgba(251, 113, 133, 0.55);
     color: #ffe4e6;
+}
+
+.hierarchy-pill.tone-quest_end {
+    background: rgba(79, 70, 229, 0.24);
+    border-color: rgba(165, 180, 252, 0.58);
+    color: #e0e7ff;
 }
 
 .hierarchy-pill.tone-link_state {
@@ -1356,6 +1378,7 @@ input, textarea, select {
 .node-doc-card.tone-objective_set { border-color: rgba(110, 231, 183, 0.62); }
 .node-doc-card.tone-objective_complete { border-color: rgba(16, 185, 129, 0.62); }
 .node-doc-card.tone-objective_fail { border-color: rgba(251, 113, 133, 0.64); }
+.node-doc-card.tone-quest_end { border-color: rgba(165, 180, 252, 0.64); }
 .node-doc-card.tone-link_state { border-color: rgba(239, 68, 68, 0.62); }
 .node-doc-card.tone-link_entry { border-color: rgba(248, 113, 113, 0.62); }
 .node-doc-card.tone-comment { border-color: rgba(251, 191, 36, 0.52); }

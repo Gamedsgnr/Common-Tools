@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quest Architect Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="quest_architect_docs.css">
+</head>
+<body>
+  <div class="docs-app">
+    <section class="docs-panel docs-head">
+      <div>
+        <h1>Документация: Quest Architect</h1>
+        <p>Практическое руководство по UX, структуре квестов и правилам работы в редакторе.</p>
+      </div>
+      <div class="head-note">Фокус: как проектировать удобно, предсказуемо и без ошибок.</div>
+    </section>
+
+    <section class="docs-panel wiki-shell">
+      <aside class="wiki-nav">
+        <div class="wiki-nav-title">Содержание</div>
+        <a class="wiki-link active" href="#overview">1. Назначение</a>
+        <a class="wiki-link" href="#quick-start">2. Быстрый старт</a>
+        <a class="wiki-link" href="#ux-principles">3. UX-принципы графа</a>
+        <a class="wiki-link" href="#node-roles">4. Роли нод</a>
+        <a class="wiki-link" href="#branching">5. Ветвление</a>
+        <a class="wiki-link" href="#waits">6. Ожидания и длинные квесты</a>
+        <a class="wiki-link" href="#objectives">7. Работа с objective</a>
+        <a class="wiki-link" href="#quest-end">8. Нода Quest End</a>
+        <a class="wiki-link" href="#links">9. Link State / Link Entry</a>
+        <a class="wiki-link" href="#docs-nodes">10. Group и Comment</a>
+        <a class="wiki-link" href="#hierarchy">11. Hierarchy и Warnings</a>
+        <a class="wiki-link" href="#hotkeys">12. Горячие клавиши</a>
+        <a class="wiki-link" href="#review">13. Чеклист ревью</a>
+        <a class="wiki-link" href="#anti-patterns">14. Антипаттерны</a>
+      </aside>
+
+      <main class="wiki-content-scroll" id="wikiScrollRoot">
+        <section class="wiki-section" id="overview">
+          <h2>1. Назначение</h2>
+          <p>Quest Architect нужен для визуального проектирования квестового потока: что говорит игрок, что проверяется, где обновляются цели и где сценарий завершается.</p>
+          <ul>
+            <li>Редактор помогает держать <strong>структуру</strong>, а не только отдельные реплики.</li>
+            <li>Главная цель UX: быстро видеть, где ветвление, где риски и где финал.</li>
+            <li>Используй граф как «дизайн-карту» квеста, а не только как хранилище данных.</li>
+          </ul>
+        </section>
+
+        <section class="wiki-section" id="quick-start">
+          <h2>2. Быстрый старт</h2>
+          <ol>
+            <li>Построй «скелет» от <code>Start</code> до основных развилок.</li>
+            <li>Добавь <code>Dialog</code>/<code>Condition</code>/<code>Switch</code> для основных решений.</li>
+            <li>Отметь прогресс через <code>Objective Set</code> и закрытие через <code>Objective Complete/Fail</code>.</li>
+            <li>Явно поставь <code>Quest End</code> для финального состояния ветки.</li>
+            <li>Проверь warnings, пройдись по иерархии и только потом полируй тексты.</li>
+          </ol>
+        </section>
+
+        <section class="wiki-section" id="ux-principles">
+          <h2>3. UX-принципы графа</h2>
+          <h3>Слева направо</h3>
+          <p>Держи основное направление чтения слева направо. Это упрощает ревью и снижает ошибки в сложных ветках.</p>
+          <h3>Один экран - одна мысль</h3>
+          <p>Если в зоне слишком много пересечений, разбей ее на блоки и свяжи через <code>Link Entry/Link State</code>.</p>
+          <h3>Минимум «скрытой логики»</h3>
+          <p>Критичные переходы не должны быть неявными. Финалы и ключевые проверки лучше делать отдельными нодами.</p>
+        </section>
+
+        <section class="wiki-section" id="node-roles">
+          <h2>4. Роли нод</h2>
+          <ul>
+            <li><code>Dialog</code>: коммуникация с игроком, выборы.</li>
+            <li><code>Action</code>: изменение значений.</li>
+            <li><code>Condition</code>/<code>Switch</code>: маршрутизация.</li>
+            <li><code>Wait Event</code>/<code>Wait Condition</code>: длинные сценарии с ожиданием.</li>
+            <li><code>Objective*</code>: UX-прогресс задачи.</li>
+            <li><code>Quest End</code>: явный финал.</li>
+            <li><code>Comment</code>/<code>Group</code>: документация и структурирование.</li>
+          </ul>
+        </section>
+
+        <section class="wiki-section" id="branching">
+          <h2>5. Ветвление</h2>
+          <h3>Condition</h3>
+          <p>Считай корректной только ветку, где подключены оба выхода: <code>true</code> и <code>false</code>.</p>
+          <h3>Switch</h3>
+          <p>Всегда оставляй <code>default</code> как fallback. Это снижает риск «тихого» тупика при новых значениях.</p>
+          <h3>Dialog</h3>
+          <p>У каждой значимой реплики должен быть исходящий путь. Пустые ответы и тупики усложняют UX игрока.</p>
+        </section>
+
+        <section class="wiki-section" id="waits">
+          <h2>6. Ожидания и длинные квесты</h2>
+          <ul>
+            <li>Используй <code>Wait Event</code> для внешних триггеров (событие мира, завершение активности).</li>
+            <li>Используй <code>Wait Condition</code> для ожидания конкретного состояния переменной.</li>
+            <li>Ставь рядом <code>Comment</code> с условием и ожиданиями дизайна, чтобы при ревью не терялся контекст.</li>
+          </ul>
+        </section>
+
+        <section class="wiki-section" id="objectives">
+          <h2>7. Работа с objective</h2>
+          <h3>Идентификаторы</h3>
+          <p>Для одной цели придерживайся одного <code>objectiveId</code> во всех нодах (<code>Set</code>, <code>Complete</code>, <code>Fail</code>).</p>
+          <h3>Жизненный цикл</h3>
+          <p>Хорошая практика: <code>Objective Set</code> -> игровая работа -> <code>Objective Complete/Fail</code> -> <code>Quest End</code>.</p>
+        </section>
+
+        <section class="wiki-section" id="quest-end">
+          <h2>8. Нода Quest End</h2>
+          <p><code>Quest End</code> фиксирует явный итог ветки. Это лучше, чем «случайный» конец в тупике.</p>
+          <ul>
+            <li>Выбери результат: <code>complete</code>, <code>fail</code> или <code>abort</code>.</li>
+            <li>Не веди из нее исходящие связи.</li>
+            <li>Стремись, чтобы финальные ветки доходили до нее осознанно.</li>
+          </ul>
+        </section>
+
+        <section class="wiki-section" id="links">
+          <h2>9. Link State / Link Entry</h2>
+          <p>Используй link-ноды для переиспользуемых точек входа, когда прямые длинные провода ухудшают читаемость.</p>
+          <ul>
+            <li><code>Link Entry</code>: именованная точка продолжения.</li>
+            <li><code>Link State</code>: переход к выбранной <code>Link Entry</code>.</li>
+            <li>Имена entry должны быть уникальными и смысловыми.</li>
+          </ul>
+        </section>
+
+        <section class="wiki-section" id="docs-nodes">
+          <h2>10. Group и Comment</h2>
+          <h3>Group</h3>
+          <p>Разделяй крупные квесты на смысловые области: «Вход», «Проверка», «Развязка», «Фейл-ветки».</p>
+          <h3>Comment</h3>
+          <p>Фиксируй правила ветки, критерии успеха и временные допущения. Это ускоряет согласование в команде.</p>
+        </section>
+
+        <section class="wiki-section" id="hierarchy">
+          <h2>11. Hierarchy и Warnings</h2>
+          <ul>
+            <li>Hierarchy используй как «каркас чтения» большого графа.</li>
+            <li>Поиск хорошо работает по частям слов, а не только по точной фразе.</li>
+            <li>Warnings проверяй до полировки контента: сначала структура, потом тексты.</li>
+            <li>Нажатие на warning должно быть частью регулярного ревью-процесса.</li>
+          </ul>
+        </section>
+
+        <section class="wiki-section" id="hotkeys">
+          <h2>12. Горячие клавиши</h2>
+          <ul>
+            <li><code>D</code> + click: Dialog</li>
+            <li><code>A</code> + click: Action</li>
+            <li><code>C</code> + click: Condition</li>
+            <li><code>S</code> + click: Switch</li>
+            <li><code>E</code> + click: Wait Event</li>
+            <li><code>W</code> + click: Wait Condition</li>
+            <li><code>O</code> + click: Objective Set</li>
+            <li><code>K</code> + click: Objective Complete</li>
+            <li><code>F</code> + click: Objective Fail</li>
+            <li><code>Q</code> + click: Quest End</li>
+            <li><code>G</code> + click: Group</li>
+          </ul>
+        </section>
+
+        <section class="wiki-section" id="review">
+          <h2>13. Чеклист ревью</h2>
+          <ol>
+            <li>От <code>Start</code> есть валидный путь.</li>
+            <li>У условий и свитчей нет потерянных веток.</li>
+            <li>Ключевые ветки заканчиваются <code>Quest End</code>.</li>
+            <li>Нет «немых» dead-end без смысла.</li>
+            <li>Цели имеют консистентные <code>objectiveId</code>.</li>
+            <li>Комментарии и группы помогают читать граф, а не мешают.</li>
+          </ol>
+        </section>
+
+        <section class="wiki-section" id="anti-patterns">
+          <h2>14. Антипаттерны</h2>
+          <ul>
+            <li>Граф без явного финала (опора только на случайный тупик).</li>
+            <li>Слишком длинные «провода» вместо link-механики.</li>
+            <li>Смешивание нескольких логических сценариев в одной зоне без группировки.</li>
+            <li>Пустые/дублирующиеся имена ключевых нод.</li>
+            <li>Откладывание структурной проверки до конца работы.</li>
+          </ul>
+        </section>
+      </main>
+    </section>
+  </div>
+  <script src="quest_architect_docs.js"></script>
+</body>
+</html>

@@ -494,6 +494,23 @@
                                 </div>
                             </div>
 
+                            <div v-if="node.type === 'quest_end'">
+                                <div class="bg-indigo-900/24 p-2 rounded border border-indigo-500/30 mb-2 space-y-2">
+                                    <select v-model="node.data.result" @mousedown.stop
+                                            class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-indigo-100">
+                                        <option value="complete">Complete</option>
+                                        <option value="fail">Fail</option>
+                                        <option value="abort">Abort</option>
+                                    </select>
+                                    <input v-model="node.data.endingNote" @mousedown.stop
+                                           class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-indigo-100"
+                                           placeholder="Optional ending note..." />
+                                </div>
+                                <div class="bg-indigo-950/40 border border-indigo-500/30 rounded p-2 text-[10px] text-indigo-200/85 uppercase tracking-wide text-center">
+                                    Terminal node
+                                </div>
+                            </div>
+
                             <div v-if="node.type === 'link_state'">
                                 <div class="bg-red-900/20 p-2 rounded border border-red-500/25 mb-2 space-y-2">
                                     <div class="flex items-center gap-2">
@@ -692,6 +709,11 @@
                         <button @click="addNode('objective_fail')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-rose-700/20 hover:text-rose-200 text-slate-400 transition group">
                             <i class="fa-solid fa-circle-xmark text-2xl mb-1 group-hover:scale-110 transition"></i>
                             <span class="text-[10px] font-bold">OBJ FAIL</span>
+                        </button>
+                        <div class="w-px h-10 bg-slate-700"></div>
+                        <button @click="addNode('quest_end')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-indigo-700/20 hover:text-indigo-200 text-slate-400 transition group">
+                            <i class="fa-solid fa-flag-checkered text-2xl mb-1 group-hover:scale-110 transition"></i>
+                            <span class="text-[10px] font-bold">Q END</span>
                         </button>
                         <div class="w-px h-10 bg-slate-700"></div>
                         <button @click="addNode('link_state')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-red-600/20 hover:text-red-300 text-slate-400 transition group">
@@ -936,6 +958,17 @@
                                 <div class="text-xs text-slate-500">Engine bridge maps objective id to journal/task system.</div>
                             </div>
 
+                            <div v-if="selectedNode.type === 'quest_end'" class="space-y-4">
+                                <label class="text-xs text-slate-500 block">Quest End State</label>
+                                <select v-model="selectedNode.data.result" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-indigo-100">
+                                    <option value="complete">Complete</option>
+                                    <option value="fail">Fail</option>
+                                    <option value="abort">Abort</option>
+                                </select>
+                                <textarea v-model="selectedNode.data.endingNote" rows="3" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-indigo-100 resize-y" placeholder="Short ending note for narrative context..."></textarea>
+                                <div class="text-xs text-slate-500">Use Quest End as an explicit final state instead of implicit dead-end.</div>
+                            </div>
+
                             <div v-if="selectedNode.type === 'link_state'" class="space-y-4">
                                 <label class="text-xs text-slate-500 block">Link Target</label>
                                 <div class="flex items-center gap-2">
@@ -1114,39 +1147,22 @@
             </div>
         </div>
 
-        <div v-if="helpPanelOpen" class="tool-docs-overlay" @mousedown.self="helpPanelOpen = false">
-            <div class="tool-docs-modal" @mousedown.stop>
-                <div class="tool-docs-head">
-                    <div class="tool-docs-head-main">
-                        <div class="tool-docs-title">Quest Architect Documentation</div>
-                        <div class="tool-docs-subtitle">Node reference, workflow, hotkeys, and safety notes</div>
+        <div v-if="helpPanelOpen" class="export-validator-overlay" @mousedown.self="helpPanelOpen = false">
+            <div class="export-validator-modal" @mousedown.stop>
+                <div class="export-validator-head">
+                    <div>
+                        <div class="export-validator-title">Quest Architect Documentation</div>
+                        <div class="export-validator-subtitle">Wiki guide focused on UX, design rules, and practical workflow</div>
                     </div>
-                    <button type="button" class="hotkeys-doc-toggle" @click="helpPanelOpen = false">Close</button>
+                    <button @click="helpPanelOpen = false" class="export-validator-close" title="Close">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
                 </div>
-                <div class="tool-docs-content">
-                    <div class="tool-docs-scroll">
-                        <div v-for="section in helpSections" :key="section.id" class="tool-docs-section">
-                            <h4>{{ section.title }}</h4>
-                            <div v-for="(line, idx) in section.lines" :key="section.id + '_' + idx" class="tool-docs-line" v-html="formatDocText(line)"></div>
-                        </div>
-                    </div>
-                    <div class="tool-docs-scroll">
-                        <div class="tool-docs-section">
-                            <h4>Node Reference</h4>
-                            <div class="node-doc-grid">
-                                <div v-for="item in nodeDocs" :key="item.type" class="node-doc-card" :class="'tone-' + item.type">
-                                    <div class="node-doc-head">
-                                        <i :class="getNodeIcon(item.type)"></i>
-                                        <span>{{ item.label }}</span>
-                                    </div>
-                                    <div class="node-doc-io" v-html="formatDocText(item.io)"></div>
-                                    <div class="node-doc-role" v-html="formatDocText(item.role)"></div>
-                                    <div class="node-doc-usage" v-html="formatDocText(item.usage)"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <iframe
+                    class="export-validator-frame"
+                    src="quest_architect/quest_architect_docs.html"
+                    title="Quest Architect Docs">
+                </iframe>
             </div>
         </div>
 

@@ -3,6 +3,21 @@ const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_hfVfEOEyUxTAl9TCGQLQdA_2qpquHG
 const EDGE_FUNCTION_NAME = 'quest-export-validate';
 const AUTH_EXP_SKEW_MS = 30 * 1000;
 const EDGE_401_HINT = '401 from Edge Function. If "Verify JWT" is enabled with a publishable key (sb_publishable_), disable Verify JWT for this function and validate Authorization token inside function code.';
+const CLIENT_RUNTIME_TYPES = new Set([
+  'start',
+  'dialog',
+  'action',
+  'condition',
+  'switcher',
+  'wait_event',
+  'wait_condition',
+  'objective_set',
+  'objective_complete',
+  'objective_fail',
+  'quest_end',
+  'link_state',
+  'link_entry'
+]);
 
 const TAB_FILE_NAMES = {
   runtime: 'quest_runtime_export.json',
@@ -184,6 +199,131 @@ function getProjectMeta(payload) {
   };
 }
 
+function asObject(v) {
+  return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+}
+
+function asArray(v) {
+  return Array.isArray(v) ? v : [];
+}
+
+function buildClientDiagnostics(payload) {
+  const p = asObject(payload);
+  const nodes = asArray(p.nodes).map((n) => asObject(n));
+  const connections = asArray(p.connections).map((c) => asObject(c));
+  if (!nodes.length) return [];
+
+  const nodeById = new Map();
+  const outgoing = new Map();
+  nodes.forEach((n) => {
+    const id = typeof n.id === 'string' ? n.id.trim() : '';
+    if (!id) return;
+    nodeById.set(id, n);
+    outgoing.set(id, []);
+  });
+
+  connections.forEach((c) => {
+    const from = typeof c.from === 'string' ? c.from.trim() : '';
+    const to = typeof c.to === 'string' ? c.to.trim() : '';
+    if (!from || !to || !outgoing.has(from) || !nodeById.has(to)) return;
+    outgoing.get(from).push(to);
+  });
+
+  const linkEntryById = new Map();
+  const linkEntryByName = new Map();
+  nodeById.forEach((node, nodeId) => {
+    if (node.type !== 'link_entry') return;
+    linkEntryById.set(nodeId, nodeId);
+    const d = asObject(node.data);
+    const name = (typeof d.name === 'string' ? d.name : (typeof d.title === 'string' ? d.title : '')).trim();
+    if (name) linkEntryByName.set(name, nodeId);
+  });
+
+  nodeById.forEach((node, nodeId) => {
+    if (node.type !== 'link_state') return;
+    const d = asObject(node.data);
+    const entryId = typeof d.entryId === 'string' ? d.entryId.trim() : '';
+    const entryName = typeof d.entryName === 'string' ? d.entryName.trim() : '';
+    let target = '';
+    if (entryId && linkEntryById.has(entryId)) target = entryId;
+    else if (entryName && linkEntryByName.has(entryName)) target = linkEntryByName.get(entryName);
+    if (!target) return;
+    if (!outgoing.has(nodeId)) outgoing.set(nodeId, []);
+    outgoing.get(nodeId).push(target);
+  });
+
+  const runtimeNodeIds = Array.from(nodeById.entries())
+    .filter(([, n]) => CLIENT_RUNTIME_TYPES.has(String(n.type || '').trim()))
+    .map(([id]) => id);
+  const runtimeNodeSet = new Set(runtimeNodeIds);
+
+  const startIds = runtimeNodeIds.filter((id) => nodeById.get(id)?.type === 'start');
+  const questEndIds = runtimeNodeIds.filter((id) => nodeById.get(id)?.type === 'quest_end');
+
+  const visitedFromStart = new Set();
+  const queue = startIds.slice();
+  while (queue.length) {
+    const id = queue.shift();
+    if (!id || visitedFromStart.has(id)) continue;
+    visitedFromStart.add(id);
+    const next = outgoing.get(id) || [];
+    next.forEach((toId) => {
+      if (runtimeNodeSet.has(toId) && !visitedFromStart.has(toId)) queue.push(toId);
+    });
+  }
+
+  const memoReachEnd = new Map();
+  const canReachQuestEnd = (nodeId, stack = new Set()) => {
+    if (questEndIds.includes(nodeId)) return true;
+    if (!runtimeNodeSet.has(nodeId)) return false;
+    if (memoReachEnd.has(nodeId)) return memoReachEnd.get(nodeId);
+    if (stack.has(nodeId)) return false;
+    stack.add(nodeId);
+    const next = outgoing.get(nodeId) || [];
+    for (const toId of next) {
+      if (canReachQuestEnd(toId, stack)) {
+        stack.delete(nodeId);
+        memoReachEnd.set(nodeId, true);
+        return true;
+      }
+    }
+    stack.delete(nodeId);
+    memoReachEnd.set(nodeId, false);
+    return false;
+  };
+
+  const reachableQuestEnds = questEndIds.filter((id) => visitedFromStart.has(id)).length;
+  const terminalDeadEnds = runtimeNodeIds.filter((id) => {
+    if (!visitedFromStart.has(id)) return false;
+    const type = String(nodeById.get(id)?.type || '');
+    if (type === 'quest_end') return false;
+    const next = (outgoing.get(id) || []).filter((toId) => runtimeNodeSet.has(toId));
+    return next.length === 0;
+  }).length;
+
+  const noEndPathCount = runtimeNodeIds.filter((id) => {
+    if (!visitedFromStart.has(id)) return false;
+    const type = String(nodeById.get(id)?.type || '');
+    if (type === 'quest_end') return false;
+    return !canReachQuestEnd(id);
+  }).length;
+
+  const objectiveNoEndCount = runtimeNodeIds.filter((id) => {
+    if (!visitedFromStart.has(id)) return false;
+    const type = String(nodeById.get(id)?.type || '');
+    if (type !== 'objective_complete' && type !== 'objective_fail') return false;
+    return !canReachQuestEnd(id);
+  }).length;
+
+  return [
+    { name: 'Quest End Nodes', value: questEndIds.length, note: 'Explicit terminal nodes in graph.' },
+    { name: 'Reachable Quest Ends', value: reachableQuestEnds, note: 'Reachable from Start traversal.' },
+    { name: 'Terminal Dead-Ends', value: terminalDeadEnds, note: 'Runtime dead-ends that are not Quest End.' },
+    { name: 'Nodes Without End Path', value: noEndPathCount, note: 'Visited runtime nodes that cannot reach Quest End.' },
+    { name: 'Objective Without End Path', value: objectiveNoEndCount, note: 'Objective Complete/Fail nodes without route to Quest End.' }
+  ];
+}
+
 function clearPendingAuth() {
   if (authReplyTimer) {
     clearTimeout(authReplyTimer);
@@ -339,7 +479,9 @@ function applyServerResult(data) {
     : { critical: 0, warning: 0, runtime: 0, unreachable: 0 };
 
   state.issues = Array.isArray(data && data.issues) ? data.issues : [];
-  state.diagnostics = Array.isArray(data && data.diagnostics) ? data.diagnostics : [];
+  const serverDiagnostics = Array.isArray(data && data.diagnostics) ? data.diagnostics : [];
+  const clientDiagnostics = buildClientDiagnostics(state.sourcePayload);
+  state.diagnostics = serverDiagnostics.concat(clientDiagnostics);
 
   const ex = data && typeof data.exports === 'object' ? data.exports : {};
   state.exports = {

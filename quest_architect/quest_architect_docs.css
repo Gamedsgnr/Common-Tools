@@ -1,0 +1,204 @@
+:root {
+  --bg: #1a1f2b;
+  --panel: rgba(30, 41, 59, 0.45);
+  --border: rgba(148, 163, 184, 0.28);
+  --text: #dbe7f3;
+  --muted: #9aa4b2;
+  --accent: #7dd3fc;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-family: Inter, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(120% 120% at -12% -8%, rgba(125, 211, 252, 0.14), transparent 55%),
+    radial-gradient(90% 80% at 110% 5%, rgba(59, 130, 246, 0.14), transparent 50%),
+    linear-gradient(165deg, #161b26, var(--bg) 58%);
+}
+
+.docs-app {
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.docs-panel {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow:
+    0 18px 30px -12px rgba(2, 6, 23, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -10px 22px rgba(2, 6, 23, 0.32);
+  backdrop-filter: blur(18px) saturate(1.18);
+  -webkit-backdrop-filter: blur(18px) saturate(1.18);
+}
+
+.docs-head {
+  min-height: 74px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+}
+
+.docs-head h1 {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: 0.03em;
+}
+
+.docs-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.head-note {
+  border: 1px solid rgba(125, 211, 252, 0.38);
+  border-radius: 11px;
+  background: rgba(15, 23, 42, 0.52);
+  color: #cbe8ff;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 8px 10px;
+}
+
+.wiki-shell {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.wiki-nav {
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 12px;
+}
+
+.wiki-nav-title {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.wiki-link {
+  display: block;
+  margin-bottom: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.48);
+  color: var(--muted);
+  text-decoration: none;
+  line-height: 1.35;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 9px;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+}
+
+.wiki-link:hover {
+  border-color: rgba(125, 211, 252, 0.56);
+  color: var(--text);
+}
+
+.wiki-link.active {
+  border-color: rgba(125, 211, 252, 0.66);
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.24), rgba(15, 23, 42, 0.56));
+  color: var(--text);
+}
+
+.wiki-content-scroll {
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+}
+
+.wiki-section {
+  margin-bottom: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.36);
+  padding: 12px;
+}
+
+.wiki-section h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  color: #d9efff;
+}
+
+.wiki-section h3 {
+  margin: 10px 0 6px;
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.wiki-section p,
+.wiki-section li {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.wiki-section ul,
+.wiki-section ol {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.wiki-section code {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.6);
+  padding: 1px 5px;
+  color: #cde9ff;
+}
+
+@media (max-width: 1100px) {
+  .wiki-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .wiki-nav {
+    border-right: 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    display: flex;
+    overflow: auto;
+    gap: 6px;
+    padding: 10px;
+  }
+
+  .wiki-nav-title {
+    display: none;
+  }
+
+  .wiki-link {
+    margin: 0;
+    min-width: 180px;
+  }
+
+  .docs-head {
+    flex-wrap: wrap;
+    min-height: auto;
+  }
+}
