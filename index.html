@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -8,7 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
     <style>
-        /* Сброс стилей */
+        /* РЎР±СЂРѕСЃ СЃС‚РёР»РµР№ */
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
@@ -20,7 +20,7 @@
             overflow: hidden;
         }
 
-        /* --- САЙДБАР --- */
+        /* --- РЎРђР™Р”Р‘РђР  --- */
         .sidebar {
             width: 260px;
             background: #141b26;
@@ -175,7 +175,7 @@
         .nav-links a[href="UE_Converter_Pro.html"] { --item-accent: 95, 163, 154; }
         .nav-links a[href="CurveToCode_Pro.html"] { --item-accent: 134, 184, 216; }
         .nav-links a[href="progression_balancer.html"] { --item-accent: 185, 132, 96; }
-        .nav-links a[href="factory_architect.html"] { --item-accent: 95, 163, 154; }
+        .nav-links a[href="FactoryArchitect_New.html"] { --item-accent: 95, 163, 154; }
         .nav-links a[href="QuestArchitect2.html"] { --item-accent: 141, 130, 186; }
         .nav-links a[href="math_plotter.html"] { --item-accent: 125, 211, 252; }
         .nav-links a[href="shader_playground.html"] { --item-accent: 141, 130, 186; }
@@ -333,7 +333,7 @@
             }
         }
 
-        /* --- ОСНОВНАЯ ЧАСТЬ --- */
+        /* --- РћРЎРќРћР’РќРђРЇ Р§РђРЎРўР¬ --- */
         .main-content {
             flex-grow: 1;
             background-color: #1a1f2b;
@@ -347,10 +347,10 @@
             display: block;
         }
 
-        /* Элементы админки (скрыты по умолчанию) */
+        /* Р­Р»РµРјРµРЅС‚С‹ Р°РґРјРёРЅРєРё (СЃРєСЂС‹С‚С‹ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ) */
         .admin-group { display: none; }
 
-        /* --- МОДАЛЬНОЕ ОКНО --- */
+        /* --- РњРћР”РђР›Р¬РќРћР• РћРљРќРћ --- */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -830,7 +830,7 @@
             <li><a href="UE_Converter_Pro.html" target="tool-frame"><i class="fa-solid fa-right-left" style="margin-right:8px"></i>Data Converter</a></li>
             <li><a href="CurveToCode_Pro.html" target="tool-frame"><i class="fa-solid fa-chart-line" style="margin-right:8px"></i>Curve Editor</a></li>
             <li><a href="progression_balancer.html" target="tool-frame"><i class="fa-solid fa-sliders" style="margin-right:8px"></i>Balance Progression Tool</a></li>
-            <li><a href="factory_architect.html" target="tool-frame"><i class="fa-solid fa-industry" style="margin-right:8px"></i>Factory Architect</a></li>
+            <li><a href="FactoryArchitect_New.html" target="tool-frame"><i class="fa-solid fa-industry" style="margin-right:8px"></i>Factory Architect</a></li>
             <li><a href="QuestArchitect2.html" target="tool-frame"><i class="fa-solid fa-diagram-project" style="margin-right:8px"></i>Quest Architect</a></li>
         </ul>
 
@@ -974,7 +974,7 @@
     </div>
 
     <script>
-        // --- 1. НАСТРОЙКИ SUPABASE ---
+        // --- 1. РќРђРЎРўР РћР™РљР SUPABASE ---
         var SUPABASE_URL = 'https://vmwwvwtsznxwoswzdzui.supabase.co'; 
         var SUPABASE_KEY = 'sb_publishable_hfVfEOEyUxTAl9TCGQLQdA_2qpquHGk';
         var TURNSTILE_SITE_KEY = '0x4AAAAAACaV158q5lWbH-_T';
@@ -989,7 +989,7 @@
         var _bugFxPrevTs = 0;
         var _bugFxLastSpawn = 0;
 
-        // --- 2. ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ ---
+        // --- 2. РРќРР¦РРђР›РР—РђР¦РРЇ РџР Р Р—РђР“Р РЈР—РљР• ---
         window.onload = async function() {
             console.log("CommonToolHub: Script loaded");
             initMobileLayout();
@@ -999,11 +999,11 @@
                 if (window.supabase) {
                     _sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
                 } else {
-                    console.error("Библиотека Supabase JS не загружена.");
+                    console.error("Р‘РёР±Р»РёРѕС‚РµРєР° Supabase JS РЅРµ Р·Р°РіСЂСѓР¶РµРЅР°.");
                     return;
                 }
 
-                // Проверяем текущую сессию
+                // РџСЂРѕРІРµСЂСЏРµРј С‚РµРєСѓС‰СѓСЋ СЃРµСЃСЃРёСЋ
                 const { data: { session }, error } = await _sbClient.auth.getSession();
                 
                 if (session) {
@@ -1018,11 +1018,11 @@
                 });
 
             } catch (err) {
-                console.error("Ошибка инициализации Supabase:", err);
+                console.error("РћС€РёР±РєР° РёРЅРёС†РёР°Р»РёР·Р°С†РёРё Supabase:", err);
             }
         }
 
-        // --- 3. ОБРАБОТКА КЛИКА ПО LOGIN ---
+        // --- 3. РћР‘Р РђР‘РћРўРљРђ РљР›РРљРђ РџРћ LOGIN ---
         function randomRange(min, max) {
             return min + Math.random() * (max - min);
         }
@@ -1196,14 +1196,14 @@
         }
         function handleAuthClick() {
             if (!_sbClient) {
-                alert("Ошибка: Supabase не инициализирован. Проверьте консоль.");
+                alert("РћС€РёР±РєР°: Supabase РЅРµ РёРЅРёС†РёР°Р»РёР·РёСЂРѕРІР°РЅ. РџСЂРѕРІРµСЂСЊС‚Рµ РєРѕРЅСЃРѕР»СЊ.");
                 return;
             }
 
             const isAuth = sessionStorage.getItem('ct_supabase_auth') === 'true';
             
             if (isAuth) {
-                if(confirm("Вы уже авторизованы. Выйти из аккаунта?")) {
+                if(confirm("Р’С‹ СѓР¶Рµ Р°РІС‚РѕСЂРёР·РѕРІР°РЅС‹. Р’С‹Р№С‚Рё РёР· Р°РєРєР°СѓРЅС‚Р°?")) {
                     logoutSupabase();
                 }
             } else {
@@ -1387,7 +1387,7 @@
             }
         }
 
-        // --- 4. ВХОД / ВЫХОД ---
+        // --- 4. Р’РҐРћР” / Р’Р«РҐРћР” ---
         async function loginSupabase() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
@@ -1395,7 +1395,7 @@
             const btn = document.querySelector('.modal-box .btn-primary');
 
             if (!email || !password) {
-                errBox.innerText = "Введите Email и пароль";
+                errBox.innerText = "Р’РІРµРґРёС‚Рµ Email Рё РїР°СЂРѕР»СЊ";
                 errBox.style.display = 'block';
                 return;
             }
@@ -1417,7 +1417,7 @@
                 }
             } catch (error) {
                 console.error("Login error:", error);
-                errBox.innerText = error.message || "Ошибка входа";
+                errBox.innerText = error.message || "РћС€РёР±РєР° РІС…РѕРґР°";
                 errBox.style.display = 'block';
             } finally {
                 btn.innerText = "SIGN IN";
@@ -1517,7 +1517,7 @@
             }
         }
 
-        // --- 5. ОБНОВЛЕНИЕ ИНТЕРФЕЙСА ---
+        // --- 5. РћР‘РќРћР’Р›Р•РќРР• РРќРўР•Р Р¤Р•Р™РЎРђ ---
         function toggleAccessRequestVisibility(isAuthenticated) {
             const requestBtn = document.getElementById('accessRequestBtn');
             if (requestBtn) {
@@ -1787,6 +1787,7 @@
     </script>
 </body>
 </html>
+
 
 
 

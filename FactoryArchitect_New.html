@@ -1,0 +1,690 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Factory Architect New</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="quest_architect/quest_architect.css">
+    <link rel="stylesheet" href="factory_architect/factory_architect.css">
+</head>
+<body>
+<div id="app" class="h-screen w-screen flex flex-col relative">
+    <input type="file" ref="loadInput" class="hidden" accept="application/json" @change="loadProject">
+
+    <header class="h-14 factory-topbar flex items-center justify-between px-6 shrink-0 z-50 relative">
+        <div class="flex items-center gap-3 min-w-0">
+            <i class="fa-solid fa-industry factory-brand-accent text-xl"></i>
+            <h1 class="font-bold text-lg text-slate-100">Factory <span class="factory-brand-accent">Architect</span></h1>
+            <div v-if="currentProjectTitle" class="ml-2 px-2 py-0.5 text-[10px] uppercase tracking-wider text-slate-300 bg-slate-800/70 border border-slate-700 rounded">{{ currentProjectTitle }}</div>
+        </div>
+        <div class="mode-switch-shell">
+            <button @click="setAppMode('base')" :class="['mode-btn', appMode==='base' ? 'active' : 'inactive']">Base Graph</button>
+            <button @click="setAppMode('simulation')" :class="['mode-btn', appMode==='simulation' ? 'active' : 'inactive']">Simulation</button>
+        </div>
+        <div class="flex gap-3">
+            <button @click="triggerLoad" class="px-3 py-1.5 text-xs font-bold bg-slate-800 hover:bg-slate-700 rounded border border-slate-600 transition"><i class="fa-solid fa-folder-open mr-1"></i> LOAD</button>
+            <button @click="saveProject" class="px-3 py-1.5 text-xs font-bold bg-slate-800 hover:bg-slate-700 rounded border border-slate-600 transition"><i class="fa-solid fa-save mr-1"></i> SAVE</button>
+            <button v-if="isAuth" @click="openCloudModal('load')" class="px-3 py-1.5 text-xs font-bold bg-teal-900/60 hover:bg-teal-800/70 text-teal-100 rounded border border-teal-700/60 transition"><i class="fa-solid fa-cloud-arrow-down mr-1"></i> LOAD CLOUD</button>
+            <button v-if="isAuth" @click="openCloudModal('save')" class="px-3 py-1.5 text-xs font-bold bg-emerald-900/60 hover:bg-emerald-800/70 text-emerald-200 rounded border border-emerald-700/60 transition"><i class="fa-solid fa-cloud-arrow-up mr-1"></i> SAVE CLOUD</button>
+        </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden relative" v-if="appMode==='base'">
+        <div class="flex-1 relative overflow-hidden bg-slate-950" ref="canvasContainer" @wheel.prevent="handleWheel" @mousedown="onCanvasMouseDown" @dragover.prevent @drop.prevent="onPaletteDrop">
+            <div class="drop-hint">Drag node from palette, connect via sockets (Resource -> Factory input, Factory -> Resource output)</div>
+            <div class="absolute top-16 left-4 z-60 entity-card min-w-[260px] max-w-[360px]">
+                <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-200">
+                    <span>Base Net Rate</span>
+                    <span class="inline-flex items-center justify-center w-4 h-4 rounded-full border border-slate-500 text-[10px] text-slate-300 cursor-help"
+                          title="Net Rate 1 к 1 базовой схемы рецепта. Без учета Simulation.">?</span>
+                </div>
+                <div class="mt-2 space-y-1 max-h-32 overflow-auto pr-1">
+                    <div v-if="!baseNetRateRows.length" class="text-[11px] text-slate-500">No net rate data</div>
+                    <div v-for="row in baseNetRateRows" :key="`base_rate_${row.id}`" class="flex items-center justify-between text-[11px]">
+                        <span class="text-slate-300 truncate pr-2">{{ row.name }}</span>
+                        <span :class="rateClass(row.rate)">{{ fmt(row.rate, 3) }}/s</span>
+                    </div>
+                </div>
+            </div>
+            <div class="origin-top-left absolute w-full h-full" :style="{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }">
+                <div class="grid-canvas" style="width: 10000px; height: 10000px; transform: translate(-5000px, -5000px);"></div>
+                <svg class="connections-layer overflow-visible">
+                    <g v-for="conn in renderedConnections" :key="conn.id">
+                        <path :d="conn.path" :stroke="conn.color" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none" class="connection-path" />
+                        <circle v-for="(anchor,idx) in (conn.anchors || [])"
+                                :key="`${conn.id}_a_${idx}`"
+                                :cx="anchor.x"
+                                :cy="anchor.y"
+                                r="4"
+                                :fill="conn.color"
+                                stroke="rgba(2,6,23,0.92)"
+                                stroke-width="1.4" />
+                    </g>
+                    <path v-if="dragLine" :d="dragLine.path" stroke="#5fa39a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="8,4" fill="none" class="pointer-events-none opacity-85" />
+                </svg>
+
+                <div v-for="node in nodes" :key="node.id" class="node-wrapper" :class="{ selected: selectedNodeId===node.id }" :style="getNodeStyle(node)" :data-node-id="node.id" @mousedown.stop="selectNode(node.id)">
+                    <div class="node-header" :class="node.type==='resource' ? 'type-resource' : 'type-factory'" @mousedown.stop="onNodeHeaderMouseDown(node, $event)">
+                        <div class="flex items-center gap-2 min-w-0 text-xs font-bold text-white tracking-wide">
+                            <i :class="node.type==='resource' ? 'fa-solid fa-cube' : 'fa-solid fa-industry'"></i>
+                            <button v-if="editingNodeNameId !== node.id"
+                                    type="button"
+                                    class="node-header-name node-header-name-btn"
+                                    @mousedown.stop
+                                    @click.stop="startNodeNameEdit(node)">
+                                {{ node.data.name || (node.type==='resource' ? 'Resource' : 'Factory') }}
+                            </button>
+                            <input v-else
+                                   v-model="nodeNameDraft"
+                                   class="node-header-name-input"
+                                   @mousedown.stop
+                                   @keydown.enter.prevent="commitNodeNameEdit(node)"
+                                   @keydown.esc.prevent="cancelNodeNameEdit"
+                                   @blur="commitNodeNameEdit(node)" />
+                        </div>
+                        <button @click.stop="deleteNode(node.id)" class="text-white/50 hover:text-white"><i class="fa-solid fa-times"></i></button>
+                        <div class="socket socket-in" :data-node-id="node.id" data-socket-id="in" @mouseup="onSocketMouseUp(node.id, 'in')"></div>
+                    </div>
+
+                    <div class="p-3 text-slate-300 text-sm relative">
+                        <div v-if="node.type==='resource'" class="space-y-1">
+                            <div class="node-meta">Resource node</div>
+                        </div>
+                        <div v-else class="space-y-1">
+                            <div>
+                                <div class="node-inline-label">Cycle (s)</div>
+                                <input type="number" min="0.1" step="0.1" class="factory-input" v-model.number="node.data.cycle" @input="recompute" @mousedown.stop>
+                            </div>
+
+                            <div class="node-inline-list">
+                                <div class="node-inline-label text-rose-300">Inputs</div>
+                                <div v-for="(io,idx) in node.data.inputs" :key="`in_${idx}`" class="node-inline-row">
+                                    <select v-model="io.resourceNodeId" @change="recomputeWithLayout" class="factory-select" @mousedown.stop>
+                                        <option value="">Select resource...</option>
+                                        <option v-for="res in resourceNodes" :value="res.id">{{ res.data.name || 'Resource' }}</option>
+                                    </select>
+                                    <input type="number" min="0" step="0.1" v-model.number="io.amount" @input="recompute" class="factory-input" @mousedown.stop>
+                                    <button @click.stop="node.data.inputs.splice(idx,1); recomputeWithLayout()" class="px-2 py-1 text-xs bg-slate-700 rounded">x</button>
+                                </div>
+                                <button @click.stop="addFactoryIO(node,'inputs')" class="node-inline-add">+ Add Input</button>
+                            </div>
+
+                            <div class="node-inline-list">
+                                <div class="node-inline-label text-emerald-300">Outputs</div>
+                                <div v-for="(io,idx) in node.data.outputs" :key="`out_${idx}`" class="node-inline-row">
+                                    <select v-model="io.resourceNodeId" @change="recomputeWithLayout" class="factory-select" @mousedown.stop>
+                                        <option value="">Select resource...</option>
+                                        <option v-for="res in resourceNodes" :value="res.id">{{ res.data.name || 'Resource' }}</option>
+                                    </select>
+                                    <input type="number" min="0" step="0.1" v-model.number="io.amount" @input="recompute" class="factory-input" @mousedown.stop>
+                                    <button @click.stop="node.data.outputs.splice(idx,1); recomputeWithLayout()" class="px-2 py-1 text-xs bg-slate-700 rounded">x</button>
+                                </div>
+                                <button @click.stop="addFactoryIO(node,'outputs')" class="node-inline-add">+ Add Output</button>
+                            </div>
+                        </div>
+                        <div class="socket socket-out" :data-node-id="node.id" data-socket-id="out" @mousedown.stop.prevent="startDragLine(node.id,'out',$event)"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 factory-bottom-tools" @mousedown.stop>
+                <div class="glass-panel rounded-2xl p-2 flex items-center gap-2 shadow-2xl">
+                    <button type="button"
+                            draggable="true"
+                            @dragstart="onPaletteDragStart('resource',$event)"
+                            class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-rose-600/20 hover:text-rose-300 text-slate-400 transition group cursor-grab active:cursor-grabbing"
+                            title="Drag to add Resource">
+                        <i class="fa-solid fa-cube text-2xl mb-1 group-hover:scale-110 transition"></i>
+                        <span class="text-[10px] font-bold">RESOURCE</span>
+                    </button>
+                    <div class="w-px h-10 bg-slate-700"></div>
+                    <button type="button"
+                            draggable="true"
+                            @dragstart="onPaletteDragStart('factory',$event)"
+                            class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-teal-600/20 hover:text-teal-300 text-slate-400 transition group cursor-grab active:cursor-grabbing"
+                            title="Drag to add Factory">
+                        <i class="fa-solid fa-industry text-2xl mb-1 group-hover:scale-110 transition"></i>
+                        <span class="text-[10px] font-bold">FACTORY</span>
+                    </button>
+                    <div class="w-6"></div>
+                    <div class="w-px h-10 bg-slate-700/70"></div>
+                    <button type="button"
+                            @click="autoLayout"
+                            class="flex flex-col items-center justify-center w-16 h-16 rounded-xl bg-slate-700/55 text-slate-100 hover:bg-slate-600/70 hover:text-white transition group"
+                            title="Rebuild layout">
+                        <i class="fa-solid fa-shuffle text-2xl mb-1 group-hover:scale-110 transition"></i>
+                        <span class="text-[10px] font-bold">LAYOUT</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <aside class="factory-side sim-factory-side shrink-0 h-full flex flex-col">
+            <div class="p-3 border-b border-slate-700/70">
+                <div class="text-xs uppercase tracking-wider text-slate-400 font-bold">Inspector</div>
+                <div class="mt-2 grid grid-cols-3 gap-1 p-1 rounded-lg bg-slate-900/55 border border-slate-700/70">
+                    <button @click="activeRightTab='node'"
+                            :class="activeRightTab==='node' ? 'bg-slate-700/90 text-slate-100 border-slate-500/70' : 'bg-transparent text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-800/70'"
+                            class="px-2 py-1.5 text-[11px] rounded-md border font-semibold transition">
+                        Node Properties
+                    </button>
+                    <button @click="activeRightTab='resources'"
+                            :class="activeRightTab==='resources' ? 'bg-slate-700/90 text-slate-100 border-slate-500/70' : 'bg-transparent text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-800/70'"
+                            class="px-2 py-1.5 text-[11px] rounded-md border font-semibold transition">
+                        Resources
+                    </button>
+                    <button @click="activeRightTab='factories'"
+                            :class="activeRightTab==='factories' ? 'bg-slate-700/90 text-slate-100 border-slate-500/70' : 'bg-transparent text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-800/70'"
+                            class="px-2 py-1.5 text-[11px] rounded-md border font-semibold transition">
+                        Factories
+                    </button>
+                </div>
+            </div>
+            <div class="p-3 overflow-y-auto flex-1 space-y-3">
+                <template v-if="activeRightTab==='node'">
+                    <template v-if="selectedNode">
+                        <div class="factory-chip">Type: <span class="font-bold text-slate-200">{{ selectedNode.type }}</span></div>
+                        <div><label class="text-[11px] text-slate-400 uppercase tracking-wider">Name</label><input v-model="selectedNode.data.name" @input="recompute" class="factory-input"></div>
+                        <template v-if="selectedNode.type==='resource'"></template>
+                        <template v-else>
+                            <div><label class="text-[11px] text-slate-400 uppercase tracking-wider">Cycle (sec)</label><input type="number" min="0.1" step="0.1" v-model.number="selectedNode.data.cycle" @input="recompute" class="factory-input"></div>
+                            <div class="factory-chip">
+                                <div class="flex items-center justify-between mb-1"><span class="font-bold text-rose-300">Inputs</span><button @click="addFactoryIO(selectedNode,'inputs')" class="text-[11px] text-slate-200 hover:text-white">+ add</button></div>
+                                <div v-if="!selectedNode.data.inputs.length" class="text-[11px] text-slate-500">No inputs</div>
+                                <div v-for="(io,idx) in selectedNode.data.inputs" :key="idx" class="flex gap-1 mb-1">
+                                    <select v-model="io.resourceNodeId" @change="recomputeWithLayout" class="factory-select"><option value="">Select resource...</option><option v-for="res in resourceNodes" :value="res.id">{{ res.data.name || 'Resource' }}</option></select>
+                                    <input type="number" min="0" step="0.1" v-model.number="io.amount" @input="recompute" class="factory-input w-20">
+                                    <button @click="selectedNode.data.inputs.splice(idx,1); recomputeWithLayout()" class="px-2 text-xs bg-slate-700 rounded">x</button>
+                                </div>
+                            </div>
+                            <div class="factory-chip">
+                                <div class="flex items-center justify-between mb-1"><span class="font-bold text-emerald-300">Outputs</span><button @click="addFactoryIO(selectedNode,'outputs')" class="text-[11px] text-slate-200 hover:text-white">+ add</button></div>
+                                <div v-if="!selectedNode.data.outputs.length" class="text-[11px] text-slate-500">No outputs</div>
+                                <div v-for="(io,idx) in selectedNode.data.outputs" :key="idx" class="flex gap-1 mb-1">
+                                    <select v-model="io.resourceNodeId" @change="recomputeWithLayout" class="factory-select"><option value="">Select resource...</option><option v-for="res in resourceNodes" :value="res.id">{{ res.data.name || 'Resource' }}</option></select>
+                                    <input type="number" min="0" step="0.1" v-model.number="io.amount" @input="recompute" class="factory-input w-20">
+                                    <button @click="selectedNode.data.outputs.splice(idx,1); recomputeWithLayout()" class="px-2 text-xs bg-slate-700 rounded">x</button>
+                                </div>
+                            </div>
+                        </template>
+                    </template>
+                    <template v-else><div class="text-sm text-slate-500">Select node in workspace</div></template>
+                </template>
+
+                <template v-else-if="activeRightTab==='resources'">
+                    <div class="factory-chip flex items-center justify-between">
+                        <span>Resources: <span class="font-bold text-slate-200">{{ resourceNodes.length }}</span></span>
+                        <button @click="addNodeFromSidebar('resource')" class="px-2 py-1 rounded bg-rose-600/30 hover:bg-rose-500/40 text-rose-200 text-[11px] font-bold transition">+ Add Resource</button>
+                    </div>
+                    <div v-if="!resourceNodes.length" class="text-xs text-slate-500 border border-dashed border-slate-700 rounded p-3 text-center">No resources yet.</div>
+                    <div v-for="res in resourceNodes" :key="`res_list_${res.id}`" class="entity-card space-y-2">
+                        <div class="flex items-center gap-2">
+                            <input v-model="res.data.name" @input="recompute" class="factory-input" />
+                            <button @click="selectNode(res.id); activeRightTab='node'" class="px-2 py-1 text-[11px] bg-slate-700 hover:bg-slate-600 rounded transition">Open</button>
+                            <button @click="deleteNode(res.id)" class="px-2 py-1 text-[11px] bg-rose-900/50 hover:bg-rose-800/60 text-rose-200 rounded transition">Delete</button>
+                        </div>
+                    </div>
+                </template>
+
+                <template v-else>
+                    <div class="factory-chip flex items-center justify-between">
+                        <span>Factories: <span class="font-bold text-slate-200">{{ factoryNodes.length }}</span></span>
+                        <button @click="addNodeFromSidebar('factory')" class="px-2 py-1 rounded bg-teal-600/30 hover:bg-teal-500/40 text-teal-100 text-[11px] font-bold transition">+ Add Factory</button>
+                    </div>
+                    <div v-if="!factoryNodes.length" class="text-xs text-slate-500 border border-dashed border-slate-700 rounded p-3 text-center">No factories yet.</div>
+                    <div v-for="fac in factoryNodes" :key="`fac_list_${fac.id}`" class="entity-card space-y-2">
+                        <div class="flex items-center gap-2">
+                            <input v-model="fac.data.name" @input="recompute" class="factory-input" />
+                            <button @click="selectNode(fac.id); activeRightTab='node'" class="px-2 py-1 text-[11px] bg-slate-700 hover:bg-slate-600 rounded transition">Open</button>
+                            <button @click="deleteNode(fac.id)" class="px-2 py-1 text-[11px] bg-rose-900/50 hover:bg-rose-800/60 text-rose-200 rounded transition">Delete</button>
+                        </div>
+                        <div><label class="text-[11px] text-slate-400 uppercase tracking-wider">Cycle (sec)</label><input type="number" min="0.1" step="0.1" v-model.number="fac.data.cycle" @input="recompute" class="factory-input"></div>
+                        <div class="factory-chip">
+                            <div class="flex items-center justify-between mb-1"><span class="font-bold text-rose-300">Inputs</span><button @click="addFactoryIO(fac,'inputs')" class="text-[11px] text-slate-200 hover:text-white">+ add</button></div>
+                            <div v-if="!fac.data.inputs.length" class="text-[11px] text-slate-500">No inputs</div>
+                            <div v-for="(io,idx) in fac.data.inputs" :key="`fl_in_${fac.id}_${idx}`" class="flex gap-1 mb-1">
+                                <select v-model="io.resourceNodeId" @change="recomputeWithLayout" class="factory-select"><option value="">Select resource...</option><option v-for="res in resourceNodes" :value="res.id">{{ res.data.name || 'Resource' }}</option></select>
+                                <input type="number" min="0" step="0.1" v-model.number="io.amount" @input="recompute" class="factory-input w-20">
+                                <button @click="fac.data.inputs.splice(idx,1); recomputeWithLayout()" class="px-2 text-xs bg-slate-700 rounded">x</button>
+                            </div>
+                        </div>
+                        <div class="factory-chip">
+                            <div class="flex items-center justify-between mb-1"><span class="font-bold text-emerald-300">Outputs</span><button @click="addFactoryIO(fac,'outputs')" class="text-[11px] text-slate-200 hover:text-white">+ add</button></div>
+                            <div v-if="!fac.data.outputs.length" class="text-[11px] text-slate-500">No outputs</div>
+                            <div v-for="(io,idx) in fac.data.outputs" :key="`fl_out_${fac.id}_${idx}`" class="flex gap-1 mb-1">
+                                <select v-model="io.resourceNodeId" @change="recomputeWithLayout" class="factory-select"><option value="">Select resource...</option><option v-for="res in resourceNodes" :value="res.id">{{ res.data.name || 'Resource' }}</option></select>
+                                <input type="number" min="0" step="0.1" v-model.number="io.amount" @input="recompute" class="factory-input w-20">
+                                <button @click="fac.data.outputs.splice(idx,1); recomputeWithLayout()" class="px-2 text-xs bg-slate-700 rounded">x</button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </aside>
+    </div>
+
+    <div class="flex-1 flex overflow-hidden relative" v-else>
+        <div class="flex-1 bg-slate-950 p-3 overflow-hidden">
+            <div class="sim-left-shell" ref="simulationLeftShell">
+                <div class="sim-controls">
+                    <div>
+                        <label class="text-[12px] text-slate-300 uppercase tracking-wider font-semibold">Simulation Time (sec)</label>
+                        <input type="number" min="5" step="5" v-model.number="simulationDuration" class="factory-input w-44">
+                    </div>
+                    <div>
+                        <label class="text-[12px] text-slate-300 uppercase tracking-wider font-semibold">Step (sec)</label>
+                        <input type="number" min="0.05" step="0.05" v-model.number="simulationStep" class="factory-input w-32">
+                    </div>
+                    <button @click="runSimulation" class="px-5 py-2.5 text-[12px] font-bold bg-emerald-700/75 hover:bg-emerald-600/85 text-emerald-100 rounded border border-emerald-400/45 transition">Run Simulation</button>
+                    <div class="ml-auto text-[12px] text-slate-300 font-semibold">
+                        <span v-if="simulationResult">Samples: {{ simulationResult.times.length }}</span>
+                        <span v-else>No simulation data</span>
+                        <span v-if="simulationHover"> | t={{ fmt(simulationHover.time, 2) }}s</span>
+                    </div>
+                </div>
+
+                <div class="sim-divider"></div>
+
+                <div class="sim-main-row">
+                    <div class="sim-graph-shell">
+                        <div class="sim-graph-head">
+                            <div class="section-title-plate plate-edge-12 text-[12px] font-bold uppercase tracking-wider mb-2">Simulation Graph</div>
+                            <div class="flex items-center gap-1 overflow-auto pb-1">
+                                <span v-for="item in simulationLegendRows" :key="`legend_${item.id}`" class="legend-chip">
+                                    <span class="legend-dot" :style="{ backgroundColor: item.color }"></span>
+                                    <span>{{ item.name }}</span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="sim-graph-canvas" ref="simulationGraphCanvas">
+                            <svg v-if="simulationChart"
+                                 :viewBox="`0 0 ${simulationChart.width} ${simulationChart.height}`"
+                                 preserveAspectRatio="none"
+                                 class="sim-graph-svg cursor-crosshair"
+                                 @mousemove="onSimulationMouseMove"
+                                 @mouseleave="onSimulationMouseLeave">
+                                <rect :x="simulationChart.padL" :y="simulationChart.padT" :width="simulationChart.plotW" :height="simulationChart.plotH" fill="rgba(15,23,42,0.35)" stroke="rgba(148,163,184,0.22)" />
+                                <line :x1="simulationChart.padL" :x2="simulationChart.padL + simulationChart.plotW" :y1="simulationChart.zeroY" :y2="simulationChart.zeroY" stroke="rgba(148,163,184,0.25)" stroke-dasharray="4 4" />
+                                <g v-for="path in simulationChart.paths" :key="`sim_path_${path.id}`">
+                                    <path :d="path.d" :stroke="path.color" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+                                </g>
+                                <line v-if="simulationHover" :x1="simulationHover.x" :x2="simulationHover.x" :y1="simulationChart.padT" :y2="simulationChart.padT + simulationChart.plotH" stroke="rgba(148,163,184,0.45)" stroke-dasharray="5 4" />
+                                <g v-if="simulationHover">
+                                    <circle v-for="p in simulationHover.points" :key="`hover_pt_${p.id}`" :cx="simulationHover.x" :cy="p.y" r="3.5" :fill="p.color" stroke="rgba(2,6,23,0.95)" stroke-width="1.2" />
+                                </g>
+                                <text :x="simulationChart.padL" :y="simulationChart.height-8" fill="#94a3b8" font-size="11">0s</text>
+                                <text :x="simulationChart.padL + simulationChart.plotW * 0.5 - 10" :y="simulationChart.height-8" fill="#94a3b8" font-size="11">{{ fmt(simulationResult.duration * 0.5, 1) }}s</text>
+                                <text :x="simulationChart.padL + simulationChart.plotW - 18" :y="simulationChart.height-8" fill="#94a3b8" font-size="11">{{ fmt(simulationResult.duration, 1) }}s</text>
+                                <text :x="8" :y="simulationChart.padT + 10" fill="#94a3b8" font-size="11">{{ fmt(simulationChart.maxY, 2) }}</text>
+                                <text :x="8" :y="simulationChart.padT + simulationChart.plotH + 4" fill="#94a3b8" font-size="11">{{ fmt(simulationChart.minY, 2) }}</text>
+                            </svg>
+                            <div v-if="simulationHover" class="sim-tooltip" :style="simulationTooltipStyle">
+                                <div class="text-[12px] font-semibold text-slate-100 mb-1">t = {{ fmt(simulationHover.time, 2) }}s</div>
+                                <div class="space-y-1 max-h-40 overflow-auto">
+                                    <div v-for="p in simulationHover.points" :key="`hover_row_${p.id}`" class="flex items-center justify-between gap-2 text-[11px]">
+                                        <span class="flex items-center gap-1 text-slate-200 truncate">
+                                            <span class="legend-dot" :style="{ backgroundColor: p.color }"></span>
+                                            {{ p.name }}
+                                        </span>
+                                        <span class="text-slate-100">{{ fmt(p.value, 2) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-if="optimizerRunning" class="optimizer-calc-overlay">
+                                <div class="optimizer-calc-badge">Calculating... {{ optimizerProgressText }}</div>
+                                <div v-for="p in optimizerCalcParticles"
+                                     :key="p.id"
+                                     class="optimizer-calc-particle"
+                                     :class="p.type"
+                                     :style="{ width: `${p.size}px`, height: `${p.size}px`, left: `${p.x - p.size * 0.5}px`, top: `${p.y - p.size * 0.5}px` }">
+                                    <i :class="p.icon" class="text-[13px]"></i>
+                                </div>
+                            </div>
+                            <div v-if="!simulationChart" class="h-full flex items-center justify-center text-base text-slate-500">Run simulation to render chart</div>
+                        </div>
+                        <div class="sim-summary-inline">
+                            <div class="section-title-plate plate-edge-12 text-[12px] font-bold uppercase tracking-wider mb-1">Smart Summary</div>
+                            <div class="sim-summary-content">
+                                <div class="sim-summary-left space-y-1">
+                                    <div v-for="(line,idx) in simulationSummary" :key="`sim_summary_${idx}`">{{ line }}</div>
+                                </div>
+                                <div class="sim-summary-right">
+                                    <div class="sim-summary-kpi-grid">
+                                        <div v-for="kpi in simulationSummaryKpis"
+                                             :key="`sim_kpi_${kpi.id}`"
+                                             class="sim-summary-kpi-card"
+                                             :class="summaryToneClass(kpi.tone)">
+                                            <div class="kpi-title">{{ kpi.title }}</div>
+                                            <div class="kpi-value">{{ kpi.value }}</div>
+                                            <div class="kpi-note">{{ kpi.note }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="sim-summary-reco-shell">
+                                        <div class="sim-summary-reco-title">Recommendations</div>
+                                        <div v-for="rec in simulationRecommendations"
+                                             :key="`sim_rec_${rec.id}`"
+                                             class="sim-summary-reco-item"
+                                             :class="summaryToneClass(rec.tone)">
+                                            {{ rec.text }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sim-netrate-shell">
+                        <div class="section-title-plate plate-edge-10 section-title-plate-netrate text-[12px] font-bold uppercase tracking-wider mb-2">Simulation Net Rate</div>
+                        <div class="space-y-1 overflow-auto pr-1">
+                            <div v-if="!simulationNetRateRows.length" class="text-[12px] text-slate-500">Run simulation to see results</div>
+                            <div v-for="row in simulationNetRateRows" :key="`sim_rate_${row.id}`" class="flex items-start justify-between gap-2 text-[12px]">
+                                <span class="text-slate-200 truncate pr-2">{{ row.name }}</span>
+                                <div class="text-right leading-tight">
+                                    <div :class="netRatePanelClass(row.rate)">{{ fmt(row.rate, 3) }}/s</div>
+                                    <div v-if="row.shortageRate > 1e-8" class="text-[10px] text-rose-300">deficit {{ fmt(row.shortageRate, 3) }}/s</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sim-splitter" @mousedown.prevent="startSimulationSplitterDrag"></div>
+
+                <div class="sim-table-shell" :style="{ height: `${simulationTableHeight}px` }">
+                    <div class="text-[12px] font-bold uppercase tracking-wider text-slate-200 mb-2">Simulation Table</div>
+                    <table class="sim-table w-full">
+                        <thead>
+                            <tr class="text-slate-300">
+                                <th>Resource</th>
+                                <th>Produced</th>
+                                <th>Consumed</th>
+                                <th>Requested</th>
+                                <th>Unmet</th>
+                                <th>Stock Net</th>
+                                <th>Effective Net</th>
+                                <th>Final Stock</th>
+                                <th>Min</th>
+                                <th>Max</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-if="!simulationTableRows.length"><td colspan="10" class="text-slate-500">No data</td></tr>
+                            <tr v-for="row in simulationTableRows" :key="`sim_table_${row.id}`">
+                                <td class="text-slate-100">{{ row.name }}</td>
+                                <td class="text-emerald-300">{{ fmt(row.produced, 2) }}</td>
+                                <td class="text-rose-300">{{ fmt(row.consumed, 2) }}</td>
+                                <td class="text-slate-200">{{ fmt(row.requested, 2) }}</td>
+                                <td class="text-rose-300">{{ fmt(row.unmet, 2) }}</td>
+                                <td :class="rateClass(row.net)">{{ fmt(row.net, 2) }}</td>
+                                <td :class="rateClass(row.effectiveNet)">{{ fmt(row.effectiveNet, 2) }}</td>
+                                <td class="text-slate-100">{{ fmt(row.finalStock, 2) }}</td>
+                                <td class="text-slate-300">{{ fmt(row.min, 2) }}</td>
+                                <td class="text-slate-300">{{ fmt(row.max, 2) }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <aside class="factory-side sim-factory-side shrink-0 h-full flex flex-col">
+            <div class="p-3 border-b border-slate-700/70">
+                <div class="text-xs uppercase tracking-wider text-slate-400 font-bold">Simulation Factories</div>
+                <div class="text-[11px] text-slate-500 mt-1">Set factory count for simulation only</div>
+                <div class="mt-2 grid grid-cols-2 gap-1 p-1 rounded-lg bg-slate-900/55 border border-slate-700/70">
+                    <button @click="simulationFactoryTab='manual'"
+                            :class="simulationFactoryTab==='manual' ? 'bg-slate-700/90 text-slate-100 border-slate-500/70' : 'bg-transparent text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-800/70'"
+                            class="px-2 py-1.5 text-[11px] rounded-md border font-semibold transition">
+                        Manual
+                    </button>
+                    <button @click="simulationFactoryTab='optimizer'"
+                            :class="simulationFactoryTab==='optimizer' ? 'bg-slate-700/90 text-slate-100 border-slate-500/70' : 'bg-transparent text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-800/70'"
+                            class="px-2 py-1.5 text-[11px] rounded-md border font-semibold transition">
+                        Optimizer
+                    </button>
+                </div>
+            </div>
+            <div class="p-3 overflow-y-auto flex-1 space-y-2">
+                <template v-if="simulationFactoryTab==='manual'">
+                    <div v-if="!factoryNodes.length" class="text-sm text-slate-500">No factories in base graph</div>
+                    <div v-for="fac in factoryNodes" :key="`sim_fac_${fac.id}`" class="entity-card sim-factory-card space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="font-semibold text-slate-200 truncate">{{ fac.data.name || 'Factory' }}</div>
+                            <button @click="selectNode(fac.id); setAppMode('base')" class="px-2 py-1 text-[11px] bg-slate-700 hover:bg-slate-600 rounded transition">Open</button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[11px] text-slate-400 uppercase tracking-wider">Cycle</label>
+                                <input type="number" min="0.1" step="0.1" v-model.number="fac.data.cycle" @input="recompute" class="factory-input">
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-slate-400 uppercase tracking-wider">Count</label>
+                                <input type="number" min="0" step="1" v-model.number="simulationFactoryCounts[fac.id]" class="factory-input">
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                <template v-else>
+                    <div class="entity-card sim-factory-card space-y-2">
+                        <div class="section-title-plate plate-edge-8 text-[11px] font-semibold uppercase tracking-wider">
+                            <span>Optimization Target</span>
+                            <button @click="optimizerHelpOpen=true"
+                                    class="section-title-action"
+                                    title="Optimizer help">?</button>
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-slate-400 uppercase tracking-wider">Objective</label>
+                            <select v-model="optimizerMode" class="factory-select">
+                                <option value="balanced">Balanced</option>
+                                <option value="target_rate">Target Rate</option>
+                                <option value="max_output">Max Output</option>
+                                <option value="min_deficit">Min Deficit</option>
+                                <option value="min_factories">Min Factories</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-slate-400 uppercase tracking-wider">Target Resource</label>
+                            <select v-model="optimizerTargetResourceId" class="factory-select">
+                                <option value="">No specific target</option>
+                                <option v-for="res in resourceNodes" :key="`opt_target_${res.id}`" :value="res.id">
+                                    {{ res.data.name || 'Resource' }}
+                                </option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-slate-400 uppercase tracking-wider">Target Rate (/s)</label>
+                            <input type="number" min="0" step="0.1" v-model.number="optimizerTargetRate" class="factory-input">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[11px] text-slate-400 uppercase tracking-wider">Max Count / Factory</label>
+                                <input type="number" min="1" step="1" v-model.number="optimizerMaxCount" class="factory-input">
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-slate-400 uppercase tracking-wider">Iterations</label>
+                                <input type="number" min="1" step="1" v-model.number="optimizerMaxIterations" class="factory-input">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[11px] text-slate-400 uppercase tracking-wider">Max Total Factories</label>
+                                <input type="number" min="0" step="1" v-model.number="optimizerMaxTotalCount" class="factory-input">
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-slate-400 uppercase tracking-wider">Factory Cost Weight</label>
+                                <input type="number" min="0" step="0.1" v-model.number="optimizerFactoryCostWeight" class="factory-input">
+                            </div>
+                        </div>
+                        <label class="flex items-center gap-2 text-[12px] text-slate-200">
+                            <input type="checkbox" v-model="optimizerUseManualSeed" />
+                            Use current manual counts as start seed
+                        </label>
+                        <label class="flex items-center gap-2 text-[12px] text-slate-200">
+                            <input type="checkbox" v-model="optimizerUseManualFloor" />
+                            Lock current manual counts as minimum (floor)
+                        </label>
+                        <label class="flex items-center gap-2 text-[12px] text-slate-200">
+                            <input type="checkbox" v-model="optimizerUseRandomRestart" />
+                            Random restart (escape local minima)
+                        </label>
+                        <button @click="runFactoryOptimizer"
+                                :disabled="optimizerRunning"
+                                :class="optimizerRunning ? 'bg-slate-700/80 text-slate-300 border-slate-500/40 cursor-not-allowed' : 'bg-teal-700/70 hover:bg-teal-600/80 text-teal-50 border-teal-400/45'"
+                                class="w-full px-3 py-2 text-[12px] font-bold border rounded transition">
+                            {{ optimizerRunning ? `Calculating... ${optimizerProgressText}` : 'Run Optimizer' }}
+                        </button>
+                    </div>
+
+                    <div class="entity-card sim-factory-card space-y-2">
+                        <button @click="optimizerConstraintsCollapsed = !optimizerConstraintsCollapsed"
+                                class="section-title-plate plate-edge-8 text-[12px] font-semibold uppercase tracking-wider">
+                            <span>Factory Constraints</span>
+                            <i class="fa-solid fa-chevron-down section-chevron" :class="{ collapsed: optimizerConstraintsCollapsed }"></i>
+                        </button>
+                        <div v-if="!optimizerConstraintsCollapsed" class="rounded-lg border border-slate-600/70 bg-slate-800/50 p-2.5 space-y-2">
+                            <div class="text-[12px] text-slate-300 leading-relaxed">
+                                Настройка ограничений для каждого завода. Поля ниже идут слева направо:
+                                <span class="font-semibold text-slate-100">MIN</span>,
+                                <span class="font-semibold text-slate-100">MAX</span>,
+                                <span class="font-semibold text-slate-100">FIXED</span>.
+                            </div>
+                            <div class="grid grid-cols-3 gap-1.5 text-[11px] uppercase tracking-wide">
+                                <div class="px-2 py-1 rounded border border-slate-600/70 bg-slate-700/35 text-slate-200 text-center font-semibold">MIN</div>
+                                <div class="px-2 py-1 rounded border border-slate-600/70 bg-slate-700/35 text-slate-200 text-center font-semibold">MAX</div>
+                                <div class="px-2 py-1 rounded border border-slate-600/70 bg-slate-700/35 text-slate-200 text-center font-semibold">FIXED</div>
+                            </div>
+                            <div class="text-[12px] text-slate-400">
+                                <span class="font-semibold text-slate-300">fixed</span> задает точное значение и перекрывает min/max.
+                                <span class="font-semibold text-slate-300">max = 0</span> означает использовать глобальный лимит <span class="font-semibold text-slate-200">Max Count / Factory</span>.
+                            </div>
+                        </div>
+                            <div v-if="!optimizerConstraintsCollapsed && !factoryNodes.length" class="text-[12px] text-slate-500">No factories.</div>
+                            <div v-for="fac in factoryNodes" v-show="!optimizerConstraintsCollapsed" :key="`opt_cfg_${fac.id}`" class="p-2.5 rounded-lg border border-slate-700/80 bg-slate-900/45 space-y-1.5">
+                                <div class="flex items-center justify-between gap-2">
+                                    <label class="flex items-center gap-2 text-[13px] text-slate-100 truncate">
+                                        <input type="checkbox" v-model="getOptimizerFactoryConfig(fac.id).enabled" />
+                                        <span class="truncate">{{ fac.data.name || 'Factory' }}</span>
+                                    </label>
+                                    <button @click="selectNode(fac.id); setAppMode('base')" class="px-2 py-1 text-[11px] bg-slate-700 hover:bg-slate-600 rounded transition">Open</button>
+                                </div>
+                                <div class="grid grid-cols-3 gap-1.5">
+                                    <input type="number" min="0" step="1" v-model.number="getOptimizerFactoryConfig(fac.id).min" class="factory-input" placeholder="min">
+                                    <input type="number" min="0" step="1" v-model.number="getOptimizerFactoryConfig(fac.id).max" class="factory-input" placeholder="max">
+                                    <input type="number" min="0" step="1" v-model.number="getOptimizerFactoryConfig(fac.id).fixed" class="factory-input" placeholder="fixed">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="optimizerLastRun" class="entity-card sim-factory-card space-y-1">
+                        <div class="section-title-plate plate-edge-8 text-[11px] font-semibold uppercase tracking-wider">Optimizer Summary</div>
+                        <div class="text-[12px] text-slate-200">Mode: {{ optimizerLastRun.mode }}</div>
+                        <div class="text-[12px] text-slate-200">Starts tested: {{ optimizerLastRun.starts }}</div>
+                        <div class="text-[12px] text-slate-200">Iterations: {{ optimizerLastRun.iterations }}</div>
+                        <div class="text-[12px] text-slate-200">Unmet total: {{ fmt(optimizerLastRun.unmetTotal, 2) }} ({{ fmt(optimizerLastRun.unmetRate, 3) }}/s)</div>
+                        <div v-if="optimizerLastRun.targetResourceName" class="text-[12px] text-slate-200">
+                            Target {{ optimizerLastRun.targetResourceName }}: {{ fmt(optimizerLastRun.targetActualRate, 3) }}/s
+                            <span class="text-slate-400"> (goal {{ fmt(optimizerLastRun.targetRate, 3) }}/s)</span>
+                        </div>
+                        <div class="text-[11px] text-slate-400">Score: {{ fmt(optimizerLastRun.score, 3) }}</div>
+                    </div>
+
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wider mt-2 mb-1">Recommended Counts</div>
+                    <div v-if="!optimizerSuggestedRows.length" class="text-[12px] text-slate-500">Run optimizer to get recommendation.</div>
+                    <div v-for="row in optimizerSuggestedRows" :key="`opt_row_${row.id}`" class="entity-card sim-factory-card py-2 px-3 flex items-center justify-between">
+                        <span class="text-[12px] text-slate-200 truncate pr-2">{{ row.name }}</span>
+                        <span class="text-[12px] font-semibold text-cyan-200">{{ row.count }}</span>
+                    </div>
+                </template>
+            </div>
+        </aside>
+    </div>
+
+    <div v-if="cloud.show" class="fixed inset-0 z-[90] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
+        <div class="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-xl p-4">
+            <div class="flex items-center justify-between mb-3"><div class="text-sm font-bold">{{ cloud.mode==='load' ? 'Load From Cloud' : 'Save To Cloud' }}</div><button @click="cloud.show=false" class="text-slate-400">x</button></div>
+            <div v-if="cloud.mode==='save'" class="space-y-2"><input v-model="cloud.saveTitle" class="factory-input"><button @click="saveToCloud" class="w-full py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 rounded">Save To Cloud</button></div>
+            <div v-else class="space-y-2 max-h-[52vh] overflow-auto"><div v-for="q in cloud.list" :key="q.id" @click="loadFromCloud(q)" class="p-2 bg-slate-800 border border-slate-700 rounded cursor-pointer hover:bg-slate-700 flex justify-between"><span>{{ q.title }}</span><button @click.stop="deleteFromCloud(q)" class="text-xs text-red-300">delete</button></div></div>
+        </div>
+    </div>
+
+    <div v-if="optimizerHelpOpen" class="fixed inset-0 z-[95] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
+        <div class="optimizer-help-panel p-4">
+            <div class="flex items-center justify-between mb-3">
+                <div class="text-lg font-bold text-slate-100">Optimizer Guide</div>
+                <button @click="optimizerHelpOpen=false" class="px-3 py-1.5 text-sm rounded bg-slate-800 border border-slate-600 text-slate-200 hover:bg-slate-700 transition">Close</button>
+            </div>
+            <div class="optimizer-help-body space-y-3">
+                <div class="optimizer-help-section">
+                    <div class="optimizer-help-heading">Для чего нужен Optimizer</div>
+                    <div>
+                        <strong>Optimizer</strong> подбирает количества заводов так, чтобы схема была ближе к выбранной цели:
+                        меньше дефицитов, лучше выпуск целевого ресурса, или минимальное число заводов.
+                        Он не меняет сам граф правил, только <strong>simulation counts</strong>.
+                    </div>
+                </div>
+
+                <div class="optimizer-help-section">
+                    <div class="optimizer-help-heading">Быстрый старт (пошагово)</div>
+                    <div class="optimizer-help-list">
+                        <div><strong>1.</strong> Выберите <strong>Objective</strong> (режим оптимизации).</div>
+                        <div><strong>2.</strong> Укажите <strong>Target Resource</strong> и при необходимости <strong>Target Rate</strong>.</div>
+                        <div><strong>3.</strong> Поставьте границы: <strong>Max Count / Factory</strong>, <strong>Max Total Factories</strong>.</div>
+                        <div><strong>4.</strong> При необходимости настройте <strong>Factory Constraints</strong> для конкретных заводов.</div>
+                        <div><strong>5.</strong> Нажмите <strong>Run Optimizer</strong>, проверьте Summary и таблицу, затем скорректируйте параметры и повторите.</div>
+                    </div>
+                </div>
+
+                <div class="optimizer-help-section">
+                    <div class="optimizer-help-heading">Режимы Objective</div>
+                    <div class="optimizer-help-list">
+                        <div><strong>Balanced</strong>: универсальный режим. Снижает дефициты и держит размер решения разумным.</div>
+                        <div><strong>Target Rate</strong>: приоритет на достижение заданной скорости по выбранному ресурсу.</div>
+                        <div><strong>Max Output</strong>: максимизирует выпуск выбранного ресурса даже если сетка большая.</div>
+                        <div><strong>Min Deficit</strong>: максимально гасит нехватки входов (unmet requests).</div>
+                        <div><strong>Min Factories</strong>: ищет более компактную конфигурацию, но может снизить выпуск.</div>
+                    </div>
+                </div>
+
+                <div class="optimizer-help-section">
+                    <div class="optimizer-help-heading">Параметры и как они влияют</div>
+                    <div class="optimizer-help-list">
+                        <div><strong>Iterations</strong>: глубина поиска. Больше итераций = лучше шанс найти хороший баланс, но медленнее.</div>
+                        <div><strong>Factory Cost Weight</strong>: штраф за размер сетки. Чем выше, тем сильнее optimizer экономит заводы.</div>
+                        <div><strong>Use current manual counts as start seed</strong>: добавляет текущую ручную конфигурацию как одну из стартовых точек поиска.</div>
+                        <div><strong>Lock current manual counts as minimum (floor)</strong>: запрещает optimizer опускаться ниже текущих значений.</div>
+                        <div><strong>Random restart</strong>: запускает дополнительные стартовые точки, чтобы выйти из локального минимума.</div>
+                    </div>
+                </div>
+
+                <div class="optimizer-help-section">
+                    <div class="optimizer-help-heading">Factory Constraints</div>
+                    <div class="optimizer-help-list">
+                        <div><strong>enabled</strong>: участвует ли завод в оптимизации.</div>
+                        <div><strong>min / max</strong>: нижняя и верхняя границы для этого завода.</div>
+                        <div><strong>fixed</strong>: фиксирует точное число и перекрывает min/max.</div>
+                        <div><strong>max = 0</strong>: используется глобальный <strong>Max Count / Factory</strong>.</div>
+                    </div>
+                </div>
+
+                <div class="optimizer-help-section">
+                    <div class="optimizer-help-heading">Если optimizer уводит в нули</div>
+                    <div class="optimizer-help-list">
+                        <div><strong>1.</strong> Включите <strong>Lock current manual counts as minimum (floor)</strong> для защиты от просадки ниже текущего состояния.</div>
+                        <div><strong>2.</strong> Поставьте базовые нижние границы <strong>min</strong> у критичных заводов.</div>
+                        <div><strong>3.</strong> Для целевого продукта задайте <strong>Target Resource + Target Rate</strong>.</div>
+                        <div><strong>4.</strong> Уменьшите <strong>Factory Cost Weight</strong>, если optimizer слишком агрессивно сокращает сеть.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <script src="factory_architect/factory_architect.js"></script>
+</body>
+</html>
+
