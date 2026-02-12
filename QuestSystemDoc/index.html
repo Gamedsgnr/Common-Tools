@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quest System Wiki</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="doc-shell">
+    <aside class="wiki-sidebar glass-panel" id="wikiSidebar">
+      <div class="sidebar-head">
+        <h1>Quest System Wiki</h1>
+        <button class="btn ghost mobile-only" id="sidebarCloseBtn" type="button">Close</button>
+      </div>
+      <p class="muted small">Полная документация по пайплайну Quest Architect -> UE Plugin -> Runtime.</p>
+      <label class="small-label" for="wikiSearch">Search</label>
+      <input id="wikiSearch" class="field" type="search" placeholder="Найти раздел, API, ноду...">
+      <div class="sidebar-meta" id="searchMeta">Разделов: 0</div>
+      <nav id="wikiNav" class="wiki-nav"></nav>
+    </aside>
+
+    <main class="wiki-main">
+      <header class="topbar glass-panel">
+        <button class="btn ghost mobile-only" id="sidebarOpenBtn" type="button">Wiki</button>
+        <div>
+          <div class="topbar-title">Quest System Documentation</div>
+          <div class="muted">Техническая + UX вики для команды нарратива и геймплея</div>
+        </div>
+      </header>
+
+      <article class="wiki-content">
+        <section id="overview" class="wiki-section glass-panel" data-title="Обзор системы" data-keywords="overview pipeline architecture quest architect exporter importer unreal plugin runtime">
+          <h2>1. Обзор системы</h2>
+          <p>Система состоит из четырех слоев: редактор графа (Quest Architect), валидатор/экспортер (Supabase Edge Function), импорт в Unreal через Editor plugin и рантайм-исполнение через Quest Manager Subsystem.</p>
+          <div class="callout">
+            <strong>Ключевая идея:</strong> нарративщик работает в графе, движок получает уже подготовленный bundle, а игровой код работает с типизированным runtime API без ручного парсинга JSON.
+          </div>
+          <ul>
+            <li>Источник данных: Quest Architect graph payload.</li>
+            <li>Серверная подготовка: <code>quest-export-validate</code> формирует <code>QuestExportBundle.v1</code>.</li>
+            <li>Импорт в UE: создаются/обновляются <code>UQuestDataAsset</code> + <code>UStringTable</code>.</li>
+            <li>Исполнение: <code>UQuestManagerSubsystem</code> управляет квестами, переменными, диалогами, objective и save/load.</li>
+          </ul>
+        </section>
+
+        <section id="flow" class="wiki-section glass-panel" data-title="End-to-End пайплайн" data-keywords="flow end to end export bundle data asset string table">
+          <h2>2. End-to-End пайплайн</h2>
+          <ol>
+            <li>Нарративщик собирает квест в Quest Architect.</li>
+            <li>Frontend отправляет payload в Edge Function <code>POST /functions/v1/quest-export-validate</code>.</li>
+            <li>Функция валидирует граф, строит exports и локализационный пакет.</li>
+            <li>В UE через <code>Tools -> JSON Quest Importer</code> импортируется <code>QuestExportBundle.v1</code>.</li>
+            <li>Игровой runtime запускает квест через <code>StartQuest</code>.</li>
+            <li>UI и gameplay слушают события подсистемы (dialog/objective/vars/lifecycle).</li>
+          </ol>
+          <pre><code>// Рекомендуемый экспортный объект:
+{
+  "Schema": "QuestExportBundle.v1",
+  "DataAsset": { "Schema": "QuestDataAsset.v2", "...": "..." },
+  "StringTable": { "Schema": "QuestStringTable.v1", "...": "..." }
+}</code></pre>
+        </section>
+
+        <section id="edge-function" class="wiki-section glass-panel" data-title="Edge Function и экспорты" data-keywords="edge function supabase validate bundle runtime dataasset unity debug localization">
+          <h2>3. Edge Function: что генерируется</h2>
+          <p><code>quest-export-validate</code> выдает несколько экспортов внутри ответа:</p>
+          <ul>
+            <li><code>runtime</code> - runtime graph export.</li>
+            <li><code>dataAsset</code> - DataAsset-ориентированный export для Unreal.</li>
+            <li><code>bundle</code> - единый пакет <code>QuestExportBundle.v1</code> (рекомендуется для UE).</li>
+            <li><code>unity</code> - отдельная ветка для Unity.</li>
+            <li><code>debug</code> - полный debug pack с issues/diagnostics.</li>
+          </ul>
+          <p>Локализация выносится в StringTable через ключи вида <code>quest.&lt;quest_id&gt;.node.&lt;node_id&gt;.&lt;suffix&gt;</code>.</p>
+        </section>
+
+        <section id="editor-tools" class="wiki-section glass-panel" data-title="Editor Tools в UE" data-keywords="tools json quest importer quest debugger unreal editor">
+          <h2>4. Editor Tools (Unreal)</h2>
+          <h3>4.1 JSON Quest Importer</h3>
+          <ul>
+            <li>Меню: <code>Tools -> JSON Quest Importer</code>.</li>
+            <li>Импортирует JSON bundle, создает или обновляет:</li>
+            <li><code>UQuestDataAsset</code> в контенте.</li>
+            <li><code>UStringTable</code> для локализуемых текстов.</li>
+          </ul>
+          <h3>4.2 Quest Debugger</h3>
+          <ul>
+            <li>Меню: <code>Tools -> Quest Debugger</code>.</li>
+            <li>Работает в PIE (live runtime world).</li>
+            <li><code>Start Debug</code> включает сбор метрик.</li>
+            <li><code>Stop Debug</code> выключает сбор (без нагрузки в обычном рантайме).</li>
+            <li>Показывает квесты, стейты, global vars и profiler counters.</li>
+          </ul>
+        </section>
+
+        <section id="runtime-api" class="wiki-section glass-panel" data-title="Runtime API (Blueprint)" data-keywords="runtime api blueprint start continue dialog wait event condition objective vars">
+          <h2>5. Runtime API (Blueprint)</h2>
+          <h3>5.1 Базовый запуск и прогон</h3>
+          <ul>
+            <li><code>StartQuest(QuestAsset, RunUntilBlocked)</code></li>
+            <li><code>ContinueQuest(QuestId, MaxSteps)</code></li>
+            <li><code>IsQuestActive / IsQuestCompleted / IsQuestFailed</code></li>
+            <li><code>GetCurrentNodeId</code></li>
+          </ul>
+          <h3>5.2 Диалог</h3>
+          <ul>
+            <li><code>IsQuestWaitingForDialog</code></li>
+            <li><code>GetCurrentDialogState</code></li>
+            <li><code>ChooseDialogOption(QuestId, ChoiceIndex, MaxStepsAfterChoice)</code></li>
+            <li><code>ResolveQuestText(QuestId, TextKey)</code> для StringTable.</li>
+          </ul>
+          <h3>5.3 Objective</h3>
+          <ul>
+            <li><code>GetQuestObjective</code>, <code>GetQuestObjectives</code></li>
+            <li>Событие: <code>OnObjectiveUpdated</code></li>
+          </ul>
+          <h3>5.4 Переменные</h3>
+          <ul>
+            <li><code>SetQuestVarNumber / Bool / String</code></li>
+            <li><code>GetQuestVarNumber / Bool / String</code></li>
+            <li>Подписка: <code>BindOnQuestVarChanged(VarId, Listener, Callback)</code></li>
+          </ul>
+        </section>
+
+        <section id="event-model" class="wiki-section glass-panel" data-title="Событийная модель" data-keywords="events lifecycle node entered started completed failed dialog objective var changed">
+          <h2>6. Событийная модель</h2>
+          <p>Подсистема предоставляет события уровня квеста и состояния UI:</p>
+          <ul>
+            <li><code>OnQuestStarted</code></li>
+            <li><code>OnQuestCompleted</code></li>
+            <li><code>OnQuestFailed</code></li>
+            <li><code>OnNodeEntered(QuestId, NodeId, NodeType)</code></li>
+            <li><code>OnDialogOpened / OnDialogClosed</code></li>
+            <li><code>OnObjectiveUpdated</code></li>
+            <li><code>VarChanged callback</code> через bind API</li>
+          </ul>
+          <div class="callout">
+            <strong>Важно:</strong> <code>Listener</code> в bind нужен для безопасного lifecycle (авто-очистка и массовая отписка).
+          </div>
+        </section>
+
+        <section id="nodes" class="wiki-section glass-panel" data-title="Поддержка нод" data-keywords="node support start dialog action condition switcher link wait objective quest end">
+          <h2>7. Поддержка нод: статус</h2>
+          <table class="wiki-table">
+            <thead>
+              <tr><th>Нода</th><th>Статус</th><th>Комментарий</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>start</td><td>Ready</td><td>Стартовая точка.</td></tr>
+              <tr><td>dialog</td><td>Ready</td><td>Блокирует прогон, ждет <code>ChooseDialogOption</code>.</td></tr>
+              <tr><td>action</td><td>Ready</td><td><code>set/add/sub/mul/div/toggle/append</code>.</td></tr>
+              <tr><td>condition</td><td>Ready</td><td>Ветки true/false/default.</td></tr>
+              <tr><td>switcher</td><td>Ready</td><td>Case sockets + default.</td></tr>
+              <tr><td>link_state / link_entry</td><td>Ready</td><td>Поддержан jump workflow.</td></tr>
+              <tr><td>wait_event</td><td>Ready</td><td>Разблокируется через <code>TriggerQuestEvent</code>.</td></tr>
+              <tr><td>wait_condition</td><td>Ready</td><td>Ждет выполнения условия; продолжение через <code>ContinueQuest</code>.</td></tr>
+              <tr><td>objective_set</td><td>Ready</td><td>Создает/обновляет objective со статусом Active.</td></tr>
+              <tr><td>objective_complete / objective_fail</td><td>Ready</td><td>Меняет статус objective + может завершать квест при отсутствии next.</td></tr>
+              <tr><td>quest_end</td><td>Ready</td><td>Финал (complete/fail).</td></tr>
+              <tr><td>comment / group</td><td>Doc</td><td>Не влияют на runtime traversal.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="wait-condition" class="wiki-section glass-panel" data-title="Паттерн Wait Condition + Cutscene" data-keywords="wait condition cutscene set var continue quest pattern">
+          <h2>8. Паттерн: Wait Condition + катсцена</h2>
+          <p>Рекомендуемый безопасный паттерн:</p>
+          <pre><code>1) Квест дошел до wait_condition и блокировался.
+2) Игра запускает катсцену.
+3) В конце катсцены:
+   - SetQuestVarNumber/Bool/String(...)
+   - ContinueQuest(QuestId)</code></pre>
+          <p>Авто-resume по любому <code>SetQuestVar*</code> намеренно не используется, чтобы избежать скрытых побочных продолжений.</p>
+        </section>
+
+        <section id="save-load" class="wiki-section glass-panel" data-title="Save/Load и SaveVersion" data-keywords="save load save version schema compatibility migration">
+          <h2>9. Save/Load и SaveVersion</h2>
+          <h3>9.1 Что сохраняется</h3>
+          <ul>
+            <li>Global vars.</li>
+            <li>Состояние каждого quest state: node, flags, dialog state, local vars, pending events, objectives.</li>
+            <li>Soft reference на <code>QuestAsset</code>.</li>
+          </ul>
+          <h3>9.2 Versioning</h3>
+          <ul>
+            <li><code>SaveVersion</code> - версия бинарного формата runtime save.</li>
+            <li><code>SaveSchema</code> - читаемое имя схемы.</li>
+            <li><code>SavedAtUtc</code> - timestamp.</li>
+          </ul>
+          <p>При загрузке подсистема валидирует диапазон поддерживаемых версий, чтобы не поднимать несовместимый сейв.</p>
+          <div class="callout">
+            <strong>Зачем это нужно:</strong> позволяет безопасно эволюционировать формат сейва и делать миграции без поломки старых прохождений.
+          </div>
+        </section>
+
+        <section id="debug-profiler" class="wiki-section glass-panel" data-title="Профилирование и Debug Capture" data-keywords="debug profiler capture counters performance">
+          <h2>10. Профилирование и Debug Capture</h2>
+          <p>Счетчики копятся только когда включен debug capture:</p>
+          <ul>
+            <li><code>ContinueQuestCalls</code></li>
+            <li><code>RunQuestTicks</code></li>
+            <li><code>NodeExecutions</code></li>
+            <li><code>VarBroadcasts</code></li>
+            <li><code>VarCallbacksExecuted</code></li>
+          </ul>
+          <p>Это позволяет измерять реальную нагрузку, не нагружая production runtime вне режима отладки.</p>
+        </section>
+
+        <section id="performance" class="wiki-section glass-panel" data-title="Производительность и легковесность" data-keywords="performance optimization lightweight broadcast cache json parse">
+          <h2>11. Производительность: текущая оценка</h2>
+          <ul>
+            <li>Система легковесна по памяти: в сейве только state, не дублируется граф.</li>
+            <li>Оптимизирована подписка var changed: выборка по <code>VarId</code> вместо полного прохода.</li>
+            <li>Горячая точка: парсинг <code>PayloadJson</code> при входе в ноду.</li>
+            <li>Горячая точка: sync-load asset на load (лучше выполнять на loading phase).</li>
+          </ul>
+          <h3>Рекомендации на следующий этап</h3>
+          <ul>
+            <li>Добавить payload cache по <code>NodeId</code>.</li>
+            <li>Опционально добавить async restore flow (если проект упрется в hitch при load).</li>
+            <li>Добавить migration map по <code>SaveVersion</code> для будущих форматов.</li>
+          </ul>
+        </section>
+
+        <section id="multi-quest" class="wiki-section glass-panel" data-title="Параллельные квесты" data-keywords="multiple quests simultaneous parallel states">
+          <h2>12. Параллельные квесты</h2>
+          <p>Можно запускать несколько квестов одновременно. Подсистема хранит их в runtime map по <code>QuestId</code>, каждый квест имеет независимый state, node pointer, objectives и локальные переменные.</p>
+          <p>Global vars общие, local vars изолированы внутри конкретного quest state.</p>
+        </section>
+
+        <section id="ux-rules" class="wiki-section glass-panel" data-title="UX правила для команды" data-keywords="ux workflow narrative gameplay qa">
+          <h2>13. UX и рабочие правила</h2>
+          <h3>Для нарратива</h3>
+          <ul>
+            <li>До импорта в UE держать <code>critical = 0</code> в валидаторе.</li>
+            <li>Следить за связностью choices/branches и orphan link entries.</li>
+            <li>Использовать текстовые поля, которые уходят в StringTable keys.</li>
+          </ul>
+          <h3>Для gameplay</h3>
+          <ul>
+            <li>Не завязывать бизнес-логику на внутренние node id.</li>
+            <li>Использовать explicit <code>ContinueQuest</code> после внешних gameplay изменений.</li>
+            <li>Подписки var changed привязывать к валидному listener owner.</li>
+          </ul>
+          <h3>Для QA</h3>
+          <ul>
+            <li>Проверять save/load на состояниях dialog и wait_condition.</li>
+            <li>Проверять миграционную совместимость при изменении версии сейва.</li>
+            <li>Использовать Quest Debugger для smoke/regression прогонов.</li>
+          </ul>
+        </section>
+
+        <section id="troubleshooting" class="wiki-section glass-panel" data-title="Troubleshooting" data-keywords="troubleshooting no signal bind varid dialog load save version">
+          <h2>14. Troubleshooting</h2>
+          <h3>Нет сигнала на переменную</h3>
+          <ul>
+            <li>Проверь что bind сделан на runtime имя переменной (пример: <code>G.TestedVar</code>).</li>
+            <li>Проверь что в DataAsset у variable заполнен <code>Name</code>, иначе используется source id.</li>
+          </ul>
+          <h3>WaitCondition не продолжает квест</h3>
+          <ul>
+            <li>После <code>SetQuestVar*</code> явно вызови <code>ContinueQuest(QuestId)</code>.</li>
+          </ul>
+          <h3>Load не поднимает сейв</h3>
+          <ul>
+            <li>Проверь <code>SaveVersion</code> и совместимость диапазона.</li>
+            <li>Проверь доступность <code>QuestAsset</code> по soft reference.</li>
+          </ul>
+        </section>
+
+        <section id="roadmap" class="wiki-section glass-panel" data-title="Roadmap" data-keywords="roadmap next steps migration replication async cache">
+          <h2>15. Ближайший roadmap</h2>
+          <ul>
+            <li>Payload cache в runtime для уменьшения JSON parse overhead.</li>
+            <li>Миграции save формата: <code>v1 -> v2</code>.</li>
+            <li>Async restore flow для тяжелых миров.</li>
+            <li>Опционально network/replication слой, если квесты должны жить в multiplayer runtime.</li>
+          </ul>
+        </section>
+
+        <section id="embedding" class="wiki-section glass-panel" data-title="Встраивание как модуль" data-keywords="embed iframe modal module section query search">
+          <h2>16. Встраивание как модуль</h2>
+          <p>Страница собрана как модуль: структура, стили и логика разделены на <code>index.html</code>, <code>styles.css</code>, <code>app.js</code>.</p>
+          <h3>Базовое встраивание</h3>
+          <pre><code>&lt;iframe
+  src="./QuestSystemDoc/index.html"
+  title="Quest System Wiki"
+  style="width:100%; height:100%; border:0;"
+&gt;&lt;/iframe&gt;</code></pre>
+          <h3>Навигация через query параметры</h3>
+          <ul>
+            <li><code>?section=save-load</code> - открыть конкретный раздел.</li>
+            <li><code>?q=wait_condition</code> - сразу применить поиск.</li>
+          </ul>
+          <pre><code>./QuestSystemDoc/index.html?section=runtime-api&amp;q=dialog</code></pre>
+        </section>
+      </article>
+    </main>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
