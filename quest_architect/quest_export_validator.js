@@ -2,6 +2,7 @@ const DEFAULT_SUPABASE_URL = 'https://vmwwvwtsznxwoswzdzui.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_hfVfEOEyUxTAl9TCGQLQdA_2qpquHGk';
 const EDGE_FUNCTION_NAME = 'quest-export-validate';
 const AUTH_EXP_SKEW_MS = 30 * 1000;
+const EDGE_401_HINT = '401 from Edge Function. If "Verify JWT" is enabled with a publishable key (sb_publishable_), disable Verify JWT for this function and validate Authorization token inside function code.';
 
 const TAB_FILE_NAMES = {
   runtime: 'quest_runtime_export.json',
@@ -14,11 +15,13 @@ const state = {
   sourceLabel: 'none',
   sourceTimestamp: 0,
   sourcePayload: null,
+  sourceLookup: { nodeNameById: {}, socketNameById: {} },
   projectMeta: null,
   issues: [],
   diagnostics: [],
   summary: { critical: 0, warning: 0, runtime: 0, unreachable: 0 },
   exports: { runtime: '', dataAsset: '', unity: '', debug: '' },
+  hasValidationResult: false,
   activeTab: 'diagnostics',
   selectedIssueIndex: -1,
   options: { pretty: true, includeDocs: false, includeSourceInDebug: true }
@@ -67,6 +70,109 @@ function setStatus(text, tone) {
 
 function cloneJson(v) {
   try { return JSON.parse(JSON.stringify(v)); } catch (e) { return null; }
+}
+
+function escapeRegExp(v) {
+  return String(v).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function getNodeDisplayName(node, fallbackId) {
+  if (!node || typeof node !== 'object') return fallbackId || 'node';
+  const d = node && typeof node.data === 'object' ? node.data : {};
+  const title = typeof d.title === 'string' ? d.title.trim() : '';
+  const name = typeof d.name === 'string' ? d.name.trim() : '';
+  const type = typeof node.type === 'string' ? node.type.trim() : '';
+  if (title) return title;
+  if (name) return name;
+  if (type) return type;
+  return fallbackId || 'node';
+}
+
+function buildSourceLookup(payload) {
+  const lookup = { nodeNameById: {}, socketNameById: {} };
+  const nodes = payload && Array.isArray(payload.nodes) ? payload.nodes : [];
+
+  nodes.forEach((node) => {
+    if (!node || typeof node !== 'object') return;
+    const nodeId = typeof node.id === 'string' ? node.id : '';
+    if (!nodeId) return;
+    const nodeName = getNodeDisplayName(node, nodeId);
+    lookup.nodeNameById[nodeId] = nodeName;
+
+    if (node.type !== 'switcher') return;
+    const d = node && typeof node.data === 'object' ? node.data : {};
+    const cases = Array.isArray(d.cases) ? d.cases : [];
+    cases.forEach((caseItem, index) => {
+      if (!caseItem || typeof caseItem !== 'object') return;
+      const socketId = typeof caseItem.socketId === 'string' ? caseItem.socketId : '';
+      if (!socketId) return;
+      const caseVal = caseItem.value == null ? '' : String(caseItem.value).trim();
+      const caseLabel = caseVal ? ('Case "' + caseVal + '"') : ('Case #' + (index + 1));
+      lookup.socketNameById[socketId] = nodeName + ' -> ' + caseLabel;
+    });
+  });
+
+  return lookup;
+}
+
+function getReadableNodeRef(issue) {
+  const nodeId = issue && typeof issue.nodeId === 'string' ? issue.nodeId : '';
+  const nodeTitle = issue && typeof issue.nodeTitle === 'string' ? issue.nodeTitle.trim() : '';
+  if (!nodeId && !nodeTitle) return '';
+  if (nodeTitle && nodeId) return nodeTitle + ' (' + nodeId + ')';
+  if (nodeTitle) return nodeTitle;
+  const display = state.sourceLookup && state.sourceLookup.nodeNameById
+    ? state.sourceLookup.nodeNameById[nodeId]
+    : '';
+  if (!display || display === nodeId) return nodeId;
+  return display + ' (' + nodeId + ')';
+}
+
+function replaceTokenWithLabel(message, token, label) {
+  const rawToken = typeof token === 'string' ? token.trim() : '';
+  const rawLabel = typeof label === 'string' ? label.trim() : '';
+  if (!rawToken || !rawLabel) return message;
+  const re = new RegExp('\\b' + escapeRegExp(rawToken) + '\\b', 'g');
+  return String(message).replace(re, rawLabel + ' (' + rawToken + ')');
+}
+
+function humanizeIssueMessage(issue) {
+  const rawMessage = issue && (issue.message || issue.text) ? (issue.message || issue.text) : 'Issue';
+  let message = String(rawMessage);
+  const nodeId = issue && typeof issue.nodeId === 'string' ? issue.nodeId : '';
+  const nodeTitle = issue && typeof issue.nodeTitle === 'string' ? issue.nodeTitle.trim() : '';
+  const socketId = issue && typeof issue.socketId === 'string' ? issue.socketId : '';
+  const socketLabel = issue && typeof issue.socketLabel === 'string' ? issue.socketLabel.trim() : '';
+
+  if (socketId && socketLabel) {
+    message = replaceTokenWithLabel(message, socketId, socketLabel);
+  }
+  if (nodeId && nodeTitle) {
+    message = replaceTokenWithLabel(message, nodeId, nodeTitle);
+  }
+
+  const socketNameById = state.sourceLookup && state.sourceLookup.socketNameById
+    ? state.sourceLookup.socketNameById
+    : {};
+  const nodeNameById = state.sourceLookup && state.sourceLookup.nodeNameById
+    ? state.sourceLookup.nodeNameById
+    : {};
+
+  Object.keys(socketNameById).sort((a, b) => b.length - a.length).forEach((socketId) => {
+    const pretty = socketNameById[socketId];
+    if (!pretty) return;
+    const re = new RegExp('\\b' + escapeRegExp(socketId) + '\\b', 'g');
+    message = message.replace(re, pretty + ' (' + socketId + ')');
+  });
+
+  Object.keys(nodeNameById).sort((a, b) => b.length - a.length).forEach((nodeId) => {
+    const pretty = nodeNameById[nodeId];
+    if (!pretty || pretty === nodeId) return;
+    const re = new RegExp('\\b' + escapeRegExp(nodeId) + '\\b', 'g');
+    message = message.replace(re, pretty + ' (' + nodeId + ')');
+  });
+
+  return message;
 }
 
 function getProjectMeta(payload) {
@@ -207,6 +313,10 @@ async function callEdgeValidation(payload, forceRefreshAuth = false) {
   }
 
   if (!res.ok) {
+    if (res.status === 401) {
+      const errText = data && data.error ? String(data.error) : '';
+      throw new Error(errText ? `${EDGE_401_HINT} Server: ${errText}` : EDGE_401_HINT);
+    }
     const msg = data && data.error ? String(data.error) : `HTTP ${res.status}`;
     throw new Error(msg);
   }
@@ -240,6 +350,16 @@ function applyServerResult(data) {
   };
 
   state.selectedIssueIndex = -1;
+  state.hasValidationResult = true;
+}
+
+function resetValidationState() {
+  state.issues = [];
+  state.diagnostics = [];
+  state.summary = { critical: 0, warning: 0, runtime: 0, unreachable: 0 };
+  state.exports = { runtime: '', dataAsset: '', unity: '', debug: '' };
+  state.selectedIssueIndex = -1;
+  state.hasValidationResult = false;
 }
 
 async function validateOnServer() {
@@ -296,7 +416,9 @@ function renderIssues() {
   if (!state.issues.length) {
     const empty = document.createElement('div');
     empty.className = 'placeholder';
-    empty.textContent = 'No validation issues. Graph passed all implemented checks.';
+    empty.textContent = state.hasValidationResult
+      ? 'No validation issues. Graph passed all implemented checks.'
+      : 'Validation has not run yet. Click "Rebuild Exports".';
     els.issueList.appendChild(empty);
     return;
   }
@@ -304,8 +426,9 @@ function renderIssues() {
   state.issues.forEach((it, i) => {
     const level = String(it && it.level ? it.level : 'info');
     const code = String(it && it.code ? it.code : 'unknown_code');
-    const message = String(it && (it.message || it.text) ? (it.message || it.text) : 'Issue');
+    const message = humanizeIssueMessage(it);
     const nodeId = it && it.nodeId ? String(it.nodeId) : '';
+    const nodeRef = getReadableNodeRef(it);
 
     const row = document.createElement('div');
     row.className = 'issue ' + level + (i === state.selectedIssueIndex ? ' active' : '');
@@ -320,7 +443,7 @@ function renderIssues() {
 
     const m = document.createElement('div');
     m.className = 'issueMeta';
-    m.textContent = '[ ' + level.toUpperCase() + ' ] ' + code + (nodeId ? ' | node: ' + nodeId : '');
+    m.textContent = '[ ' + level.toUpperCase() + ' ] ' + code + (nodeRef ? ' | node: ' + nodeRef : '');
 
     left.appendChild(t);
     left.appendChild(m);
@@ -378,11 +501,13 @@ function renderAll() {
 
 function updateProject(payload, sourceLabel) {
   state.sourcePayload = cloneJson(payload);
+  state.sourceLookup = buildSourceLookup(state.sourcePayload);
   state.sourceLabel = sourceLabel || 'unknown';
   state.sourceTimestamp = Date.now();
   state.projectMeta = getProjectMeta(payload);
-  renderSource();
-  validateOnServer();
+  resetValidationState();
+  renderAll();
+  setStatus('Payload loaded. Click "Rebuild Exports" to run server validation.');
 }
 
 function requestFromParent() {
@@ -501,8 +626,8 @@ document.getElementById('btnRefresh').addEventListener('click', rebuild);
 document.getElementById('btnCopy').addEventListener('click', copyCurrent);
 document.getElementById('btnDownload').addEventListener('click', downloadCurrent);
 document.getElementById('btnJumpStart').addEventListener('click', () => {
-  if (!state.sourcePayload || !state.summary.runtime) {
-    setStatus('No validated payload yet', 'warn');
+  if (!state.sourcePayload) {
+    setStatus('No payload loaded yet', 'warn');
     return;
   }
 
@@ -532,9 +657,18 @@ els.fileInput.addEventListener('change', (e) => {
   e.target.value = '';
 });
 
-els.optPretty.addEventListener('change', () => { state.options.pretty = Boolean(els.optPretty.checked); rebuild(); });
-els.optIncludeDocs.addEventListener('change', () => { state.options.includeDocs = Boolean(els.optIncludeDocs.checked); rebuild(); });
-els.optIncludeSource.addEventListener('change', () => { state.options.includeSourceInDebug = Boolean(els.optIncludeSource.checked); rebuild(); });
+els.optPretty.addEventListener('change', () => {
+  state.options.pretty = Boolean(els.optPretty.checked);
+  setStatus('Export option changed. Click "Rebuild Exports" to apply.');
+});
+els.optIncludeDocs.addEventListener('change', () => {
+  state.options.includeDocs = Boolean(els.optIncludeDocs.checked);
+  setStatus('Export option changed. Click "Rebuild Exports" to apply.');
+});
+els.optIncludeSource.addEventListener('change', () => {
+  state.options.includeSourceInDebug = Boolean(els.optIncludeSource.checked);
+  setStatus('Export option changed. Click "Rebuild Exports" to apply.');
+});
 
 document.querySelectorAll('.tabBtn').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
 
