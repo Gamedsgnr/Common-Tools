@@ -186,11 +186,24 @@ createApp({
 
         const AUTOSAVE_STORAGE_KEY = 'quest_architect_autosave_v1';
 
-        const selectionBox = reactive({ active: false, x: 0, y: 0, w: 0, h: 0, startX: 0, startY: 0, shift: false, baseIds: [] });
+        const selectionBox = reactive({
+            active: false,
+            x: 0,
+            y: 0,
+            w: 0,
+            h: 0,
+            startX: 0,
+            startY: 0,
+            startWorldX: 0,
+            startWorldY: 0,
+            shift: false,
+            baseIds: []
+        });
         const createKey = ref(null);
         const editingNodeNameId = ref(null);
         const nodeNameDraft = ref('');
         const helpPanelOpen = ref(false);
+        const hotkeysPanelOpen = ref(false);
         const exportPanelOpen = ref(false);
         const exportValidatorDocsOpen = ref(false);
         const authHintKey = ref(null);
@@ -224,6 +237,7 @@ createApp({
         const pendingMouseMove = { has: false, clientX: 0, clientY: 0 };
         const nodeElementCache = new Map();
         const socketElementCache = new Map();
+        const nodeHitSizeCache = new Map();
         const autosaveLocked = ref(false);
 
         const GROUP_DEFAULT_COLOR = '#94a3b8';
@@ -471,6 +485,12 @@ createApp({
             fromNodeId: null,
             fromSocketId: null
         });
+        const nodeConnectMenuEl = ref(null);
+        const nodeConnectMenuTitle = computed(() =>
+            (nodeConnectMenu.fromNodeId && nodeConnectMenu.fromSocketId)
+                ? 'Create and connect'
+                : 'Create node'
+        );
 
         const canvasContainer = ref(null);
         const loadInput = ref(null);
@@ -512,6 +532,7 @@ createApp({
         const clearDomCaches = () => {
             nodeElementCache.clear();
             socketElementCache.clear();
+            nodeHitSizeCache.clear();
         };
 
         const getNodeElement = (nodeId) => {
@@ -691,6 +712,96 @@ createApp({
                 };
             }
             return { x: node.x, y: node.y, width: 300, height: 170 };
+        };
+
+        const getNodeHitSizeFallback = (node) => {
+            if (!node) return { width: 300, height: 170 };
+            if (node.type === 'group' || node.type === 'frame') {
+                return {
+                    width: clampGroupWidth(node.data?.width),
+                    height: clampGroupHeight(node.data?.height)
+                };
+            }
+
+            let height = 170;
+            if (node.type === 'dialog') {
+                const choiceCount = Array.isArray(node.data?.choices) ? node.data.choices.length : 0;
+                height = Math.min(520, 165 + choiceCount * 36);
+            } else if (node.type === 'action') {
+                const opCount = Array.isArray(node.data?.ops) ? node.data.ops.length : 0;
+                height = Math.min(560, 150 + Math.max(1, opCount) * 66);
+            } else if (node.type === 'switcher') {
+                const caseCount = Array.isArray(node.data?.cases) ? node.data.cases.length : 0;
+                height = Math.min(540, 156 + Math.max(1, caseCount) * 44);
+            } else if (node.type === 'condition' || node.type === 'wait_condition') {
+                height = 180;
+            } else if (node.type === 'comment') {
+                const textLen = String(node.data?.text || '').length;
+                height = Math.min(560, Math.max(160, 150 + Math.floor(textLen / 72) * 18));
+            } else if (node.type === 'start') {
+                height = 106;
+            }
+            return { width: 300, height };
+        };
+
+        const getNodeHitSize = (node) => {
+            if (!node) return { width: 300, height: 170 };
+            if (node.type === 'group' || node.type === 'frame') {
+                return {
+                    width: clampGroupWidth(node.data?.width),
+                    height: clampGroupHeight(node.data?.height)
+                };
+            }
+
+            const cached = nodeHitSizeCache.get(node.id);
+            if (cached) return cached;
+
+            const el = getNodeElement(node.id);
+            if (el && el.isConnected) {
+                const measured = {
+                    width: Math.max(160, Math.ceil(el.offsetWidth || 300)),
+                    height: Math.max(70, Math.ceil(el.offsetHeight || 170))
+                };
+                nodeHitSizeCache.set(node.id, measured);
+                return measured;
+            }
+
+            const fallback = getNodeHitSizeFallback(node);
+            nodeHitSizeCache.set(node.id, fallback);
+            return fallback;
+        };
+
+        const refreshNodeHitSizeCache = () => {
+            const alive = new Set(nodes.value.map((n) => n.id));
+            Array.from(nodeHitSizeCache.keys()).forEach((id) => {
+                if (!alive.has(id)) nodeHitSizeCache.delete(id);
+            });
+
+            nodes.value.forEach((node) => {
+                if (!node || node.type === 'group' || node.type === 'frame') return;
+                const el = getNodeElement(node.id);
+                if (el && el.isConnected) {
+                    nodeHitSizeCache.set(node.id, {
+                        width: Math.max(160, Math.ceil(el.offsetWidth || 300)),
+                        height: Math.max(70, Math.ceil(el.offsetHeight || 170))
+                    });
+                    return;
+                }
+                if (!nodeHitSizeCache.has(node.id)) {
+                    nodeHitSizeCache.set(node.id, getNodeHitSizeFallback(node));
+                }
+            });
+        };
+
+        const getNodeHitBounds = (node) => {
+            if (!node) return null;
+            const size = getNodeHitSize(node);
+            return {
+                x: node.x,
+                y: node.y,
+                width: size.width,
+                height: size.height
+            };
         };
 
         const getGroupMemberNodes = (groupNode) => {
@@ -1404,25 +1515,37 @@ createApp({
             nodeConnectMenu.fromSocketId = null;
         };
 
-        const openNodeConnectMenu = (clientX, clientY, fromNodeId, fromSocketId) => {
-            if (!canvasContainer.value || !fromNodeId || !fromSocketId) return;
+        const clampNodeConnectMenuPosition = () => {
+            if (!canvasContainer.value || !nodeConnectMenu.visible) return;
             const rect = canvasContainer.value.getBoundingClientRect();
-            const menuWidth = 248;
-            const menuHeight = 332;
             const margin = 12;
-            const localX = clientX - rect.left;
-            const localY = clientY - rect.top;
+            const menuWidth = nodeConnectMenuEl.value?.offsetWidth || 360;
+            const menuHeight = nodeConnectMenuEl.value?.offsetHeight || 420;
             const maxX = Math.max(margin, rect.width - menuWidth - margin);
             const maxY = Math.max(margin, rect.height - menuHeight - margin);
+
+            nodeConnectMenu.x = Math.min(Math.max(nodeConnectMenu.x, margin), maxX);
+            nodeConnectMenu.y = Math.min(Math.max(nodeConnectMenu.y, margin), maxY);
+        };
+
+        const openNodeConnectMenu = (clientX, clientY, fromNodeId = null, fromSocketId = null) => {
+            if (!canvasContainer.value) return;
+            const rect = canvasContainer.value.getBoundingClientRect();
+            const localX = clientX - rect.left;
+            const localY = clientY - rect.top;
             const world = toWorld(clientX, clientY);
 
-            nodeConnectMenu.x = Math.min(Math.max(localX, margin), maxX);
-            nodeConnectMenu.y = Math.min(Math.max(localY, margin), maxY);
+            nodeConnectMenu.x = localX;
+            nodeConnectMenu.y = localY;
             nodeConnectMenu.worldX = world.x;
             nodeConnectMenu.worldY = world.y;
-            nodeConnectMenu.fromNodeId = fromNodeId;
-            nodeConnectMenu.fromSocketId = fromSocketId;
+            nodeConnectMenu.fromNodeId = fromNodeId || null;
+            nodeConnectMenu.fromSocketId = fromSocketId || null;
             nodeConnectMenu.visible = true;
+            clampNodeConnectMenuPosition();
+            nextTick(() => {
+                clampNodeConnectMenuPosition();
+            });
         };
 
         const createConnection = (fromNodeId, fromSocketId, toNodeId, toSocketId = 'in') => {
@@ -1447,13 +1570,15 @@ createApp({
         };
 
         const createNodeFromContext = (type) => {
-            if (!nodeConnectMenu.visible || !nodeConnectMenu.fromNodeId || !nodeConnectMenu.fromSocketId) {
+            if (!nodeConnectMenu.visible) {
                 closeNodeConnectMenu();
                 return;
             }
 
             const node = spawnNode(type, nodeConnectMenu.worldX - 150, nodeConnectMenu.worldY - 50);
-            createConnection(nodeConnectMenu.fromNodeId, nodeConnectMenu.fromSocketId, node.id, 'in');
+            if (nodeConnectMenu.fromNodeId && nodeConnectMenu.fromSocketId) {
+                createConnection(nodeConnectMenu.fromNodeId, nodeConnectMenu.fromSocketId, node.id, 'in');
+            }
 
             selectedNodeId.value = node.id;
             selectedNodeIds.value = [node.id];
@@ -1526,20 +1651,43 @@ createApp({
 
             // Clicking empty space starts box selection
             const local = toLocal(e.clientX, e.clientY);
+            const world = toWorld(e.clientX, e.clientY);
             selectionBox.active = true;
             selectionBox.shift = e.shiftKey;
             selectionBox.baseIds = selectionBox.shift ? selectedNodeIds.value.slice() : [];
             selectionBox.startX = local.x;
             selectionBox.startY = local.y;
+            selectionBox.startWorldX = world.x;
+            selectionBox.startWorldY = world.y;
             selectionBox.x = local.x;
             selectionBox.y = local.y;
             selectionBox.w = 0;
             selectionBox.h = 0;
+            refreshNodeHitSizeCache();
             if (!selectionBox.shift) {
                 selectedNodeId.value = null;
                 selectedNodeIds.value = [];
             }
             selectedConnId.value = null;
+        };
+
+        const onCanvasContextMenu = (e) => {
+            if (!canvasContainer.value) return;
+            if (dragLine.value || draggingNode.value || selectionBox.active || resizingGroup.value) return;
+            if (linkPicker.active) cancelLinkPicker();
+
+            if (e.target && typeof e.target.closest === 'function') {
+                if (e.target.closest('.node-wrapper')) return;
+                if (e.target.closest('.socket')) return;
+                if (e.target.closest('.node-context-menu')) return;
+                if (e.target.closest('.glass-panel')) return;
+                if (e.target.closest('button')) return;
+                if (e.target.closest('input, textarea, select')) return;
+            }
+
+            e.preventDefault();
+            selectedConnId.value = null;
+            openNodeConnectMenu(e.clientX, e.clientY);
         };
 
         const handleWheel = (e) => {
@@ -1725,20 +1873,23 @@ createApp({
                 selectionBox.w = w;
                 selectionBox.h = h;
 
-                const containerRect = canvasContainer.value.getBoundingClientRect();
-                const selRect = {
-                    left: containerRect.left + x,
-                    top: containerRect.top + y,
-                    right: containerRect.left + x + w,
-                    bottom: containerRect.top + y + h
+                const selWorldRect = {
+                    left: Math.min(selectionBox.startWorldX, worldPos.x),
+                    top: Math.min(selectionBox.startWorldY, worldPos.y),
+                    right: Math.max(selectionBox.startWorldX, worldPos.x),
+                    bottom: Math.max(selectionBox.startWorldY, worldPos.y)
                 };
 
                 const hits = [];
                 nodes.value.forEach(n => {
-                    const el = getNodeElement(n.id);
-                    if (!el) return;
-                    const r = el.getBoundingClientRect();
-                    const intersect = !(r.right < selRect.left || r.left > selRect.right || r.bottom < selRect.top || r.top > selRect.bottom);
+                    const bounds = getNodeHitBounds(n);
+                    if (!bounds) return;
+                    const intersect = !(
+                        (bounds.x + bounds.width) < selWorldRect.left ||
+                        bounds.x > selWorldRect.right ||
+                        (bounds.y + bounds.height) < selWorldRect.top ||
+                        bounds.y > selWorldRect.bottom
+                    );
                     if (intersect) hits.push(n.id);
                 });
                 if (selectionBox.shift) {
@@ -1827,7 +1978,7 @@ createApp({
             if (!releasedDrag) {
                 if (nodeConnectMenu.visible) {
                     const insideMenu = e?.target && typeof e.target.closest === 'function' && e.target.closest('.node-context-menu');
-                    if (!insideMenu) closeNodeConnectMenu();
+                    if (e?.button === 0 && !insideMenu) closeNodeConnectMenu();
                 }
                 return;
             }
@@ -3214,7 +3365,7 @@ createApp({
             tab, isPlayMode, gameLog, activeNode, gameFinished,
             dragLine,
             selectionBox, hotkeyHints,
-            helpPanelOpen, exportPanelOpen, exportValidatorDocsOpen, helpSections, nodeDocs, autosaveStatusText,
+            helpPanelOpen, hotkeysPanelOpen, exportPanelOpen, exportValidatorDocsOpen, helpSections, nodeDocs, autosaveStatusText,
             authHintKey,
             formatDocText,
             editingNodeNameId, nodeNameDraft,
@@ -3222,9 +3373,9 @@ createApp({
             groupColorPalette,
             linkEntryOptions,
             linkPicker, hierarchyPanelOpen, hierarchyRows, graphWarnings,
-            nodeConnectMenu, connectableNodeOptions,
+            nodeConnectMenu, nodeConnectMenuEl, nodeConnectMenuTitle, connectableNodeOptions,
             
-            handleWheel, onCanvasMouseDown, startPan, onNodeMouseDown, startDragNode, startDragLine,
+            handleWheel, onCanvasMouseDown, onCanvasContextMenu, startPan, onNodeMouseDown, startDragNode, startDragLine,
             startGroupResize,
             onGlobalMouseMove, onGlobalMouseUp, onSocketMouseUp,
             createNodeFromContext,

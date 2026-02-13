@@ -89,7 +89,8 @@
             
             <div class="flex-1 relative overflow-hidden bg-slate-950" ref="canvasContainer" 
                  @wheel.prevent="handleWheel"
-                 @mousedown="onCanvasMouseDown">
+                 @mousedown="onCanvasMouseDown"
+                 @contextmenu="onCanvasContextMenu">
                 
                 <div v-if="selectionBox.active"
                      class="selection-box"
@@ -577,10 +578,11 @@
 
                 <div v-if="nodeConnectMenu.visible"
                      class="node-context-menu"
+                     ref="nodeConnectMenuEl"
                      :style="{ left: nodeConnectMenu.x + 'px', top: nodeConnectMenu.y + 'px' }"
                      @mousedown.stop
                      @click.stop>
-                    <div class="node-context-menu-title">Create and connect</div>
+                    <div class="node-context-menu-title">{{ nodeConnectMenuTitle }}</div>
                     <div class="node-context-menu-list">
                         <button v-for="item in connectableNodeOptions"
                                 :key="item.type"
@@ -1134,14 +1136,23 @@
         </div>
 
         <div class="bottom-tools-shell" @mousedown.stop>
-            <div class="hotkeys-panel">
+            <button type="button"
+                    class="hotkeys-toggle"
+                    :class="{ active: hotkeysPanelOpen }"
+                    @click="hotkeysPanelOpen = !hotkeysPanelOpen">
+                <i class="fa-solid fa-keyboard"></i>
+                <span>{{ hotkeysPanelOpen ? 'Hide Hotkeys' : 'Hotkeys' }}</span>
+            </button>
+            <div v-if="hotkeysPanelOpen" class="hotkeys-panel">
                 <div class="hotkeys-head">
                     <div class="font-bold uppercase text-[9px] text-slate-400">Hotkeys</div>
                     <button type="button" class="hotkeys-doc-toggle" :class="{ active: helpPanelOpen }" @click="helpPanelOpen = !helpPanelOpen">Docs</button>
                 </div>
-                <div v-for="(h, i) in hotkeyHints" :key="i" class="flex items-center gap-2">
-                    <span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-200 font-mono">{{ h.keys }}</span>
-                    <span class="text-slate-300">{{ h.label }}</span>
+                <div class="hotkeys-list">
+                    <div v-for="(h, i) in hotkeyHints" :key="i" class="hotkey-row">
+                        <span class="hotkey-chip">{{ h.keys }}</span>
+                        <span class="hotkey-label">{{ h.label }}</span>
+                    </div>
                 </div>
                 <div class="autosave-state">Autosave: {{ autosaveStatusText }}</div>
             </div>

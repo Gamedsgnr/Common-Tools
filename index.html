@@ -53,6 +53,42 @@
             cursor: pointer;
         }
 
+        .sidebar-header span {
+            display: inline-flex;
+            align-items: center;
+            min-width: 0;
+        }
+
+        #toolbarCustomizeBtn {
+            margin-left: auto;
+            width: 32px;
+            height: 32px;
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            border-radius: 10px;
+            background: rgba(30, 41, 59, 0.45);
+            color: #9aa4b2;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+            box-shadow:
+                0 18px 30px -12px rgba(2, 6, 23, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22),
+                inset 0 -10px 22px rgba(2, 6, 23, 0.32);
+        }
+
+        #toolbarCustomizeBtn:hover {
+            border-color: rgba(125, 211, 252, 0.45);
+            color: #dbe7f3;
+            background: rgba(30, 41, 59, 0.56);
+        }
+
+        #toolbarCustomizeBtn i {
+            color: #7dd3fc;
+            font-size: 0.82rem;
+        }
+
         .category-title {
             padding: 10px 8px 4px 8px;
             font-size: 0.72em;
@@ -204,7 +240,7 @@
         }
 
         body.toolbar-customize-mode .nav-links a {
-            padding-right: 108px;
+            padding-right: 74px;
         }
 
         body.toolbar-customize-mode .toolbar-item-actions {
@@ -220,13 +256,40 @@
             opacity: 0.78;
         }
 
-        .nav-links li.pinned-item a {
-            border-color: rgba(125, 211, 252, 0.45);
-            box-shadow:
-                0 10px 18px -12px rgba(2, 6, 23, 0.7),
-                inset 0 1px 0 rgba(255, 255, 255, 0.14),
-                inset 0 -10px 18px rgba(2, 6, 23, 0.25),
-                0 0 0 1px rgba(125, 211, 252, 0.14);
+        body.toolbar-customize-mode .nav-links li.toolbar-draggable a {
+            cursor: grab;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        body.toolbar-customize-mode .nav-links li.toolbar-dragging {
+            opacity: 0.45;
+        }
+
+        body.toolbar-customize-mode .nav-links li.toolbar-dragging a {
+            cursor: grabbing;
+        }
+
+        body.toolbar-customize-mode .nav-links li.toolbar-drop-before a {
+            box-shadow: inset 0 2px 0 rgba(125, 211, 252, 0.8);
+        }
+
+        body.toolbar-customize-mode .nav-links li.toolbar-drop-after a {
+            box-shadow: inset 0 -2px 0 rgba(125, 211, 252, 0.8);
+        }
+
+        .toolbar-drag-ghost {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 140;
+            pointer-events: none;
+            opacity: 0.95;
+            filter: drop-shadow(0 14px 18px rgba(2, 6, 23, 0.48));
+        }
+
+        .toolbar-drag-ghost .toolbar-item-actions {
+            display: none !important;
         }
 
         .nav-links a[href="blueprints_view.html"] { --item-accent: 134, 184, 216; }
@@ -388,6 +451,8 @@
 
         body.toolbar-customize-mode #toolbarCustomizeBtn {
             border-color: rgba(125, 211, 252, 0.62);
+            color: #dbe7f3;
+            background: rgba(30, 41, 59, 0.6);
             box-shadow:
                 0 18px 30px -12px rgba(2, 6, 23, 0.7),
                 inset 0 1px 0 rgba(255, 255, 255, 0.22),
@@ -825,6 +890,11 @@
                 padding: 12px;
             }
 
+            #toolbarCustomizeBtn {
+                width: 30px;
+                height: 30px;
+            }
+
             body.mobile-sidebar-open .sidebar {
                 transform: translateX(0);
             }
@@ -930,6 +1000,9 @@
     <aside class="sidebar">
         <div class="sidebar-header" onclick="openWelcomeHome()">
             <span><i class="fa-solid fa-toolbox" style="margin-right:8px"></i>Common Tools</span>
+            <button id="toolbarCustomizeBtn" type="button" onclick="event.stopPropagation(); toggleToolbarCustomizeMode()" title="Customize Toolbar" aria-label="Customize Toolbar">
+                <i class="fa-solid fa-sliders"></i>
+            </button>
         </div>
 
         <div class="category-title">Visual Library</div>
@@ -969,9 +1042,6 @@
             <li><a href="admin_bug_reports.html" target="tool-frame" data-tool-key="admin_bug_reports"><i class="fa-solid fa-bug" style="margin-right:8px"></i>Bug Reports</a></li>
         </ul>
 
-        <div class="footer quaternary" id="toolbarCustomizeBtn" onclick="toggleToolbarCustomizeMode()">
-            <i class="fa-solid fa-sliders" style="margin-right:8px"></i> Customize Toolbar
-        </div>
         <div class="footer quaternary danger" id="toolbarResetBtn" onclick="resetToolbarPrefs()" style="display:none;">
             <i class="fa-solid fa-rotate-left" style="margin-right:8px"></i> Reset Toolbar Layout
         </div>
@@ -1118,6 +1188,20 @@
         var _bugFxLastSpawn = 0;
         var _toolbarPrefs = null;
         var _toolbarCustomizeMode = false;
+        var _toolbarDragState = {
+            toolKey: '',
+            groupKey: '',
+            targetKey: '',
+            insert: 'after',
+            startX: 0,
+            startY: 0,
+            offsetX: 0,
+            offsetY: 0,
+            dragging: false,
+            ghostEl: null,
+            originLi: null
+        };
+        var _toolbarSuppressClickUntil = 0;
         var _isAdminUser = false;
         var _authEmail = null;
         var _sidebarSetupDone = false;
@@ -1490,14 +1574,62 @@
 
         function updateToolbarActionStates() {
             const hidden = new Set(_toolbarPrefs.hiddenKeys || []);
-            const pinned = new Set(_toolbarPrefs.pinnedKeys || []);
             getSidebarLinks().forEach((link) => {
                 const key = link.dataset.toolKey;
                 const hideBtn = link.querySelector('.tool-action[data-act="hide"]');
-                const pinBtn = link.querySelector('.tool-action[data-act="pin"]');
                 if (hideBtn) hideBtn.classList.toggle('is-on', hidden.has(key));
-                if (pinBtn) pinBtn.classList.toggle('is-on', pinned.has(key));
             });
+        }
+
+        function clearToolbarDropMarkers() {
+            document.querySelectorAll('.nav-links li.toolbar-drop-before, .nav-links li.toolbar-drop-after')
+                .forEach((li) => li.classList.remove('toolbar-drop-before', 'toolbar-drop-after'));
+        }
+
+        function removeToolbarGhost() {
+            if (_toolbarDragState.ghostEl && _toolbarDragState.ghostEl.parentNode) {
+                _toolbarDragState.ghostEl.parentNode.removeChild(_toolbarDragState.ghostEl);
+            }
+        }
+
+        function removeToolbarPointerListeners() {
+            document.removeEventListener('mousemove', handleToolbarDragMove);
+            document.removeEventListener('mouseup', handleToolbarDragEnd);
+        }
+
+        function resetToolbarDragState() {
+            removeToolbarPointerListeners();
+            removeToolbarGhost();
+            _toolbarDragState = {
+                toolKey: '',
+                groupKey: '',
+                targetKey: '',
+                insert: 'after',
+                startX: 0,
+                startY: 0,
+                offsetX: 0,
+                offsetY: 0,
+                dragging: false,
+                ghostEl: null,
+                originLi: null
+            };
+            document.querySelectorAll('.nav-links li.toolbar-dragging')
+                .forEach((li) => li.classList.remove('toolbar-dragging'));
+            clearToolbarDropMarkers();
+        }
+
+        function updateToolbarDragTargets() {
+            document.querySelectorAll('.nav-links[data-group] > li').forEach((li) => {
+                const link = li.querySelector('a[data-tool-key]');
+                if (!link) return;
+                const groupKey = li.closest('ul.nav-links')?.dataset?.group || 'misc';
+                const forceAdminHidden = groupKey === 'admin' && !_isAdminUser;
+                const canDrag = _toolbarCustomizeMode && !forceAdminHidden && li.style.display !== 'none';
+                li.classList.toggle('toolbar-draggable', canDrag);
+            });
+            if (!_toolbarCustomizeMode) {
+                resetToolbarDragState();
+            }
         }
 
         function broadcastToolbarState() {
@@ -1532,7 +1664,6 @@
         function applyToolbarPrefs() {
             if (!_toolbarPrefs) _toolbarPrefs = defaultToolbarPrefs();
             const hidden = new Set(_toolbarPrefs.hiddenKeys || []);
-            const pinned = new Set(_toolbarPrefs.pinnedKeys || []);
             const groups = Array.from(document.querySelectorAll('.nav-links[data-group]'));
 
             groups.forEach((groupEl) => {
@@ -1551,12 +1682,7 @@
                 });
 
                 const orderedKeys = ensureToolbarOrder(groupKey, keysInDom);
-                const sortedKeys = orderedKeys.slice().sort((a, b) => {
-                    const aPinned = pinned.has(a) ? 0 : 1;
-                    const bPinned = pinned.has(b) ? 0 : 1;
-                    if (aPinned !== bPinned) return aPinned - bPinned;
-                    return orderedKeys.indexOf(a) - orderedKeys.indexOf(b);
-                });
+                const sortedKeys = orderedKeys.slice();
 
                 sortedKeys.forEach((key) => {
                     const li = keyToLi.get(key);
@@ -1572,7 +1698,6 @@
                     const hiddenByPrefs = hidden.has(key);
                     const hiddenFinal = forceAdminHidden || hiddenByPrefs;
 
-                    li.classList.toggle('pinned-item', pinned.has(key));
                     li.classList.toggle('hidden-by-pref', hiddenByPrefs && !forceAdminHidden);
                     li.style.display = '';
 
@@ -1605,26 +1730,59 @@
             }
 
             updateToolbarActionStates();
+            updateToolbarDragTargets();
             ensureVisibleActiveLink();
             saveToolbarPrefs();
             broadcastToolbarState();
         }
 
-        function moveToolbarItem(toolKey, direction) {
+        function moveToolbarItemToTop(toolKey) {
             const link = getToolLinkByKey(toolKey);
             if (!link) return;
             const groupKey = getToolGroupByLink(link);
-            const order = _toolbarPrefs.orderByGroup[groupKey] || [];
+            const groupEl = link.closest('ul.nav-links');
+            if (!groupEl) return;
+            const keysInDom = Array.from(groupEl.querySelectorAll(':scope > li a[data-tool-key]'))
+                .map((item) => item.dataset.toolKey)
+                .filter(Boolean);
+            const order = ensureToolbarOrder(groupKey, keysInDom).slice();
             const idx = order.indexOf(toolKey);
             if (idx < 0) return;
-
-            const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
-            if (targetIdx < 0 || targetIdx >= order.length) return;
-
-            const swap = order[targetIdx];
-            order[targetIdx] = order[idx];
-            order[idx] = swap;
+            if (idx === 0) return;
+            order.splice(idx, 1);
+            order.unshift(toolKey);
             _toolbarPrefs.orderByGroup[groupKey] = order;
+            applyToolbarPrefs();
+        }
+
+        function moveToolbarItemByDrop(dragToolKey, targetToolKey, insertMode) {
+            if (!dragToolKey || !targetToolKey || dragToolKey === targetToolKey) return;
+            const dragLink = getToolLinkByKey(dragToolKey);
+            const targetLink = getToolLinkByKey(targetToolKey);
+            if (!dragLink || !targetLink) return;
+
+            const dragGroup = getToolGroupByLink(dragLink);
+            const targetGroup = getToolGroupByLink(targetLink);
+            if (dragGroup !== targetGroup) return;
+
+            const groupEl = targetLink.closest('ul.nav-links');
+            if (!groupEl) return;
+
+            const keysInDom = Array.from(groupEl.querySelectorAll(':scope > li a[data-tool-key]'))
+                .map((item) => item.dataset.toolKey)
+                .filter(Boolean);
+            const order = ensureToolbarOrder(targetGroup, keysInDom).slice();
+
+            const dragIdx = order.indexOf(dragToolKey);
+            if (dragIdx < 0) return;
+            order.splice(dragIdx, 1);
+
+            const targetIdxAfterRemoval = order.indexOf(targetToolKey);
+            if (targetIdxAfterRemoval < 0) return;
+            const insertIdx = insertMode === 'before' ? targetIdxAfterRemoval : targetIdxAfterRemoval + 1;
+            order.splice(insertIdx, 0, dragToolKey);
+
+            _toolbarPrefs.orderByGroup[targetGroup] = order;
             applyToolbarPrefs();
         }
 
@@ -1637,17 +1795,147 @@
 
         function handleToolbarItemAction(toolKey, action) {
             if (!_toolbarCustomizeMode) return;
-            if (action === 'pin') {
-                toggleToolbarKey('pinnedKeys', toolKey);
+            if (action === 'top') {
+                moveToolbarItemToTop(toolKey);
                 return;
             }
             if (action === 'hide') {
                 toggleToolbarKey('hiddenKeys', toolKey);
                 return;
             }
-            if (action === 'up' || action === 'down') {
-                moveToolbarItem(toolKey, action);
+        }
+
+        function positionToolbarGhost(clientX, clientY) {
+            const ghost = _toolbarDragState.ghostEl;
+            if (!ghost) return;
+            const x = clientX - _toolbarDragState.offsetX;
+            const y = clientY - _toolbarDragState.offsetY;
+            ghost.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+        }
+
+        function beginToolbarDrag(clientX, clientY) {
+            const li = _toolbarDragState.originLi;
+            if (!li) return;
+            const link = li.querySelector('a[data-tool-key]');
+            if (!link) return;
+
+            const rect = link.getBoundingClientRect();
+            const ghost = document.createElement('div');
+            ghost.className = 'toolbar-drag-ghost';
+            ghost.style.width = `${Math.round(rect.width)}px`;
+
+            const linkClone = link.cloneNode(true);
+            const actions = linkClone.querySelector('.toolbar-item-actions');
+            if (actions) actions.remove();
+            linkClone.classList.remove('active');
+            ghost.appendChild(linkClone);
+            document.body.appendChild(ghost);
+
+            _toolbarDragState.ghostEl = ghost;
+            _toolbarDragState.dragging = true;
+            li.classList.add('toolbar-dragging');
+            positionToolbarGhost(clientX, clientY);
+        }
+
+        function updateToolbarDropTarget(clientX, clientY) {
+            const state = _toolbarDragState;
+            clearToolbarDropMarkers();
+            state.targetKey = '';
+            state.insert = 'after';
+
+            const hovered = document.elementFromPoint(clientX, clientY);
+            const targetLi = hovered ? hovered.closest('.nav-links[data-group] > li') : null;
+            if (!targetLi) return;
+
+            const targetLink = targetLi.querySelector('a[data-tool-key]');
+            const targetKey = targetLink?.dataset?.toolKey;
+            const targetGroup = targetLi.closest('ul.nav-links')?.dataset?.group || 'misc';
+            if (!targetKey || targetGroup !== state.groupKey || targetKey === state.toolKey) return;
+            if (targetLi.style.display === 'none') return;
+
+            const rect = targetLi.getBoundingClientRect();
+            const insertMode = (clientY - rect.top) < rect.height / 2 ? 'before' : 'after';
+            targetLi.classList.add(insertMode === 'before' ? 'toolbar-drop-before' : 'toolbar-drop-after');
+            state.targetKey = targetKey;
+            state.insert = insertMode;
+        }
+
+        function handleToolbarDragMove(event) {
+            if (!_toolbarCustomizeMode || !_toolbarDragState.toolKey) return;
+
+            const dx = Math.abs(event.clientX - _toolbarDragState.startX);
+            const dy = Math.abs(event.clientY - _toolbarDragState.startY);
+            if (!_toolbarDragState.dragging) {
+                if ((dx + dy) < 6) return;
+                beginToolbarDrag(event.clientX, event.clientY);
             }
+
+            event.preventDefault();
+            positionToolbarGhost(event.clientX, event.clientY);
+            updateToolbarDropTarget(event.clientX, event.clientY);
+        }
+
+        function handleToolbarDragEnd(event) {
+            if (_toolbarDragState.dragging) {
+                event.preventDefault();
+                if (_toolbarDragState.targetKey && _toolbarDragState.targetKey !== _toolbarDragState.toolKey) {
+                    moveToolbarItemByDrop(
+                        _toolbarDragState.toolKey,
+                        _toolbarDragState.targetKey,
+                        _toolbarDragState.insert || 'after'
+                    );
+                }
+                _toolbarSuppressClickUntil = Date.now() + 260;
+            }
+            resetToolbarDragState();
+        }
+
+        function handleToolbarDragPointerDown(event) {
+            if (!_toolbarCustomizeMode) return;
+            if (event.button !== 0) return;
+            if (event.target.closest('.toolbar-item-actions')) return;
+
+            resetToolbarDragState();
+
+            const li = event.currentTarget;
+            const link = li?.querySelector('a[data-tool-key]');
+            const toolKey = link?.dataset?.toolKey;
+            if (!toolKey) return;
+
+            const rect = link.getBoundingClientRect();
+            _toolbarDragState = {
+                toolKey: toolKey,
+                groupKey: li?.closest('ul.nav-links')?.dataset?.group || 'misc',
+                targetKey: '',
+                insert: 'after',
+                startX: event.clientX,
+                startY: event.clientY,
+                offsetX: event.clientX - rect.left,
+                offsetY: event.clientY - rect.top,
+                dragging: false,
+                ghostEl: null,
+                originLi: li
+            };
+
+            document.addEventListener('mousemove', handleToolbarDragMove);
+            document.addEventListener('mouseup', handleToolbarDragEnd);
+            event.preventDefault();
+        }
+
+        function initToolbarDragAndDrop() {
+            document.querySelectorAll('.nav-links[data-group] > li').forEach((li) => {
+                const link = li.querySelector('a[data-tool-key]');
+                if (!link) return;
+                if (li.dataset.dragBound === '1') return;
+                li.dataset.dragBound = '1';
+
+                li.addEventListener('mousedown', handleToolbarDragPointerDown);
+                link.addEventListener('dragstart', (event) => {
+                    if (_toolbarCustomizeMode) {
+                        event.preventDefault();
+                    }
+                });
+            });
         }
 
         function addToolbarActionsToLinks() {
@@ -1658,10 +1946,8 @@
                 const actions = document.createElement('span');
                 actions.className = 'toolbar-item-actions';
                 actions.innerHTML = [
-                    '<button class="tool-action" data-act="pin" type="button" title="Pin to top"><i class="fa-solid fa-star"></i></button>',
                     '<button class="tool-action" data-act="hide" type="button" title="Hide/Show"><i class="fa-solid fa-eye-slash"></i></button>',
-                    '<button class="tool-action" data-act="up" type="button" title="Move up"><i class="fa-solid fa-arrow-up"></i></button>',
-                    '<button class="tool-action" data-act="down" type="button" title="Move down"><i class="fa-solid fa-arrow-down"></i></button>'
+                    '<button class="tool-action" data-act="top" type="button" title="To Top"><i class="fa-solid fa-arrow-up"></i></button>'
                 ].join('');
 
                 actions.querySelectorAll('.tool-action').forEach((button) => {
@@ -1693,6 +1979,7 @@
         function initToolbarCustomization() {
             _toolbarPrefs = loadToolbarPrefs();
             addToolbarActionsToLinks();
+            initToolbarDragAndDrop();
             applyToolbarPrefs();
             window.addEventListener('message', function(event) {
                 const data = event?.data;
@@ -2266,6 +2553,10 @@
                             event.preventDefault();
                             return;
                         }
+                        if (_toolbarCustomizeMode || Date.now() < _toolbarSuppressClickUntil) {
+                            event.preventDefault();
+                            return;
+                        }
 
                         setSidebarActiveLink(link, { persist: true });
                         if (isMobileViewport()) {
@@ -2316,9 +2607,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
