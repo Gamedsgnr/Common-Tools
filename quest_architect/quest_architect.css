@@ -79,6 +79,7 @@ input, textarea, select {
     pointer-events: none;
     opacity: 0.8;
 }
+
 .node-wrapper.selected {
     border-color: #3b82f6;
     box-shadow:
@@ -88,6 +89,98 @@ input, textarea, select {
         inset 0 1px 0 rgba(255, 255, 255, 0.28),
         inset 0 -10px 24px rgba(2, 6, 23, 0.35);
     z-index: 50;
+}
+
+.node-wrapper.is-lod {
+    box-shadow:
+        0 12px 20px -14px rgba(2, 6, 23, 0.8),
+        0 6px 12px -8px rgba(15, 23, 42, 0.68),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        inset 0 -8px 14px rgba(2, 6, 23, 0.28);
+}
+
+.node-lod-body {
+    padding: 10px 18px 12px;
+    min-height: 132px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.node-lod-speaker-accent {
+    position: absolute;
+    left: 14px;
+    right: 22px;
+    top: 12px;
+    height: 22px;
+    border-radius: 8px;
+    border: 1px solid var(--speaker-color, #64748b);
+    background: var(--speaker-color, #64748b);
+    opacity: 0.9;
+    z-index: 1;
+    box-shadow: inset 0 0 0 999px rgba(15, 23, 42, 0.72);
+}
+
+.node-lod-bg-icon {
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    transform: translateY(-50%) rotate(10deg);
+    font-size: 118px;
+    line-height: 1;
+    color: #9aa4b2;
+    opacity: 0.18;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.node-lod-main-title {
+    width: 100%;
+    min-height: 96px;
+    padding-left: 8px;
+    padding-right: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    line-height: 1.06;
+    letter-spacing: 0.015em;
+    color: #dbe7f3;
+    font-weight: 800;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-shadow: 0 2px 10px rgba(2, 6, 23, 0.65);
+    position: relative;
+    z-index: 1;
+}
+
+.node-lod-sockets {
+    position: absolute;
+    right: -2px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 2;
+}
+
+.node-lod-socket-wrap {
+    height: 20px;
+    position: relative;
+    pointer-events: auto;
+}
+
+.node-lod-socket {
+    position: absolute;
+    right: -17px;
+    top: 50%;
+    margin-top: 0;
+    transform: translateY(-50%);
+    flex-shrink: 0;
 }
 
 .node-jump-pulse-overlay {
@@ -274,6 +367,8 @@ input, textarea, select {
 
 /* Node Headers */
 .node-header {
+    position: relative;
+    overflow: hidden;
     padding: 10px 12px;
     border-radius: 10px 10px 0 0;
     display: flex;
@@ -330,6 +425,7 @@ input, textarea, select {
 .type-condition { background: linear-gradient(135deg, #d97706, #b45309); }
 .type-switcher { background: linear-gradient(135deg, #0ea5e9, #0284c7); }
 .type-wait_event { background: linear-gradient(135deg, #0891b2, #0e7490); }
+.type-call_event { background: linear-gradient(135deg, #06b6d4, #0e7490); }
 .type-wait_condition { background: linear-gradient(135deg, #b45309, #92400e); }
 .type-objective_set { background: linear-gradient(135deg, #059669, #047857); }
 .type-objective_complete { background: linear-gradient(135deg, #10b981, #059669); }
@@ -1003,6 +1099,12 @@ input, textarea, select {
     color: #cffafe;
 }
 
+.hierarchy-pill.tone-call_event {
+    background: rgba(6, 182, 212, 0.24);
+    border-color: rgba(125, 211, 252, 0.58);
+    color: #dbeafe;
+}
+
 .hierarchy-pill.tone-wait_condition {
     background: rgba(180, 83, 9, 0.24);
     border-color: rgba(251, 191, 36, 0.55);
@@ -1465,6 +1567,7 @@ input, textarea, select {
 .node-doc-card.tone-condition { border-color: rgba(245, 158, 11, 0.56); }
 .node-doc-card.tone-switcher { border-color: rgba(56, 189, 248, 0.56); }
 .node-doc-card.tone-wait_event { border-color: rgba(103, 232, 249, 0.62); }
+.node-doc-card.tone-call_event { border-color: rgba(125, 211, 252, 0.62); }
 .node-doc-card.tone-wait_condition { border-color: rgba(251, 191, 36, 0.6); }
 .node-doc-card.tone-objective_set { border-color: rgba(110, 231, 183, 0.62); }
 .node-doc-card.tone-objective_complete { border-color: rgba(16, 185, 129, 0.62); }

@@ -117,11 +117,11 @@
 
                     <div v-for="node in nodes" :key="node.id"
                          class="node-wrapper"
-                         :class="{ 'selected': selectedNodeIds.includes(node.id), 'is-group': node.type === 'group' }"
+                         :class="{ 'selected': selectedNodeIds.includes(node.id), 'is-group': node.type === 'group', 'is-lod': isNodeLodCollapsed(node) }"
                          :style="getNodeStyle(node)"
                          :data-node-id="node.id"
                          @mousedown.stop="onNodeMouseDown(node, $event)">
-                        
+
                         <div class="node-header"
                              :class="node.type === 'group' ? '' : ('type-' + node.type)"
                              :style="getNodeHeaderStyle(node)"
@@ -129,7 +129,7 @@
                             <div class="flex items-center gap-2 min-w-0 text-xs font-bold text-white tracking-wide"
                                  :style="getNodeHeaderContentStyle(node)">
                                 <i :class="getNodeIcon(node.type)"></i>
-                                <button v-if="isNodeNameEditable(node.type) && editingNodeNameId !== node.id"
+                                <button v-if="!isNodeLodCollapsed(node) && isNodeNameEditable(node.type) && editingNodeNameId !== node.id"
                                         type="button"
                                         class="node-header-name node-header-name-btn"
                                         @mousedown.stop
@@ -137,10 +137,10 @@
                                         title="Rename node">
                                     {{ getNodeDisplayName(node) }}
                                 </button>
-                                <span v-else-if="editingNodeNameId !== node.id" class="node-header-name">
+                                <span v-else-if="!isNodeLodCollapsed(node) && editingNodeNameId !== node.id" class="node-header-name">
                                     {{ getNodeDisplayName(node) }}
                                 </span>
-                                <input v-else
+                                <input v-else-if="!isNodeLodCollapsed(node)"
                                        :data-node-name-input="node.id"
                                        v-model="nodeNameDraft"
                                        class="node-header-name-input"
@@ -160,10 +160,11 @@
                                  :class="{ 'socket-occupied': isSocketOccupied(node.id, 'in') }"
                                  :data-node-id="node.id"
                                  data-socket-id="in"
-                                 @mouseup="onSocketMouseUp(node.id, 'in')"></div>
+                                 @mousedown.stop.prevent="startDragLine(node.id, 'in', $event, 'in')"
+                                 @mouseup="onSocketMouseUp(node.id, 'in', 'in')"></div>
                         </div>
 
-                        <div class="p-3 text-slate-300 text-sm relative">
+                        <div v-if="!isNodeLodCollapsed(node)" class="p-3 text-slate-300 text-sm relative">
                             
                             <div v-if="node.type === 'start'" class="py-2 text-center text-xs text-slate-400">
                                 Entry point
@@ -176,6 +177,7 @@
 
                             <div v-if="node.type === 'dialog'">
                                 <select v-model="node.data.speakerId" @mousedown.stop
+                                        :style="getSpeakerSelectStyle(node.data?.speakerId)"
                                         class="w-full bg-slate-900/70 border border-slate-700 rounded px-2 py-1 text-xs text-blue-300 font-bold mb-2">
                                     <option :value="null">Character...</option>
                                     <option v-for="c in characters" :value="c.id">{{ c.name }}</option>
@@ -418,6 +420,25 @@
                                 </div>
                             </div>
 
+                            <div v-if="node.type === 'call_event'">
+                                <div class="bg-sky-900/20 p-2 rounded border border-sky-500/25 mb-2 space-y-2">
+                                    <input v-model="node.data.eventKey" @mousedown.stop
+                                           class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-sky-100"
+                                           placeholder="Emit key: quest.spawn_patrol" />
+                                    <input v-model="node.data.payload" @mousedown.stop
+                                           class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-sky-200/90"
+                                           placeholder="Optional payload..." />
+                                </div>
+                                <div class="relative mt-2 bg-slate-900/40 border border-slate-700 rounded p-2 text-[10px] flex items-center justify-between translate-x-2">
+                                    <span class="text-sky-300/80 uppercase tracking-wide">Continue</span>
+                                    <div class="socket socket-out"
+                                         :class="{ 'socket-occupied': isSocketOccupied(node.id, 'default') }"
+                                         :data-node-id="node.id"
+                                         data-socket-id="default"
+                                         @mousedown.stop.prevent="startDragLine(node.id, 'default', $event)"></div>
+                                </div>
+                            </div>
+
                             <div v-if="node.type === 'wait_condition'">
                                 <div class="bg-amber-900/20 p-2 rounded border border-amber-500/25 mb-2 space-y-2">
                                     <select v-model="node.data.varId" @mousedown.stop
@@ -563,6 +584,26 @@
                             </div>
 
                         </div>
+                        <div v-else class="node-lod-body">
+                            <div
+                                v-if="node.type === 'dialog' && node.data && node.data.speakerId"
+                                class="node-lod-speaker-accent"
+                                :style="{ '--speaker-color': getCharacterColor(node.data.speakerId) }">
+                            </div>
+                            <i class="node-lod-bg-icon" :class="getNodeIcon(node.type)" aria-hidden="true"></i>
+                            <div class="node-lod-main-title">{{ getNodeDisplayName(node) }}</div>
+                            <div class="node-lod-sockets" v-if="getNodeLodOutputSockets(node).length">
+                                <div v-for="sock in getNodeLodOutputSockets(node)"
+                                     :key="node.id + '_' + sock.id"
+                                     class="node-lod-socket-wrap">
+                                    <div class="socket socket-out node-lod-socket"
+                                         :class="{ 'socket-occupied': isSocketOccupied(node.id, sock.id) }"
+                                         :data-node-id="node.id"
+                                         :data-socket-id="sock.id"
+                                         @mousedown.stop.prevent="startDragLine(node.id, sock.id, $event)"></div>
+                                </div>
+                            </div>
+                        </div>
 
                         <div v-if="node.type === 'group'" class="group-resize-handle group-resize-t" @mousedown.stop.prevent="startGroupResize(node, 't', $event)"></div>
                         <div v-if="node.type === 'group'" class="group-resize-handle group-resize-b" @mousedown.stop.prevent="startGroupResize(node, 'b', $event)"></div>
@@ -584,7 +625,7 @@
                      @click.stop>
                     <div class="node-context-menu-title">{{ nodeConnectMenuTitle }}</div>
                     <div class="node-context-menu-list">
-                        <button v-for="item in connectableNodeOptions"
+                        <button v-for="item in nodeConnectMenuOptions"
                                 :key="item.type"
                                 type="button"
                                 class="node-context-item"
@@ -693,6 +734,11 @@
                             <span class="text-[10px] font-bold">WAIT EV</span>
                         </button>
                         <div class="w-px h-10 bg-slate-700"></div>
+                        <button @click="addNode('call_event')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-sky-600/20 hover:text-sky-300 text-slate-400 transition group">
+                            <i class="fa-solid fa-bullhorn text-2xl mb-1 group-hover:scale-110 transition"></i>
+                            <span class="text-[10px] font-bold">CALL EV</span>
+                        </button>
+                        <div class="w-px h-10 bg-slate-700"></div>
                         <button @click="addNode('wait_condition')" class="flex flex-col items-center justify-center w-16 h-16 rounded-xl hover:bg-amber-600/20 hover:text-amber-300 text-slate-400 transition group">
                             <i class="fa-solid fa-stopwatch text-2xl mb-1 group-hover:scale-110 transition"></i>
                             <span class="text-[10px] font-bold">WAIT IF</span>
@@ -742,6 +788,18 @@
                             <i class="fa-solid fa-crosshairs text-xl mb-1"></i>
                             <span class="text-[10px] font-bold">CENTER</span>
                         </button>
+                        <div class="w-px h-10 bg-slate-700"></div>
+                        <button
+                            @click="toggleAutoRelax"
+                            title="Auto Relax Layout"
+                            class="flex flex-col items-center justify-center w-16 h-16 rounded-xl transition"
+                            :class="autoRelaxEnabled
+                                ? 'bg-sky-500/22 text-sky-200 hover:bg-sky-500/30'
+                                : 'text-slate-600 hover:text-slate-300 hover:bg-slate-700/55'"
+                        >
+                            <i class="fa-solid fa-up-down-left-right text-xl mb-1"></i>
+                            <span class="text-[10px] font-bold">RELAX</span>
+                        </button>
                         <div class="w-10"></div>
                         <button @click="runScenario" class="flex flex-col items-center justify-center w-32 h-16 rounded-xl bg-emerald-600/20 text-emerald-300 hover:bg-emerald-500/30 hover:text-emerald-200 transition group">
                             <i class="fa-solid fa-play text-2xl mb-1 group-hover:scale-110 transition"></i>
@@ -774,7 +832,7 @@
                             <div v-if="selectedNode.type === 'dialog'" class="space-y-4">
                                 <div>
                                     <label class="text-xs text-slate-500 block mb-1">Speaker</label>
-                                    <select v-model="selectedNode.data.speakerId" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm">
+                                    <select v-model="selectedNode.data.speakerId" :style="getSpeakerSelectStyle(selectedNode.data?.speakerId)" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm">
                                         <option :value="null">Select character...</option>
                                         <option v-for="c in characters" :value="c.id">{{ c.name }}</option>
                                     </select>
@@ -899,11 +957,71 @@
                                 </div>
                             </div>
 
+                            <div v-if="selectedNode.type === 'switcher'" class="space-y-4">
+                                <label class="text-xs text-slate-500 block">Switcher</label>
+                                <select v-model="selectedNode.data.varId" @change="onSwitcherVarChange(selectedNode)" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm">
+                                    <option :value="null">Select variable...</option>
+                                    <option v-for="v in variables" :value="v.id">{{ v.name }}</option>
+                                </select>
+
+                                <div v-if="!selectedNode.data.varId" class="text-xs text-slate-500">
+                                    Select a variable to configure case branches.
+                                </div>
+
+                                <div v-else class="space-y-2">
+                                    <div v-if="!selectedNode.data.cases.length" class="text-xs text-slate-500 border border-dashed border-slate-700 rounded p-3 text-center">
+                                        No cases. Add the first case.
+                                    </div>
+
+                                    <div v-for="(c, idx) in selectedNode.data.cases" :key="c.id" class="bg-slate-800/60 p-3 rounded border border-slate-700 space-y-2">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[10px] uppercase tracking-wide text-slate-500">Case {{ idx + 1 }}</span>
+                                            <button @click="removeSwitcherCase(selectedNode, c)" class="ml-auto text-slate-500 hover:text-red-400">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </div>
+
+                                        <div v-if="getVarType(selectedNode.data.varId) === 'bool'">
+                                            <label class="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded px-2 py-2 text-xs">
+                                                <input type="checkbox" v-model="c.value" class="accent-sky-500">
+                                                <span>{{ c.value ? 'True' : 'False' }}</span>
+                                            </label>
+                                        </div>
+                                        <div v-else-if="getVarType(selectedNode.data.varId) === 'enum'">
+                                            <select v-model="c.value" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs">
+                                                <option v-for="opt in getVarOptions(selectedNode.data.varId)" :value="opt">{{ opt }}</option>
+                                            </select>
+                                        </div>
+                                        <div v-else-if="getVarType(selectedNode.data.varId) === 'string'">
+                                            <input type="text" v-model="c.value" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Case value">
+                                        </div>
+                                        <div v-else>
+                                            <input type="number" v-model.number="c.value" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Case value">
+                                        </div>
+                                    </div>
+
+                                    <div class="text-xs text-slate-500 border border-slate-700 rounded px-3 py-2">
+                                        Default branch works when no case matched.
+                                    </div>
+                                </div>
+
+                                <button @click="addSwitcherCase(selectedNode)" class="w-full py-1 text-xs border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-slate-400 rounded transition">
+                                    + Add case
+                                </button>
+                            </div>
+
                             <div v-if="selectedNode.type === 'wait_event'" class="space-y-4">
                                 <label class="text-xs text-slate-500 block">Wait Event</label>
                                 <input v-model="selectedNode.data.eventKey" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-cyan-100" placeholder="quest.bandits_cleared">
                                 <input v-model="selectedNode.data.note" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-cyan-100" placeholder="Optional note">
                                 <div class="text-xs text-slate-500">Runtime should pause until this event key is emitted.</div>
+                            </div>
+
+                            <div v-if="selectedNode.type === 'call_event'" class="space-y-4">
+                                <label class="text-xs text-slate-500 block">Call Event</label>
+                                <input v-model="selectedNode.data.eventKey" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-sky-100" placeholder="quest.spawn_patrol">
+                                <input v-model="selectedNode.data.payload" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-sky-100" placeholder="Optional payload">
+                                <div class="text-xs text-slate-500">Emits event key immediately and continues via default output.</div>
                             </div>
 
                             <div v-if="selectedNode.type === 'wait_condition'" class="space-y-4">
@@ -1123,6 +1241,7 @@
                         <div class="space-y-2">
                             <div v-for="c in characters" :key="c.id" class="bg-slate-800/60 p-3 rounded border border-slate-700 space-y-2">
                                 <div class="flex items-center gap-2">
+                                    <input type="color" v-model="c.color" class="h-7 w-9 rounded border border-slate-600 bg-slate-950 p-0.5 cursor-pointer">
                                     <input v-model="c.name" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Character name">
                                     <button @click="removeCharacter(c.id)" class="text-slate-500 hover:text-red-400">
                                         <i class="fa-solid fa-trash"></i>
@@ -1230,7 +1349,7 @@
                         <div class="flex-1 min-h-0 overflow-hidden font-mono text-sm flex flex-col justify-end" ref="gameLogRef">
                             <div class="flex flex-col gap-3">
                                 <div v-for="(msg, i) in gameLog" :key="i">
-                                    <span class="text-blue-400 font-bold block text-xs mb-1">{{ getCharacterName(msg.speakerId) }}</span>
+                                    <span class="font-bold block text-xs mb-1" :style="{ color: getCharacterColor(msg.speakerId) }">{{ getCharacterName(msg.speakerId) }}</span>
                                     <p class="text-slate-200">{{ msg.text }}</p>
                         <div v-if="msg.choice" class="mt-1 pl-2 border-l-2 border-slate-600 text-slate-500 text-xs italic">
                             Chosen: {{ msg.choice }}
@@ -1240,7 +1359,7 @@
                         </div>
 
                         <div v-if="activeNode && activeNode.type === 'dialog' && !gameFinished" class="shrink-0 p-4 bg-slate-800 rounded border border-slate-700">
-                            <div class="text-blue-400 font-bold mb-2">{{ getCharacterName(activeNode.data.speakerId) }}</div>
+                            <div class="font-bold mb-2" :style="{ color: getCharacterColor(activeNode.data.speakerId) }">{{ getCharacterName(activeNode.data.speakerId) }}</div>
                             <div class="text-lg text-white mb-4">{{ activeNode.data.text }}</div>
                             <div class="space-y-2">
                                 <button v-for="(c, i) in activeNode.data.choices" :key="i"

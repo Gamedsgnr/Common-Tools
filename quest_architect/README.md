@@ -50,47 +50,52 @@ Quest Architect is a visual quest-graph editor loaded by `QuestArchitect2.html`.
 - IO: one input, one `default` output.
 - Notes: set event key (for example `quest.bandits_cleared`) and continue from default output.
 
-7. `Wait Condition`
+7. `Call Event`
+- Purpose: emit runtime event key immediately.
+- IO: one input, one `default` output.
+- Notes: use for direct event bridge calls (optional payload supported) and continue from default output.
+
+8. `Wait Condition`
 - Purpose: suspend quest flow until condition becomes true.
 - IO: one input, one `default` output.
 - Notes: same comparison model as `Condition`, but resumes only when true.
 
-8. `Objective Set`
+9. `Objective Set`
 - Purpose: create/update objective entry in quest journal/task tracker.
 - IO: one input, one `default` output.
 - Notes: define `objectiveId` + objective text shown to player.
 
-9. `Objective Complete`
+10. `Objective Complete`
 - Purpose: mark objective as completed.
 - IO: one input, one `default` output.
 - Notes: references previously created `objectiveId`.
 
-10. `Objective Fail`
+11. `Objective Fail`
 - Purpose: mark objective as failed.
 - IO: one input, one `default` output.
 - Notes: supports optional reason text for logs/UI.
 
-11. `Quest End`
+12. `Quest End`
 - Purpose: explicit terminal node for final quest state.
 - IO: one input, no output.
 - Notes: use `result` (`complete/fail/abort`) and optional ending note.
 
-12. `Link Entry`
+13. `Link Entry`
 - Purpose: named reusable destination.
 - IO: no input, one `default` output.
 - Notes: rename header to meaningful anchor name.
 
-13. `Link State`
+14. `Link State`
 - Purpose: jump to selected `Link Entry`.
 - IO: one input, no output.
 - Notes: select target via dropdown or eyedropper; use jump action to focus target.
 
-14. `Comment`
+15. `Comment`
 - Purpose: inline documentation.
 - IO: no input, no output.
 - Notes: ignored by runtime traversal.
 
-15. `Group`
+16. `Group`
 - Purpose: visual region for structure/documentation.
 - IO: no input, no output.
 - Notes: resize by corners and edges, tint in properties, always layout-only.
@@ -148,8 +153,9 @@ Reachability logic includes `Link State -> Link Entry` chains (linked entries ar
 
 - `Run` executes traversal from `Start`.
 - `Dialog` pauses and waits for player choice.
-- `Action`, `Condition`, `Switch`, `Link State`, `Link Entry`, `Objective*` continue traversal automatically.
+- `Action`, `Condition`, `Switch`, `Call Event`, `Link State`, `Link Entry`, `Objective*` continue traversal automatically.
 - `Quest End` explicitly terminates the scenario in simulator.
 - `Wait Event` in simulator is treated as instantly fulfilled and continues via `default`.
+- `Call Event` in simulator is treated as side-effect-only and continues via `default`.
 - `Wait Condition` in simulator continues only if condition is currently true.
 - `Comment` and `Group` are non-runtime and only for documentation/layout.

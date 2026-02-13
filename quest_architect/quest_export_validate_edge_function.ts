@@ -15,6 +15,7 @@ const RUNTIME_TYPES = new Set([
   "link_state",
   "link_entry",
   "wait_event",
+  "call_event",
   "wait_condition",
   "objective_set",
   "objective_complete",
@@ -288,6 +289,7 @@ function buildValidation(payloadRaw: any, options: ValidateOptions): ValidationR
       n.type === "action" ||
       n.type === "link_entry" ||
       n.type === "wait_event" ||
+      n.type === "call_event" ||
       n.type === "wait_condition" ||
       n.type === "objective_set" ||
       n.type === "objective_complete" ||
@@ -392,7 +394,7 @@ function buildValidation(payloadRaw: any, options: ValidateOptions): ValidationR
       else if (!variableIds.has(varId)) addIssue("warning", "unknown_variable_ref", `Node "${n.id}" references unknown variable "${varId}".`, { nodeId: n.id });
     }
 
-    if (n.type === "wait_event") {
+    if (n.type === "wait_event" || n.type === "call_event") {
       const eventKey = asString(n.data.eventKey).trim();
       if (!eventKey) addIssue("warning", "missing_event_key", `Node "${n.id}" has empty eventKey.`, { nodeId: n.id });
     }

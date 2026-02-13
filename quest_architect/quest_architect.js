@@ -164,7 +164,8 @@ createApp({
         // Interaction State
         const draggingNode = ref(null); // { node, startX, startY }
         const resizingGroup = ref(null); // { nodeId, edge, startMouseX, startMouseY, startX, startY, startWidth, startHeight }
-        const dragLine = ref(null); // { fromNode, fromSocket, path }
+        const dragLine = ref(null); // { nodeId, socketId, socketSide, startPos, currPos, path }
+        const autoRelaxEnabled = ref(false);
         const isPanning = ref(false);
         const lastMouse = reactive({ x: 0, y: 0 });
         const lastWorldMouse = reactive({ x: 0, y: 0, valid: false });
@@ -217,6 +218,12 @@ createApp({
                 action: true,
                 condition: true,
                 switcher: true,
+                wait_event: true,
+                call_event: true,
+                wait_condition: true,
+                objective_set: true,
+                objective_complete: true,
+                objective_fail: true,
                 link_state: true,
                 link_entry: true,
                 quest_end: true,
@@ -239,6 +246,9 @@ createApp({
         const socketElementCache = new Map();
         const nodeHitSizeCache = new Map();
         const autosaveLocked = ref(false);
+        const autoRelaxQueue = [];
+        const autoRelaxQueuedIds = new Set();
+        let autoRelaxRaf = null;
 
         const GROUP_DEFAULT_COLOR = '#94a3b8';
         const groupColorPalette = Object.freeze([
@@ -253,6 +263,16 @@ createApp({
             '#a78bfa',
             '#94a3b8'
         ]);
+        const characterColorPalette = Object.freeze([
+            '#22c55e',
+            '#38bdf8',
+            '#f59e0b',
+            '#f43f5e',
+            '#a78bfa',
+            '#f97316',
+            '#06b6d4',
+            '#84cc16'
+        ]);
 
         const helpSections = Object.freeze([
             {
@@ -261,7 +281,7 @@ createApp({
                 lines: [
                     'Drag nodes by header. `Shift+Click` toggles selection. `Shift+Drag` creates box selection.',
                     '`Alt+Drag` duplicates selected node/group. `Del/Backspace` removes selected nodes.',
-                    'Drag from output sockets to create links. `Alt+Click` on a line removes that connection.',
+                    'Drag from output or input sockets to create links. `Alt+Click` on a line removes that connection.',
                     'Press `G` with selected nodes to wrap them into one **Group** by bounds.',
                     'Hold `G` and click empty canvas to spawn a new **Group** at cursor.'
                 ]
@@ -312,7 +332,7 @@ createApp({
                 lines: [
                     '1) Start from **Start** node and rough branches with **Dialog/Condition/Switch**.',
                     '2) Add **Action** nodes for variable updates and check values in **Condition**.',
-                    '3) Use **Wait Event/Wait Condition** for long-running quest checkpoints.',
+                    '3) Use **Wait Event/Call Event/Wait Condition** for long-running quest checkpoints and direct event bridge.',
                     '4) Track progress with **Objective Set/Complete/Fail** nodes.',
                     '5) Use **Link Entry** as reusable destination and **Link State** as jump.',
                     '6) Add **Group/Comment** for documentation, then validate warnings and run scenario.'
@@ -362,6 +382,13 @@ createApp({
                 io: '`In: one` | `Out: default`',
                 role: 'Pauses runtime until an external event key is triggered.',
                 usage: 'Set event key (`quest.bandits_cleared`) and continue from default output.'
+            },
+            {
+                type: 'call_event',
+                label: 'Call Event',
+                io: '`In: one` | `Out: default`',
+                role: 'Emits external runtime event key immediately.',
+                usage: 'Set event key (`quest.spawn_patrol`) and optional payload; flow continues via default output.'
             },
             {
                 type: 'wait_condition',
@@ -434,6 +461,7 @@ createApp({
             'condition',
             'switcher',
             'wait_event',
+            'call_event',
             'wait_condition',
             'objective_set',
             'objective_complete',
@@ -453,6 +481,7 @@ createApp({
             condition: 'Condition',
             switcher: 'Switch',
             wait_event: 'Wait Event',
+            call_event: 'Call Event',
             wait_condition: 'Wait Condition',
             objective_set: 'Objective Set',
             objective_complete: 'Objective Complete',
@@ -469,11 +498,13 @@ createApp({
             { type: 'condition', label: 'Condition', desc: 'Branch by variable check', icon: 'fa-solid fa-code-branch', tone: 'condition' },
             { type: 'switcher', label: 'Switcher', desc: 'Route by cases and default', icon: 'fa-solid fa-shuffle', tone: 'switcher' },
             { type: 'wait_event', label: 'Wait Event', desc: 'Pause until runtime event key', icon: 'fa-solid fa-hourglass-half', tone: 'wait' },
+            { type: 'call_event', label: 'Call Event', desc: 'Emit runtime event key and continue', icon: 'fa-solid fa-bullhorn', tone: 'wait' },
             { type: 'wait_condition', label: 'Wait Condition', desc: 'Pause until condition is true', icon: 'fa-solid fa-stopwatch', tone: 'wait' },
             { type: 'objective_set', label: 'Objective Set', desc: 'Create/update quest objective', icon: 'fa-solid fa-list-check', tone: 'objective' },
             { type: 'objective_complete', label: 'Objective Complete', desc: 'Mark objective complete', icon: 'fa-solid fa-circle-check', tone: 'objective' },
             { type: 'objective_fail', label: 'Objective Fail', desc: 'Mark objective failed', icon: 'fa-solid fa-circle-xmark', tone: 'objective' },
             { type: 'quest_end', label: 'Quest End', desc: 'Finalize quest with explicit result', icon: 'fa-solid fa-flag-checkered', tone: 'ending' },
+            { type: 'link_entry', label: 'Link Entry', desc: 'Anchor jump destination with output', icon: 'fa-solid fa-right-to-bracket', tone: 'link' },
             { type: 'link_state', label: 'Link State', desc: 'Jump to selected Link Entry', icon: 'fa-solid fa-link', tone: 'link' }
         ]);
         const nodeConnectMenu = reactive({
@@ -483,14 +514,27 @@ createApp({
             worldX: 0,
             worldY: 0,
             fromNodeId: null,
-            fromSocketId: null
+            fromSocketId: null,
+            fromSocketSide: null
         });
         const nodeConnectMenuEl = ref(null);
-        const nodeConnectMenuTitle = computed(() =>
-            (nodeConnectMenu.fromNodeId && nodeConnectMenu.fromSocketId)
-                ? 'Create and connect'
-                : 'Create node'
-        );
+        const nodeConnectMenuTitle = computed(() => {
+            if (!(nodeConnectMenu.fromNodeId && nodeConnectMenu.fromSocketId)) return 'Create node';
+            return nodeConnectMenu.fromSocketSide === 'in'
+                ? 'Create source and connect'
+                : 'Create and connect';
+        });
+        const nodeTypeHasInput = (type) => !['start', 'link_entry', 'comment', 'group'].includes(type);
+        const nodeTypeHasOutput = (type) => !['quest_end', 'link_state', 'comment', 'group'].includes(type);
+        const nodeConnectMenuOptions = computed(() => {
+            if (nodeConnectMenu.fromSocketSide === 'in') {
+                return connectableNodeOptions.filter(opt => nodeTypeHasOutput(opt.type));
+            }
+            if (nodeConnectMenu.fromSocketSide === 'out') {
+                return connectableNodeOptions.filter(opt => nodeTypeHasInput(opt.type));
+            }
+            return connectableNodeOptions;
+        });
 
         const canvasContainer = ref(null);
         const loadInput = ref(null);
@@ -510,6 +554,166 @@ createApp({
             if (!canvasContainer.value) return { x: 0, y: 0 };
             const rect = canvasContainer.value.getBoundingClientRect();
             return { x: sx - rect.left, y: sy - rect.top };
+        };
+
+        const normalizeCharacterColor = (value, fallback = '#22c55e') => {
+            const raw = String(value == null ? '' : value).trim();
+            if (/^#[0-9a-fA-F]{6}$/.test(raw)) return raw.toLowerCase();
+            return fallback;
+        };
+
+        const isRelaxableNode = (node) => {
+            if (!node) return false;
+            return !['start', 'comment', 'group'].includes(node.type);
+        };
+
+        const isNodeBeingDragged = (nodeId) => {
+            if (!draggingNode.value || !nodeId) return false;
+            if (draggingNode.value.node?.id === nodeId) return true;
+            if (Array.isArray(draggingNode.value.nodeIds)) {
+                return draggingNode.value.nodeIds.includes(nodeId);
+            }
+            return false;
+        };
+
+        const getConnectedNodeIds = (nodeId) => {
+            const ids = new Set();
+            connections.value.forEach((conn) => {
+                if (conn.from === nodeId) ids.add(conn.to);
+                else if (conn.to === nodeId) ids.add(conn.from);
+            });
+            return Array.from(ids);
+        };
+
+        const queueAutoRelaxNode = (nodeId) => {
+            if (!nodeId || autoRelaxQueuedIds.has(nodeId)) return;
+            autoRelaxQueuedIds.add(nodeId);
+            autoRelaxQueue.push(nodeId);
+        };
+
+        const stopAutoRelaxLoop = () => {
+            if (autoRelaxRaf != null) {
+                cancelFrame(autoRelaxRaf);
+                autoRelaxRaf = null;
+            }
+        };
+
+        const runAutoRelaxTick = () => {
+            autoRelaxRaf = null;
+            if (!autoRelaxEnabled.value) return;
+            if (!autoRelaxQueue.length) return;
+
+            const nodeId = autoRelaxQueue.shift();
+            autoRelaxQueuedIds.delete(nodeId);
+
+            const node = nodes.value.find((n) => n.id === nodeId);
+            const canProcess = node && isRelaxableNode(node) && !isNodeBeingDragged(nodeId) && !resizingGroup.value && !selectionBox.active;
+            if (canProcess) {
+                const neighbors = getConnectedNodeIds(nodeId)
+                    .map((id) => nodes.value.find((n) => n.id === id))
+                    .filter((n) => n && isRelaxableNode(n));
+
+                if (neighbors.length) {
+                    const nodeSize = getNodeHitSize(node);
+                    const centerX = node.x + nodeSize.width / 2;
+                    const centerY = node.y + nodeSize.height / 2;
+                    const minDist = 420;
+                    const stiffness = 0.15;
+                    const maxStep = 10;
+                    const horizontalPushFactor = 1.45;
+                    const verticalPushFactor = 0.55;
+                    const verticalPairHorizontalBias = 0.38;
+                    let moveX = 0;
+                    let moveY = 0;
+
+                    neighbors.forEach((neighbor) => {
+                        const size = getNodeHitSize(neighbor);
+                        const nCenterX = neighbor.x + size.width / 2;
+                        const nCenterY = neighbor.y + size.height / 2;
+                        const dx = nCenterX - centerX;
+                        const dy = nCenterY - centerY;
+                        const dist = Math.max(0.001, Math.hypot(dx, dy));
+                        if (dist >= minDist) return;
+                        const push = (minDist - dist) * stiffness;
+                        let dirX = dx / dist;
+                        let dirY = dy / dist;
+
+                        // Prefer horizontal spreading when nodes are mostly stacked vertically.
+                        if (Math.abs(dirX) < 0.22) {
+                            const tieBreak = node.id < neighbor.id ? -1 : 1;
+                            dirX = tieBreak * verticalPairHorizontalBias;
+                            const ySign = Math.sign(dirY) || 1;
+                            dirY = ySign * Math.sqrt(Math.max(0, 1 - dirX * dirX));
+                        }
+
+                        moveX -= dirX * push * horizontalPushFactor;
+                        moveY -= dirY * push * verticalPushFactor;
+                    });
+
+                    const moveLen = Math.hypot(moveX, moveY);
+                    if (moveLen > maxStep) {
+                        const k = maxStep / moveLen;
+                        moveX *= k;
+                        moveY *= k;
+                    }
+
+                    if (moveLen > 0.03) {
+                        node.x += moveX;
+                        node.y += moveY;
+                        const affectedIds = [node.id];
+                        neighbors.forEach((neighbor) => affectedIds.push(neighbor.id));
+                        schedulePathUpdate(affectedIds);
+                        queueAutoRelaxNode(node.id);
+                        neighbors.forEach((neighbor) => queueAutoRelaxNode(neighbor.id));
+                    }
+                }
+            }
+
+            if (autoRelaxEnabled.value && autoRelaxQueue.length) {
+                autoRelaxRaf = queueFrame(runAutoRelaxTick);
+            }
+        };
+
+        const ensureAutoRelaxLoop = () => {
+            if (!autoRelaxEnabled.value || autoRelaxRaf != null || !autoRelaxQueue.length) return;
+            autoRelaxRaf = queueFrame(runAutoRelaxTick);
+        };
+
+        const scheduleAutoRelaxForNodes = (nodeIds = null) => {
+            if (!autoRelaxEnabled.value) return;
+            if (!Array.isArray(nodeIds) || !nodeIds.length) {
+                nodes.value.forEach((node) => {
+                    if (!isRelaxableNode(node)) return;
+                    queueAutoRelaxNode(node.id);
+                });
+                ensureAutoRelaxLoop();
+                return;
+            }
+
+            const touched = new Set();
+            nodeIds.forEach((id) => {
+                const node = nodes.value.find((n) => n.id === id);
+                if (!node || !isRelaxableNode(node)) return;
+                touched.add(node.id);
+                getConnectedNodeIds(node.id).forEach((neighborId) => {
+                    const neighbor = nodes.value.find((n) => n.id === neighborId);
+                    if (neighbor && isRelaxableNode(neighbor)) touched.add(neighbor.id);
+                });
+            });
+
+            touched.forEach((id) => queueAutoRelaxNode(id));
+            ensureAutoRelaxLoop();
+        };
+
+        const toggleAutoRelax = () => {
+            autoRelaxEnabled.value = !autoRelaxEnabled.value;
+            if (!autoRelaxEnabled.value) {
+                autoRelaxQueue.length = 0;
+                autoRelaxQueuedIds.clear();
+                stopAutoRelaxLoop();
+                return;
+            }
+            scheduleAutoRelaxForNodes();
         };
 
         const escapeHtml = (value) => String(value == null ? '' : value)
@@ -630,6 +834,7 @@ createApp({
                 condition: 'fa-code-branch',
                 switcher: 'fa-shuffle',
                 wait_event: 'fa-hourglass-half',
+                call_event: 'fa-bullhorn',
                 wait_condition: 'fa-stopwatch',
                 objective_set: 'fa-list-check',
                 objective_complete: 'fa-circle-check',
@@ -656,6 +861,66 @@ createApp({
             }
             const clean = node.data.title == null ? '' : String(node.data.title).trim();
             return clean || fallback;
+        };
+
+        const NODE_LOD_SCALE_THRESHOLD = 0.62;
+
+        const isNodeLodCollapsed = (node) => {
+            if (!node) return false;
+            if (node.type === 'group') return false;
+            if (editingNodeNameId.value === node.id) return false;
+            return scale.value <= NODE_LOD_SCALE_THRESHOLD;
+        };
+
+        const getNodeLodOutputSockets = (node) => {
+            if (!node) return [];
+
+            if (node.type === 'condition') {
+                return [
+                    { id: 'true', label: 'TRUE', tone: 'true' },
+                    { id: 'false', label: 'FALSE', tone: 'false' }
+                ];
+            }
+
+            if (node.type === 'dialog') {
+                const choices = Array.isArray(node.data?.choices) ? node.data.choices : [];
+                return choices.map((_, idx) => ({
+                    id: `choice-${idx}`,
+                    label: `Choice ${idx + 1}`,
+                    tone: 'dialog'
+                }));
+            }
+
+            if (node.type === 'switcher') {
+                const rows = [];
+                const cases = Array.isArray(node.data?.cases) ? node.data.cases : [];
+                cases.forEach((c, idx) => {
+                    if (!c?.socketId) return;
+                    rows.push({
+                        id: c.socketId,
+                        label: `Case ${idx + 1}`,
+                        tone: 'switch'
+                    });
+                });
+                rows.push({ id: 'default', label: 'Default', tone: 'default' });
+                return rows;
+            }
+
+            if ([
+                'start',
+                'action',
+                'wait_event',
+                'call_event',
+                'wait_condition',
+                'objective_set',
+                'objective_complete',
+                'objective_fail',
+                'link_entry'
+            ].includes(node.type)) {
+                return [{ id: 'default', label: 'Out', tone: 'default' }];
+            }
+
+            return [];
         };
 
         const getHierarchyNodeName = (node) => {
@@ -735,6 +1000,8 @@ createApp({
                 height = Math.min(540, 156 + Math.max(1, caseCount) * 44);
             } else if (node.type === 'condition' || node.type === 'wait_condition') {
                 height = 180;
+            } else if (node.type === 'wait_event' || node.type === 'call_event') {
+                height = 176;
             } else if (node.type === 'comment') {
                 const textLen = String(node.data?.text || '').length;
                 height = Math.min(560, Math.max(160, 150 + Math.floor(textLen / 72) * 18));
@@ -883,6 +1150,11 @@ createApp({
             }
             if (node.type === 'wait_event') {
                 parts.push(node.data?.eventKey);
+                parts.push(node.data?.note);
+            }
+            if (node.type === 'call_event') {
+                parts.push(node.data?.eventKey);
+                parts.push(node.data?.payload);
                 parts.push(node.data?.note);
             }
             if (node.type === 'wait_condition') {
@@ -1337,10 +1609,10 @@ createApp({
                 }
             });
 
-            nodes.value.filter(n => n.type === 'wait_event').forEach(n => {
+            nodes.value.filter(n => n.type === 'wait_event' || n.type === 'call_event').forEach(n => {
                 const key = String(n.data?.eventKey || '').trim();
                 if (!key) {
-                    pushWarn('warning', `Wait Event "${getNodeDisplayName(n)}" has no event key.`, n.id, `wait_event_key_${n.id}`);
+                    pushWarn('warning', `${getNodeTypeLabel(n.type)} "${getNodeDisplayName(n)}" has no event key.`, n.id, `event_key_${n.id}`);
                 }
             });
 
@@ -1398,7 +1670,7 @@ createApp({
             });
 
             nodes.value
-                .filter(n => ['action', 'wait_event', 'wait_condition', 'objective_set', 'objective_complete', 'objective_fail'].includes(n.type))
+                .filter(n => ['action', 'wait_event', 'call_event', 'wait_condition', 'objective_set', 'objective_complete', 'objective_fail'].includes(n.type))
                 .forEach(n => {
                     const hasOut = (outgoing.get(n.id) || []).some(c => (c.fromSocket || 'default') === 'default');
                     if (!hasOut) {
@@ -1513,6 +1785,7 @@ createApp({
             nodeConnectMenu.visible = false;
             nodeConnectMenu.fromNodeId = null;
             nodeConnectMenu.fromSocketId = null;
+            nodeConnectMenu.fromSocketSide = null;
         };
 
         const clampNodeConnectMenuPosition = () => {
@@ -1528,7 +1801,7 @@ createApp({
             nodeConnectMenu.y = Math.min(Math.max(nodeConnectMenu.y, margin), maxY);
         };
 
-        const openNodeConnectMenu = (clientX, clientY, fromNodeId = null, fromSocketId = null) => {
+        const openNodeConnectMenu = (clientX, clientY, fromNodeId = null, fromSocketId = null, fromSocketSide = null) => {
             if (!canvasContainer.value) return;
             const rect = canvasContainer.value.getBoundingClientRect();
             const localX = clientX - rect.left;
@@ -1541,6 +1814,7 @@ createApp({
             nodeConnectMenu.worldY = world.y;
             nodeConnectMenu.fromNodeId = fromNodeId || null;
             nodeConnectMenu.fromSocketId = fromSocketId || null;
+            nodeConnectMenu.fromSocketSide = fromSocketSide || null;
             nodeConnectMenu.visible = true;
             clampNodeConnectMenuPosition();
             nextTick(() => {
@@ -1566,7 +1840,50 @@ createApp({
                 path: ''
             });
             schedulePathUpdate([fromNodeId, toNodeId]);
+            scheduleAutoRelaxForNodes([fromNodeId, toNodeId]);
             return true;
+        };
+
+        const getPrimaryOutputSocketForType = (type) => {
+            if (!type) return null;
+            if (type === 'dialog') return 'choice-0';
+            if (type === 'condition') return 'true';
+            if (type === 'switcher') return 'default';
+            if (nodeTypeHasOutput(type)) return 'default';
+            return null;
+        };
+
+        const connectDragLineToSocket = (dragState, targetNodeId, targetSocketId = 'in', targetSocketSide = 'in') => {
+            if (!dragState || !targetNodeId) return false;
+            const sourceSide = dragState.socketSide === 'in' ? 'in' : 'out';
+            const targetSide = targetSocketSide === 'in' ? 'in' : 'out';
+            if (sourceSide === targetSide) {
+                // Input->input drag: infer source socket from the second node and keep canonical A->B order.
+                if (sourceSide === 'in') {
+                    const inferredSourceNode = nodes.value.find(n => n.id === targetNodeId) || null;
+                    const inferredSourceSocket = getPrimaryOutputSocketForType(inferredSourceNode?.type);
+                    if (!inferredSourceSocket) return false;
+                    return createConnection(targetNodeId, inferredSourceSocket, dragState.nodeId, dragState.socketId || 'in');
+                }
+                return false;
+            }
+
+            if (sourceSide === 'out') {
+                return createConnection(dragState.nodeId, dragState.socketId, targetNodeId, targetSocketId || 'in');
+            }
+
+            return createConnection(targetNodeId, targetSocketId, dragState.nodeId, dragState.socketId || 'in');
+        };
+
+        const getSocketDropTarget = (eventTarget) => {
+            if (!eventTarget || typeof eventTarget.closest !== 'function') return null;
+            const socketEl = eventTarget.closest('.socket');
+            if (!socketEl) return null;
+            const nodeId = socketEl.dataset?.nodeId || null;
+            const socketId = socketEl.dataset?.socketId || 'in';
+            if (!nodeId) return null;
+            const socketSide = socketEl.classList.contains('socket-in') ? 'in' : 'out';
+            return { nodeId, socketId, socketSide };
         };
 
         const createNodeFromContext = (type) => {
@@ -1577,7 +1894,14 @@ createApp({
 
             const node = spawnNode(type, nodeConnectMenu.worldX - 150, nodeConnectMenu.worldY - 50);
             if (nodeConnectMenu.fromNodeId && nodeConnectMenu.fromSocketId) {
-                createConnection(nodeConnectMenu.fromNodeId, nodeConnectMenu.fromSocketId, node.id, 'in');
+                if (nodeConnectMenu.fromSocketSide === 'in') {
+                    const sourceSocket = getPrimaryOutputSocketForType(type);
+                    if (sourceSocket) {
+                        createConnection(node.id, sourceSocket, nodeConnectMenu.fromNodeId, nodeConnectMenu.fromSocketId);
+                    }
+                } else {
+                    createConnection(nodeConnectMenu.fromNodeId, nodeConnectMenu.fromSocketId, node.id, 'in');
+                }
             }
 
             selectedNodeId.value = node.id;
@@ -1800,15 +2124,16 @@ createApp({
             startDragNode(node, e);
         };
 
-        const startDragLine = (nodeId, socketId, e) => {
+        const startDragLine = (nodeId, socketId, e, socketSide = 'out') => {
             closeNodeConnectMenu();
             const startPos = getSocketPos(nodeId, socketId);
             const fallbackPos = toWorld(e.clientX, e.clientY);
             const validStart = (startPos.x || startPos.y) ? startPos : fallbackPos;
 
             dragLine.value = {
-                from: nodeId,
-                socket: socketId,
+                nodeId,
+                socketId,
+                socketSide: socketSide === 'in' ? 'in' : 'out',
                 startPos: validStart,
                 currPos: validStart,
                 path: makeBezier(validStart.x, validStart.y, validStart.x, validStart.y)
@@ -1965,17 +2290,25 @@ createApp({
 
         const onGlobalMouseUp = (e) => {
             isPanning.value = false;
+            const releasedDraggedNodeIds = draggingNode.value?.nodeIds ? [...draggingNode.value.nodeIds] : [];
             draggingNode.value = null;
             if (resizingGroup.value) {
                 resizingGroup.value = null;
             }
             const releasedDrag = dragLine.value
-                ? { from: dragLine.value.from, socket: dragLine.value.socket }
+                ? {
+                    nodeId: dragLine.value.nodeId,
+                    socketId: dragLine.value.socketId,
+                    socketSide: dragLine.value.socketSide
+                }
                 : null;
             dragLine.value = null;
             selectionBox.active = false;
 
             if (!releasedDrag) {
+                if (releasedDraggedNodeIds.length) {
+                    scheduleAutoRelaxForNodes(releasedDraggedNodeIds);
+                }
                 if (nodeConnectMenu.visible) {
                     const insideMenu = e?.target && typeof e.target.closest === 'function' && e.target.closest('.node-context-menu');
                     if (e?.button === 0 && !insideMenu) closeNodeConnectMenu();
@@ -1984,6 +2317,20 @@ createApp({
             }
 
             if (!e || e.button !== 0 || !canvasContainer.value) return;
+
+            const droppedSocket = getSocketDropTarget(e.target);
+            if (droppedSocket) {
+                connectDragLineToSocket(
+                    releasedDrag,
+                    droppedSocket.nodeId,
+                    droppedSocket.socketId,
+                    droppedSocket.socketSide
+                );
+                if (releasedDraggedNodeIds.length) {
+                    scheduleAutoRelaxForNodes(releasedDraggedNodeIds);
+                }
+                return;
+            }
 
             const rect = canvasContainer.value.getBoundingClientRect();
             const insideCanvas = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
@@ -1996,7 +2343,16 @@ createApp({
                 if (e.target.closest('button')) return;
             }
 
-            openNodeConnectMenu(e.clientX, e.clientY, releasedDrag.from, releasedDrag.socket);
+            openNodeConnectMenu(
+                e.clientX,
+                e.clientY,
+                releasedDrag.nodeId,
+                releasedDrag.socketId,
+                releasedDrag.socketSide
+            );
+            if (releasedDraggedNodeIds.length) {
+                scheduleAutoRelaxForNodes(releasedDraggedNodeIds);
+            }
         };
 
         const onGlobalKeyDown = (e) => {
@@ -2093,10 +2449,10 @@ createApp({
             }
         };
 
-        const onSocketMouseUp = (targetNodeId, targetSocket) => {
+        const onSocketMouseUp = (targetNodeId, targetSocket, targetSocketSide = 'in') => {
             closeNodeConnectMenu();
             if (!dragLine.value) return;
-            createConnection(dragLine.value.from, dragLine.value.socket, targetNodeId, targetSocket);
+            connectDragLineToSocket(dragLine.value, targetNodeId, targetSocket, targetSocketSide);
             dragLine.value = null;
         };
 
@@ -2198,11 +2554,12 @@ createApp({
         };
 
         const defaultNodeData = (type) => {
-            if (type === 'dialog') return { title: getNodeTypeLabel('dialog'), speakerId: null, text: '', choices: [] };
+            if (type === 'dialog') return { title: getNodeTypeLabel('dialog'), speakerId: null, text: '', choices: [{ text: 'Option 1' }] };
             if (type === 'action') return { title: getNodeTypeLabel('action'), ops: [createActionOp()] };
             if (type === 'condition') return { title: getNodeTypeLabel('condition'), varId: null, op: 'eq', val: 0 };
             if (type === 'switcher') return { title: getNodeTypeLabel('switcher'), varId: null, cases: [createSwitchCase()] };
             if (type === 'wait_event') return { title: getNodeTypeLabel('wait_event'), eventKey: '', note: '' };
+            if (type === 'call_event') return { title: getNodeTypeLabel('call_event'), eventKey: '', payload: '', note: '' };
             if (type === 'wait_condition') return { title: getNodeTypeLabel('wait_condition'), varId: null, op: 'eq', val: 0 };
             if (type === 'objective_set') return { title: getNodeTypeLabel('objective_set'), objectiveId: '', objectiveText: '' };
             if (type === 'objective_complete') return { title: getNodeTypeLabel('objective_complete'), objectiveId: '', reason: '' };
@@ -2254,6 +2611,12 @@ createApp({
                 if (!('eventKey' in cloned)) cloned.eventKey = '';
                 if (!('note' in cloned)) cloned.note = '';
                 if (!('title' in cloned) || !String(cloned.title).trim()) cloned.title = getNodeTypeLabel('wait_event');
+            }
+            if (type === 'call_event') {
+                if (!('eventKey' in cloned)) cloned.eventKey = '';
+                if (!('payload' in cloned)) cloned.payload = '';
+                if (!('note' in cloned)) cloned.note = '';
+                if (!('title' in cloned) || !String(cloned.title).trim()) cloned.title = getNodeTypeLabel('call_event');
             }
             if (type === 'wait_condition') {
                 if (!('varId' in cloned)) cloned.varId = null;
@@ -2312,6 +2675,7 @@ createApp({
             nodes.value.push(node);
             clearDomCaches();
             schedulePathUpdate([node.id]);
+            scheduleAutoRelaxForNodes([node.id]);
             return node;
         };
 
@@ -2475,6 +2839,7 @@ createApp({
             selectedNodeIds.value = selectedNodeIds.value.filter(nid => nid !== id);
             clearDomCaches();
             schedulePathUpdate([id]);
+            scheduleAutoRelaxForNodes();
         };
 
         const selectNode = (id) => {
@@ -2489,7 +2854,10 @@ createApp({
             const target = connections.value.find(c => c.id === id) || null;
             connections.value = connections.value.filter(c => c.id !== id);
             if (selectedConnId.value === id) selectedConnId.value = null;
-            if (target) schedulePathUpdate([target.from, target.to]);
+            if (target) {
+                schedulePathUpdate([target.from, target.to]);
+                scheduleAutoRelaxForNodes([target.from, target.to]);
+            }
         };
 
         const onConnectionClick = (id, e) => {
@@ -2655,9 +3023,11 @@ createApp({
         // --- LOGIC: Characters ---
         const addCharacter = () => {
             const nextIndex = characters.value.length + 1;
+            const paletteColor = characterColorPalette[(nextIndex - 1) % characterColorPalette.length];
             characters.value.push({
                 id: `char_${Date.now()}`,
-                name: `NPC_${nextIndex}`
+                name: `NPC_${nextIndex}`,
+                color: paletteColor
             });
         };
 
@@ -2671,6 +3041,22 @@ createApp({
         };
 
         const getCharacterName = (id) => characters.value.find(c => c.id === id)?.name || '???';
+        const getCharacterColor = (id) => {
+            const found = characters.value.find(c => c.id === id);
+            if (!found) return '#334155';
+            return normalizeCharacterColor(found.color, '#22c55e');
+        };
+        const getSpeakerSelectStyle = (speakerId) => {
+            if (!speakerId) return null;
+            const color = getCharacterColor(speakerId);
+            return {
+                borderColor: color,
+                color: '#dbe7f3',
+                backgroundColor: 'rgba(15, 23, 42, 0.82)',
+                boxShadow: `inset 0 0 0 1px ${color}55, inset 0 0 0 999px rgba(15, 23, 42, 0.0)`,
+                backgroundImage: `linear-gradient(90deg, ${color}22 0%, rgba(15, 23, 42, 0) 62%)`
+            };
+        };
 
         const getVarType = (id) => variables.value.find(v => v.id === id)?.type || null;
         const getRuntimeDisplay = (v) => {
@@ -2875,6 +3261,10 @@ createApp({
                 // Simulator behavior: treat wait as instantly fulfilled.
                 traverse(node.id, 'default');
             }
+            else if (node.type === 'call_event') {
+                // Simulator behavior: event emission is side-effect-only and continues immediately.
+                traverse(node.id, 'default');
+            }
             else if (node.type === 'wait_condition') {
                 const isReady = evaluateConditionNode(node.data);
                 if (!isReady) {
@@ -3014,6 +3404,14 @@ createApp({
             connections.value = Array.isArray(data.connections) ? data.connections : [];
             variables.value = Array.isArray(data.variables) ? data.variables : [];
             characters.value = Array.isArray(data.characters) ? data.characters : [];
+            characters.value = characters.value.map((c, idx) => ({
+                id: String(c?.id || `char_${Date.now()}_${idx}`),
+                name: String(c?.name || `NPC_${idx + 1}`),
+                color: normalizeCharacterColor(
+                    c?.color,
+                    characterColorPalette[idx % characterColorPalette.length]
+                )
+            }));
             pan.x = data.pan?.x ?? 0;
             pan.y = data.pan?.y ?? 0;
             scale.value = data.scale ?? 1;
@@ -3052,6 +3450,12 @@ createApp({
                     if (!('eventKey' in n.data)) n.data.eventKey = '';
                     if (!('note' in n.data)) n.data.note = '';
                     if (!('title' in n.data) || !String(n.data.title).trim()) n.data.title = getNodeTypeLabel('wait_event');
+                }
+                if (n.type === 'call_event') {
+                    if (!('eventKey' in n.data)) n.data.eventKey = '';
+                    if (!('payload' in n.data)) n.data.payload = '';
+                    if (!('note' in n.data)) n.data.note = '';
+                    if (!('title' in n.data) || !String(n.data.title).trim()) n.data.title = getNodeTypeLabel('call_event');
                 }
                 if (n.type === 'wait_condition') {
                     if (!('varId' in n.data)) n.data.varId = null;
@@ -3144,6 +3548,20 @@ createApp({
             },
             { deep: true }
         );
+
+        const lodVisibilityKey = computed(() => {
+            const lodOn = scale.value <= NODE_LOD_SCALE_THRESHOLD;
+            if (!lodOn) return 'off';
+            return `on:${editingNodeNameId.value || ''}`;
+        });
+
+        watch(lodVisibilityKey, () => {
+            nextTick(() => {
+                clearDomCaches();
+                schedulePathUpdate();
+            });
+        });
+
         watch(exportPanelOpen, (open) => {
             if (!open) exportValidatorDocsOpen.value = false;
         });
@@ -3339,6 +3757,7 @@ createApp({
                 cancelFrame(mouseMoveRaf);
                 mouseMoveRaf = null;
             }
+            stopAutoRelaxLoop();
             if (authHintTimer) {
                 clearTimeout(authHintTimer);
                 authHintTimer = null;
@@ -3373,7 +3792,7 @@ createApp({
             groupColorPalette,
             linkEntryOptions,
             linkPicker, hierarchyPanelOpen, hierarchyRows, graphWarnings,
-            nodeConnectMenu, nodeConnectMenuEl, nodeConnectMenuTitle, connectableNodeOptions,
+            nodeConnectMenu, nodeConnectMenuEl, nodeConnectMenuTitle, nodeConnectMenuOptions,
             
             handleWheel, onCanvasMouseDown, onCanvasContextMenu, startPan, onNodeMouseDown, startDragNode, startDragLine,
             startGroupResize,
@@ -3387,9 +3806,10 @@ createApp({
             addEnumOption, removeEnumOption,
             addActionOp, removeActionOp, onActionVarChange,
             addSwitcherCase, removeSwitcherCase, onSwitcherVarChange,
-            addCharacter, removeCharacter, getCharacterName, getRuntimeDisplay,
+            addCharacter, removeCharacter, getCharacterName, getCharacterColor, getSpeakerSelectStyle, getRuntimeDisplay,
             isSocketOccupied, canHaveInputSocket, getNodeStyle, getNodeHeaderStyle, getNodeHeaderContentStyle, setGroupColor, normalizeGroupColor, getGroupMemberCount,
-            getVarName, getConditionText, getNodeIcon, getNodeTypeLabel,
+            getVarName, getConditionText, getNodeIcon, getNodeTypeLabel, isNodeLodCollapsed, getNodeLodOutputSockets,
+            autoRelaxEnabled, toggleAutoRelax,
             resetView, runScenario, makeChoice,
             saveProject, loadProject, triggerLoad,
             notifyAuthRequired,
@@ -3397,4 +3817,3 @@ createApp({
         };
     }
 }).mount('#app');
-

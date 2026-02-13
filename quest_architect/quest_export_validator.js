@@ -10,6 +10,7 @@ const CLIENT_RUNTIME_TYPES = new Set([
   'condition',
   'switcher',
   'wait_event',
+  'call_event',
   'wait_condition',
   'objective_set',
   'objective_complete',
